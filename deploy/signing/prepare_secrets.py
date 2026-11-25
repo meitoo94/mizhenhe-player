@@ -136,8 +136,13 @@ def main():
     pem = os.path.join(OUT_DIR, "ios_distribution.pem")
     p12 = os.path.join(OUT_DIR, "mizhenhe_distribution.p12")
     run(["openssl", "x509", "-in", cer, "-inform", "DER", "-out", pem, "-outform", "PEM"])
+    # OpenSSL 3 默认 PBES2/PBKDF2/AES-256 + SHA256 MAC，macOS 的 security import
+    # 不认，CI 上会报 "MAC verification failed during PKCS12 import (wrong password?)"。
+    # 显式用传统的 3DES + SHA1，GitHub macOS runner 可直接导入。
     run(["openssl", "pkcs12", "-export", "-out", p12,
-         "-inkey", KEY_PATH, "-in", pem, "-passout", "pass:" + pwd])
+         "-inkey", KEY_PATH, "-in", pem, "-passout", "pass:" + pwd,
+         "-keypbe", "PBE-SHA1-3DES", "-certpbe", "PBE-SHA1-3DES",
+         "-macalg", "sha1"])
     run(["openssl", "pkcs12", "-in", p12, "-info", "-noout", "-passin", "pass:" + pwd], check=False)
     print("\n[1/3] 已生成 p12:", p12)
 

@@ -125,6 +125,12 @@ def main():
     reruns = 0
     last_state = ""
     while time.time() < deadline:
+        current = head_sha()
+        if current and sha and current != sha:
+            print("[INFO] main 已更新到 %s，切换等待目标" % current[:12], flush=True)
+            sha = current
+            reruns = 0
+            last_state = ""
         runs, found = find_artifacts(sha)
         if found:
             return finish(not args.no_deploy)

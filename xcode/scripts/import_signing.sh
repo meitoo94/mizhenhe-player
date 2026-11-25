@@ -22,7 +22,7 @@ security create-keychain -p "$KEYCHAIN_PASSWORD" "$KC"
 security set-keychain-settings -lut 21600 "$KC"
 security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KC"
 
-echo "$CERT_P12_BASE64" | base64 -d > "$TMP/dist.p12"
+printf '%s' "$CERT_P12_BASE64" | tr -d '\r\n\t ' | base64 -d > "$TMP/dist.p12"
 security import "$TMP/dist.p12" -k "$KC" -P "$CERT_PASSWORD" \
   -T /usr/bin/codesign -T /usr/bin/security
 security set-key-partition-list -S apple-tool:,apple:,codesign: \
@@ -31,7 +31,7 @@ security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr 
 
 PPDIR="$HOME/Library/MobileDevice/Provisioning Profiles"
 mkdir -p "$PPDIR"
-echo "$PROFILE_BASE64" | base64 -d > "$PPDIR/$PROFILE_UUID.mobileprovision"
+printf '%s' "$PROFILE_BASE64" | tr -d '\r\n\t ' | base64 -d > "$PPDIR/$PROFILE_UUID.mobileprovision"
 
 echo "签名材料已导入临时钥匙串：$KC"
 security find-identity -v -p codesigning "$KC" | sed -n '1,5p'

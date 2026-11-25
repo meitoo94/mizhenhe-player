@@ -222,7 +222,7 @@ private struct SplashView: View {
                         .foregroundStyle(Color(hex: "#35E0C8"))
                 }
                 Text(config.title).font(.title.bold()).foregroundStyle(.white)
-                Text(config.subtitle).font(.subheadline).foregroundStyle(.white.opacity(.65))
+                Text(config.subtitle).font(.subheadline).foregroundStyle(.white.opacity(0.65))
                 Spacer()
                 Button {
                     onDone()
@@ -311,10 +311,10 @@ private struct TrialPlayerView: View {
                 VStack(spacing: 8) {
                     Text("剩余 \(left)s")
                         .font(.caption.monospacedDigit())
-                        .foregroundStyle(.white.opacity(.8))
+                        .foregroundStyle(.white.opacity(0.8))
                     Text(config.hint)
                         .font(.caption2)
-                        .foregroundStyle(.white.opacity(.6))
+                        .foregroundStyle(.white.opacity(0.6))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
                 }
@@ -589,7 +589,7 @@ private struct UnlockedView: View {
             if let no = orderNo {
                 VStack {
                     Spacer()
-                    Text("订单 \(no)").font(.caption2).foregroundStyle(.white.opacity(.5))
+                    Text("订单 \(no)").font(.caption2).foregroundStyle(.white.opacity(0.5))
                         .padding(.bottom, 20)
                 }
             }
