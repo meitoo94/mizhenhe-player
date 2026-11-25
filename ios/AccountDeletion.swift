@@ -146,3 +146,16 @@ struct AccountDeletionView: View {
         }
     }
 }
+
+// MARK: - Hex 颜色（本文件内用；其它视图各自有一份同实现）
+private extension Color {
+    init(hex: String) {
+        let s = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+        var v: UInt64 = 0
+        Scanner(string: s).scanHexInt64(&v)
+        self.init(.sRGB,
+                  red: Double((v >> 16) & 0xff) / 255,
+                  green: Double((v >> 8) & 0xff) / 255,
+                  blue: Double(v & 0xff) / 255, opacity: 1)
+    }
+}
