@@ -5,7 +5,7 @@
 本机实测（2026-11-25）：github.com 网页慢且偶发 5xx，但 api.github.com 稳定可达。
 本脚本 **不访问 github.com 网页表单、不用 git push**，所有操作走 REST API：
     认证 → 建公开仓库 → 加密写 6 个 Secrets → Git Data API 上传代码 →
-    提交落到 main 自动触发 .github/workflows/ios-adhoc.yml → 云端 macos-26 编译。
+    提交落到 main 自动触发 .github/workflows/ios-adhoc.yml → 云端 macOS 多镜像并行编译。
 
 前提：一个 GitHub token（repo + workflow）。优先用设备授权，不必进 PAT 设置页：
     python deploy/github_device_auth.py --start
@@ -34,6 +34,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 import zipfile
@@ -128,7 +129,7 @@ def request(method, path, body=None, binary=False):
         headers["Content-Type"] = "application/json"
     req = urllib.request.Request(API + path, data=data, method=method, headers=headers)
     try:
-        with OPENER.open(req, timeout=60) as r:
+        with OPENER.open(req, timeout=90) as r:
             raw = r.read()
             if binary:
                 return r.status, raw, r.geturl()
@@ -203,14 +204,21 @@ def push_via_api(base):
         data = (ROOT / path).read_bytes()
         if is_text(path):
             data = data.replace(b"\r\n", b"\n")  # macOS runner 上 CRLF 会让 bash 报错
-        st, r = api("POST", base + "/git/blobs",
-                    {"content": base64.b64encode(data).decode("ascii"), "encoding": "base64"})
-        if st != 201 or "sha" not in r:
-            raise RuntimeError("blob 上传失败 %s: %s %s" % (path, st, r.get("message", "")))
-        mode = "100755" if path.endswith((".sh", ".py")) else "100644"
-        return {"path": path, "mode": mode, "type": "blob", "sha": r["sha"]}
+        payload = {"content": base64.b64encode(data).decode("ascii"), "encoding": "base64"}
+        last = ""
+        for attempt in range(4):
+            try:
+                st, r = api("POST", base + "/git/blobs", payload)
+                if st == 201 and "sha" in r:
+                    mode = "100755" if path.endswith((".sh", ".py")) else "100644"
+                    return {"path": path, "mode": mode, "type": "blob", "sha": r["sha"]}
+                last = "%s %s" % (st, r.get("message", ""))
+            except Exception as e:
+                last = str(e)
+            time.sleep(1.5 * (attempt + 1))  # api.github.com 偶发读超时，退避重试
+        raise RuntimeError("blob 上传失败 %s: %s" % (path, last[:160]))
 
-    with ThreadPoolExecutor(max_workers=6) as pool:
+    with ThreadPoolExecutor(max_workers=4) as pool:
         tree_items = list(pool.map(one, files))
 
     st, tree = api("POST", base + "/git/trees", {"tree": tree_items})
@@ -218,7 +226,7 @@ def push_via_api(base):
         raise RuntimeError("建 tree 失败: %s %s" % (st, tree.get("message", "")))
 
     st, commit = api("POST", base + "/git/commits", {
-        "message": "chore: 米帧盒播放器 Ad Hoc 出包基线（API 通道上传）",
+        "message": "chore: 米帧盒播放器 Ad Hoc 出包（多 runner 矩阵 + API 通道上传）",
         "tree": tree["sha"],
         "parents": [parent] if parent else [],
     })
@@ -251,27 +259,61 @@ def run_status(base):
     return 0
 
 
+def download_artifact_zip(zip_url):
+    """artifact zip 接口会 302 到 Azure Blob；带 Authorization 跟随重定向会被
+    Blob 回 401（实测日志接口即如此）。故先用 curl 只取 Location，再无认证下载。"""
+    head = ROOT / "download" / ".artifact_head.tmp"
+    head.parent.mkdir(parents=True, exist_ok=True)
+    cmd = ["curl", "-sS", "-D", "-", "-o", str(head),
+           "-H", "Authorization: Bearer " + TOKEN,
+           "-H", "Accept: application/vnd.github+json",
+           "--connect-timeout", "10", "--max-time", "90", zip_url]
+    p = subprocess.run(cmd, capture_output=True, text=True, errors="replace")
+    loc = ""
+    for line in (p.stdout or "").splitlines():
+        if line.lower().startswith("location:"):
+            loc = line.split(":", 1)[1].strip()
+    head.unlink(missing_ok=True)
+    if not loc:
+        raise RuntimeError("拿不到 artifact 重定向地址: " + (p.stdout or p.stderr or "")[:200])
+    out = ROOT / "download" / ".artifact_body.zip"
+    p2 = subprocess.run(["curl", "-sS", "-L", "-o", str(out), "-w", "%{http_code}",
+                         "--connect-timeout", "10", "--max-time", "300", loc],
+                        capture_output=True, text=True, errors="replace")
+    code = (p2.stdout or "").strip()[-3:]
+    if code != "200" or not out.is_file():
+        out.unlink(missing_ok=True)
+        raise RuntimeError("artifact 下载失败 HTTP=%s %s" % (code, (p2.stderr or "")[:150]))
+    blob = out.read_bytes()
+    out.unlink(missing_ok=True)
+    return blob
+
+
 def fetch_artifact(base):
     st, r = api("GET", base + "/actions/runs?per_page=10")
     if st != 200:
         say("查询构建记录失败:", st, r.get("message", ""))
         return 1
     for run in r.get("workflow_runs", []):
-        if run.get("conclusion") != "success":
-            continue
+        # 多 runner 矩阵下，run 的结论可能因某个池排队失败而是 failure，
+        # 但只要有一个 job 跑完就会留下 ipa artifact，故直接按 artifact 取包。
         st2, arts = api("GET", base + "/actions/runs/%s/artifacts" % run["id"])
         for a in arts.get("artifacts", []):
             if a.get("expired") or "AdHoc" not in a.get("name", ""):
                 continue
             try:
-                st3, blob, final_url = request(
-                    "GET", base + "/actions/artifacts/%s/zip" % a["id"], binary=True)
+                blob = download_artifact_zip(
+                    API + base + "/actions/artifacts/%s/zip" % a["id"])
             except Exception as e:
-                say("artifact 下载失败（可能是重定向域名不通）:", clean(e))
-                return 1
-            if st3 != 200:
-                say("artifact 返回", st3)
-                return 1
+                say("artifact 直连通道失败，试备用:", clean(e)[:160])
+                try:
+                    st3, blob, _ = request(
+                        "GET", base + "/actions/artifacts/%s/zip" % a["id"], binary=True)
+                    if st3 != 200:
+                        raise RuntimeError("HTTP %s" % st3)
+                except Exception as e2:
+                    say("artifact 下载失败:", clean(e2)[:200])
+                    return 1
             z = zipfile.ZipFile(io.BytesIO(blob))
             names = [n for n in z.namelist() if n.lower().endswith(".ipa")]
             if not names:
@@ -309,8 +351,9 @@ def precheck():
     ok &= good
 
     wf = WORKFLOW.read_text(encoding="utf-8") if WORKFLOW.is_file() else ""
-    good = "runs-on: macos-26" in wf and "workflow_dispatch:" in wf
-    print("  %-20s %s" % ("Ad Hoc workflow", "OK (macos-26)" if good else "异常"))
+    good = ("runs-on: ${{ matrix.runner }}" in wf and "macos-26" in wf
+            and "macos-15-intel" in wf and "workflow_dispatch:" in wf)
+    print("  %-20s %s" % ("Ad Hoc workflow", "OK (macOS 多镜像矩阵)" if good else "异常"))
     ok &= good
 
     files = tracked_files()
@@ -445,7 +488,7 @@ def main():
     say("[4/5] 本地 origin 记为", plain_url, "（仅记录，不含 token）")
 
     print("\n== 首次出包 ==")
-    say("[5/5] 提交命中 .github/workflows/ios-adhoc.yml，云端 macos-26 将自动开始编译")
+    say("[5/5] 提交命中 .github/workflows/ios-adhoc.yml，云端 macOS 多镜像矩阵将并行抢 runner 编译")
     if args.dispatch:
         status, r = api("POST", base + "/actions/workflows/ios-adhoc.yml/dispatches", {"ref": "main"})
         say("手动触发:", "OK" if status == 204 else "%s %s" % (status, r.get("message", "")))

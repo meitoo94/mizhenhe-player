@@ -1,5 +1,11 @@
-# Ad Hoc 快线：macOS 26 runner 编出可扫码直装的 .ipa，不碰 App Store Connect。
+# Ad Hoc 快线：macOS runner 编出可扫码直装的 .ipa，不碰 App Store Connect。
 # 不需要 .p8 / Key ID / Issuer ID / ASC App 记录 / Beta 审核。
+#
+# 2026-11-26 实测：只用 macos-26（arm64 免费池）时，GitHub 会因容量不足
+# 在排队 15 分钟后自动取消（annotation: The job was not acquired by Runner of
+# type hosted even after multiple attempts）。故改为多镜像并行抢机器：
+# arm64 池 macos-26 / macos-15 + x64 池 macos-15-intel / macos-26-intel，
+# 四个镜像都预装 Xcode 26.x；谁先分到 runner 谁出包，fail-fast: false。
 #
 # 前置 secrets（仓库 Settings > Secrets and variables > Actions），共 6 个，
 # 全部由本地 deploy/signing/prepare_secrets.py 生成，直接复制 secrets/*.txt 的内容：
@@ -13,6 +19,7 @@
 # 即完成「ipa 上服务器 + OTA manifest + 二维码 + 下载页切换」，手机扫码即可装。
 #
 # 触发：改了 ios/ 或 xcode/ 就自动出包；也能在 Actions 页手动点 Run workflow。
+# 多 runner 矩阵下，只要有一个 job 产出 ipa artifact 即可下载，其余 job 失败不影响取包。
 # TestFlight 主线见 ios-testflight.yml（只在手动触发或改它自身时跑，避免缺 ASC 材料时红灯）。
 
 name: iOS Archive → Ad Hoc OTA
@@ -28,7 +35,11 @@ on:
 
 jobs:
   archive:
-    runs-on: macos-26
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-26, macos-15-intel, macos-26-intel, macos-15]
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     env:
       MZH_TEAM_ID: ${{ secrets.MZH_TEAM_ID }}
@@ -42,6 +53,15 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: 选择镜像内的 Xcode 26
+        run: |
+          set -euo pipefail
+          X26=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort | tail -1)
+          if [ -z "$X26" ]; then echo "本镜像没有 Xcode 26"; ls -d /Applications/Xcode*.app; exit 1; fi
+          echo "选定 $X26"
+          sudo xcode-select -s "$X26"
+          xcodebuild -version
 
       - name: 校验工具链（Xcode 26+ / 6 个必需 Secrets）
         run: |
@@ -129,7 +149,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: 米帧盒播放器-AdHoc-${{ github.run_number }}
+          name: 米帧盒播放器-AdHoc-${{ github.run_number }}-${{ matrix.runner }}
           path: ${{ runner.temp }}/ipa/*.ipa
           if-no-files-found: error
           retention-days: 30
