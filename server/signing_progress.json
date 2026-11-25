@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-26 01:26:57",
+  "updated_at": "2026-11-26 02:22",
   "mainline": {
     "done": 4,
     "total": 8,
@@ -90,16 +90,16 @@
     "desc": "上传后手机自动收到更新，适合长期反复改、反复测；材料多 2 项。"
   },
   "fastline": {
-    "done": 6,
+    "done": 7,
     "total": 7,
     "next": {
       "n": 7,
-      "title": "手机扫码安装；以后每次改完重新扫一次",
+      "title": "重新扫码覆盖安装功能补齐版",
       "owner": "你",
-      "action": "用 iPhone 相机/ Safari 扫下载页的安装二维码 → 点安装 → 设置里信任一次开发者",
+      "action": "打开 https://app.kqi.ink/mzh/download → 扫安装二维码 → Safari 打开 → 点安装（覆盖旧包，片库数据保留）",
       "target": "（手机）",
       "status": "todo",
-      "hint": ""
+      "hint": "第一次装需在 设置 → 通用 → VPN与设备管理 里信任开发者；已信任过就不用再点。"
     },
     "steps": [
       {
@@ -162,12 +162,12 @@
         "owner": "你",
         "action": "用 iPhone 相机/ Safari 扫下载页的安装二维码 → 点安装 → 设置里信任一次开发者",
         "target": "（手机）",
-        "status": "todo",
+        "status": "done",
         "hint": ""
       }
     ],
-    "name": "Ad Hoc · 扫码直装（最快看到改动）",
-    "desc": "不用 p8、不用 App Store Connect、不用审核，改完一条命令就能装；每台设备要登记 UDID。"
+    "name": "Ad Hoc 快线 · 功能补齐版已出包",
+    "desc": "本地片库、播放器工具箱、创作、账户全部可用；手机重新扫码覆盖安装即可。"
   },
   "materials": {
     "team_id": "25F879952L",

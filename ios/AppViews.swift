@@ -23,14 +23,16 @@ struct MainTabs: View {
 
     var body: some View {
         TabView(selection: $selection) {
-            HomeTabReal(store: store, categoryFilter: $categoryFilter,
+            HomeTabReal(store: store, tabName: config.tabs[safe: 0] ?? "首页",
+                        categoryFilter: $categoryFilter,
                         openVideo: { v, t in open(v, t) },
                         openQueue: { queue = $0 },
                         importAction: { showPicker = true },
                         importFiles: { showFiles = true })
                 .tabItem { Label(config.tabs[safe: 0] ?? "首页", systemImage: "play.rectangle") }
                 .tag(0)
-            LibraryTabReal(store: store, filter: $categoryFilter,
+            LibraryTabReal(store: store, tabName: config.tabs[safe: 1] ?? "媒体库",
+                           filter: $categoryFilter,
                            openVideo: { v, t in open(v, t) },
                            importAction: { showPicker = true },
                            importFiles: { showFiles = true })
@@ -40,7 +42,7 @@ struct MainTabs: View {
                          openVideo: { v, t in open(v, t) }, toast: notify)
                 .tabItem { Label(config.tabs[safe: 2] ?? "创作", systemImage: "wand.and.stars") }
                 .tag(2)
-            MineTabReal(store: store, toast: notify)
+            MineTabReal(store: store, tabName: config.tabs[safe: 3] ?? "我的", toast: notify)
                 .tabItem { Label(config.tabs[safe: 3] ?? "我的", systemImage: "person.crop.circle") }
                 .tag(3)
         }
@@ -90,6 +92,7 @@ struct MainTabs: View {
 
 private struct HomeTabReal: View {
     @ObservedObject var store: MediaStore
+    let tabName: String
     @Binding var categoryFilter: String?
     let openVideo: (LocalVideo, Toolbox?) -> Void
     let openQueue: ([LocalVideo]) -> Void
@@ -238,7 +241,7 @@ private struct HomeTabReal: View {
                 }
                 .padding()
             }
-            .navigationTitle("动界")
+            .navigationTitle(tabName)
         }
     }
 
@@ -285,6 +288,7 @@ private struct HomeTabReal: View {
 
 private struct LibraryTabReal: View {
     @ObservedObject var store: MediaStore
+    let tabName: String
     @Binding var filter: String?
     let openVideo: (LocalVideo, Toolbox?) -> Void
     let importAction: () -> Void
@@ -408,7 +412,7 @@ private struct LibraryTabReal: View {
                     .listStyle(.plain)
                 }
             }
-            .navigationTitle("万象")
+            .navigationTitle(tabName)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showImportMenu = true } label: { Image(systemName: "plus") }
@@ -615,7 +619,7 @@ private struct CraftTabReal: View {
                 }
                 .padding()
             }
-            .navigationTitle("创研台")
+            .navigationTitle(config.tabs[safe: 2] ?? "创作")
             .sheet(isPresented: Binding(get: { choosing != nil },
                                         set: { if !$0 { choosing = nil } })) {
                 PickVideoSheet(store: store, tool: choosing ?? .grade) { v, t in

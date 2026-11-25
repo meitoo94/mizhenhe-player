@@ -5,6 +5,7 @@ import UIKit
 
 struct MineTabReal: View {
     @ObservedObject var store: MediaStore
+    let tabName: String
     let toast: (String) -> Void
     @AppStorage("phone_login_ticket") private var ticket = ""
     @AppStorage("masked_phone") private var masked = ""
@@ -74,7 +75,7 @@ struct MineTabReal: View {
                     }
                 }
             }
-            .navigationTitle("我的")
+            .navigationTitle(tabName)
             .sheet(isPresented: $showLogin) {
                 LoginViewReal(ticket: $ticket, masked: $masked)
             }

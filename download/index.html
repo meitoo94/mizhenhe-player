@@ -220,13 +220,14 @@ body{margin:0;background:radial-gradient(120% 70% at 50% 0%,#1B2A4E 0%,var(--bg)
 
   // 出包进度：读服务端注入的 window.MZH_PROGRESS（由 deploy/signing/next.py 生成）
   var PR = window.MZH_PROGRESS || {};
-  var line = PR.mainline || {};
+  // Ad Hoc 快线已出包时优先展示快线，别让用户看到「TestFlight 4/8 待出包」以为没包可装
+  var line = (PR.fastline && PR.fastline.done >= 6) ? PR.fastline : (PR.mainline || {});
   var done = line.done || 0, total = line.total || 8;
   $("progFill").style.width = Math.round(done / total * 100) + "%";
   $("progTag").textContent = done + "/" + total + " 已完成";
   if (done >= total) {
     $("progTag").className = "tag";
-    $("progDesc").textContent = "材料齐了，手机可以直接安装。";
+    $("progDesc").textContent = "安装包已就绪，扫码覆盖安装即可。";
   } else {
     $("progDesc").textContent = line.name || "TestFlight 出包链路";
     var nx = line.next || {};
