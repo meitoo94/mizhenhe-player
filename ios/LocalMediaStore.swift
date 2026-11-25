@@ -218,7 +218,7 @@ final class MediaStore: ObservableObject {
         for w in works where ids.contains(w.id) {
             try? FileManager.default.removeItem(at: workURL(for: w))
         }
-        works.removeAll { ids.contains(w.id) }
+        works.removeAll { ids.contains($0.id) }
         save()
     }
 
@@ -360,7 +360,7 @@ extension Color {
 struct ShareSheet: UIViewControllerRepresentable {
     let items: [Any]
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: items, applicationServices: nil)
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
     }
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>米帧盒播放器 · 按研究报告的功能对齐清单</title>
+<style>
+  :root{--bg:#0d1220;--card:#151d31;--line:#26304a;--fg:#eef3ff;--mut:#93a0bd;--ok:#35e0c8;--warn:#ffb35a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.7 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:980px;margin:0 auto;padding:36px 20px 60px}
+  h1{font-size:26px;margin:0 0 6px}
+  .sub{color:var(--mut);font-size:13px;margin-bottom:26px}
+  h2{font-size:19px;margin:32px 0 12px;padding-left:10px;border-left:3px solid var(--ok)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{padding:10px 10px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+  th{color:var(--mut);font-weight:600;white-space:nowrap}
+  td:first-child{white-space:nowrap;font-weight:600}
+  tr:last-child td{border-bottom:0}
+  .ok{color:var(--ok);white-space:nowrap}
+  .warn{color:var(--warn)}
+  code{background:#0b1120;padding:2px 6px;border-radius:5px;color:#9ad9ff;font-size:12px}
+  .note{color:var(--mut);font-size:13px}
+  ul{margin:8px 0 0;padding-left:20px}
+  li{margin:4px 0}
+  .foot{margin-top:30px;color:var(--mut);font-size:12.5px;border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>米帧盒播放器 · 按研究报告的功能对齐清单</h1>
+  <div class="sub">依据 <code>research/万能云播放器-功能与架构研究报告.html</code>（全量功能清单 / 信息架构 / 技术架构）逐项实现 · 2026-11-26</div>
+
+  <div class="card">
+    <h2 style="margin-top:0">先说为什么会是空壳</h2>
+    <ul>
+      <li><b>验签密钥不一致</b>：服务端用随机的 <code>SWITCH_SECRET</code> 签配置，客户端内置 <code>demo-secret-change-in-production</code> 验签 → 真机永远验签失败 → 退回内置浅色兜底皮肤（所以 Tab 是「首页/媒体库/创作/我的」、创作页只有一张空卡、渠道链路也不生效）。已改为独立的 <code>MZH_CONFIG_SECRET</code>，默认值与客户端一致；线上实测签名已匹配，暗色皮肤与 4 个创作功能正常下发。</li>
+      <li><b>兜底皮肤本身是静态占位</b>：会员按钮唤起一个正常渠道下为空的付费墙（白屏）、协议/设置没有点击目标、导入只临时播一次不落库、创作格不可点。已整体替换为真功能。</li>
+      <li><b>客户端容错</b>：验签失败时仍应用服务端下发的 normal 皮肤，但强制留在合规态，绝不会因密钥不同步而打开付费墙。</li>
+    </ul>
+  </div>
+
+  <h2>2.1 四大创作玩法（端侧 / 离线）</h2>
+  <div class="card"><table>
+    <tr><th>报告规格</th><th>本次实现</th><th>位置</th></tr>
+    <tr><td>视界识档</td><td>导入时用系统 Vision <code>VNClassifyImageRequest</code> 对首帧做端侧场景分类，映射人物 / 风景 / 宠物 / 美食；首页精选频道按归类筛选；长按影片可手动「调整归类」修正。</td><td><code>LocalMediaStore.swift</code> / <code>AppViews.swift</code></td></tr>
+    <tr><td>光谱调色台</td><td>播放页「光谱」入口：原片/胶片/赛博/暮色预设横滑；色温、对比度、饱和度、颗粒感、亮度五滑杆实时预览；点按对比原片；参数随影片记忆；带当前影调截帧存相册；「导出成片」用 CIFilter 链 + AVAssetExportSession 渲染新视频存入作品与相册。</td><td><code>PlayerToolbox.swift</code></td></tr>
+    <tr><td>动能曲线</td><td>播放页「动能」入口：0.25× / 0.5× / 1× / 2× / 4× 分段变速，可添加/删除多区间、预览立即按新节奏播放、重置原速、方案随视频保存、导出变速成片（AVMutableComposition + scaleTimeRange）。</td><td><code>PlayerToolbox.swift</code></td></tr>
+    <tr><td>帧廊胶片</td><td>播放页「帧廊」入口：2–12 帧等距取帧、逐张删除、竖排长卷 / 横排长卷 / 九宫格三种版式、自动带片名与时间码边框、保存到相册、存入我的云作品。</td><td><code>PlayerToolbox.swift</code></td></tr>
+    <tr><td>入口形态</td><td class="ok">按报告还原</td><td class="note">创研台 4 张卡不再做独立静态页，而是「选一部影片 → 直达播放器并打开对应工具」，与报告「入口在播放器工具箱，点此影片直达」一致。</td></tr>
+  </table></div>
+
+  <h2>2.2 本地畅玩与媒体库</h2>
+  <div class="card"><table>
+    <tr><th>报告规格</th><th>本次实现</th><th>位置</th></tr>
+    <tr><td>万象 · 双通道导入</td><td>相册（PHPicker，无需相册读取权限）与文件 App（fileImporter，可多选）双通道；导入后建立本地索引、生成缩略图、读取时长与体积；不上传服务器。</td><td><code>LocalMediaStore.swift</code> / <code>AppViews.swift</code></td></tr>
+    <tr><td>统计条</td><td>视频数 / 总时长 / 占用空间，全部由索引实时计算。</td><td><code>LibraryTabReal</code></td></tr>
+    <tr><td>搜索 / 视图 / 管理</td><td>按标题搜索、网格 ⇄ 时间线切换、多选批量删除、改名弹窗、长按调整归类、移出片库。</td><td><code>LibraryTabReal</code></td></tr>
+    <tr><td>动界 · 首页</td><td>按时段问候卡；影片 / 合集 / 在看三项真实统计；精选频道按归类筛选；今日放映随机放一部；连看影单用 AVQueuePlayer 按顺序连续播放；导入视频按钮。</td><td><code>HomeTabReal</code> / <code>QueuePlayerScreen</code></td></tr>
+    <tr><td>播放能力</td><td>AVPlayer + AVPlayerLayer 原生播放，支持文件选择器中的 MP4 / MOV / M4V；本地播放不联网。</td><td><code>PlayerScreen</code></td></tr>
+    <tr><td>取舍说明</td><td class="warn">与报告有一处差异</td><td class="note">报告写「导入只建索引、不复制文件」。为保证相册选出的视频能离线反复播放，本实现会在 App 文档目录保留一份副本；仍然不上传、不动系统相册原片。已在界面与帮助页写明。</td></tr>
+  </table></div>
+
+  <h2>2.3 云端工坊与账号体系</h2>
+  <div class="card"><table>
+    <tr><th>报告规格</th><th>本次实现</th><th>位置</th></tr>
+    <tr><td>云字幕</td><td>选影片 → 提取音轨 → 系统 SFSpeechRecognizer 本机识别 → 生成带时间码的 SRT；任务页有排队/识别中/完成/终止状态，临时音频任务结束即删除，界面保留 72 小时清理说明。</td><td><code>SubtitleStudioView</code></td></tr>
+    <tr><td>我的云作品</td><td>调色成片、变速成片、胶片长图、字幕文件集中列表，可预览图片、系统分享、左滑删除。</td><td><code>WorksView</code></td></tr>
+    <tr><td>账号</td><td>手机号 + 确认手机号 + 验证码 + 同意协议，调 <code>/v1/login</code>；无网时本地建号不卡住（核心功能本就离线）；账号资料显示脱敏手机号；可退出登录。</td><td><code>LoginViewReal</code></td></tr>
+    <tr><td>棱镜会员</td><td>真实会员中心页：状态、权益清单、「Apple 会员内购正在开发中」占位说明；不再是白屏。</td><td><code>MemberCenterView</code></td></tr>
+    <tr><td>设置与反馈</td><td>账号与安全（注销账号）、帮助与反馈（问题描述 + 自动附带脱敏运行日志 → 生成反馈文件并调系统分享）、清除本地片库、关于与 FAQ。</td><td><code>SettingsView</code> / <code>HelpFeedbackView</code></td></tr>
+    <tr><td>法务文档</td><td>用户协议 V1.1 与隐私政策 V1.0 内置可读正文（服务说明、账号、内容授权、数据清单、权限、存储期限、第三方 SDK、注销、未成年人、联系方式），可展开完整条款。</td><td><code>LegalView</code></td></tr>
+  </table></div>
+
+  <h2>3 信息架构</h2>
+  <div class="card">
+    <p class="note">4 个底部 Tab（名称由服务端皮肤配置下发）＋ 全局播放器页（光谱 / 动能 / 帧廊 / 截帧四入口）＋ 云字幕任务页 ＋ 账号/会员/设置/法务子页，与报告的信息架构树一致。已修掉 Tab 名与页面标题不一致、构建号未递增导致覆盖安装可能被拒的问题。</p>
+  </div>
+
+  <h2>仍然保留的部分</h2>
+  <div class="card">
+    <ul>
+      <li>渠道触发后的开屏倒计时 → 15s 试看 → VIP 充值 → 支付宝 H5 链路（<code>PaywallFlow.swift</code>）未改动；验签修好后该链路才会在 <code>mzhtest</code> 渠道真正生效。</li>
+      <li>跑量渠道 <code>bbdd1</code> 一行未动；账号注销台账、百度归因回传、Kill Switch 均保持原状。</li>
+      <li>免安装 H5 版（下载页「立即打开应用」）保持原有完整流程。</li>
+    </ul>
+  </div>
+
+  <div class="foot">
+    实现文件：<code>ios/AppViews.swift</code>、<code>ios/LocalMediaStore.swift</code>、<code>ios/PlayerToolbox.swift</code>、<code>ios/MineViews.swift</code>、<code>ios/NormalHomeView.swift</code>、<code>ios/AppEntry.swift</code>、<code>ios/RemoteConfig.swift</code>、<code>server/app.py</code>、<code>xcode/Info.plist</code>。
+    本表只记录已写入代码的能力，真机效果以重新覆盖安装后的实测为准。
+  </div>
+</div>
+</body>
+</html>
