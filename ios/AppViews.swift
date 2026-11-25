@@ -23,30 +23,37 @@ struct MainTabs: View {
 
     var body: some View {
         TabView(selection: $selection) {
-            HomeTabReal(store: store, tabName: config.tabs[safe: 0] ?? "首页",
+            HomeTabReal(store: store, tabName: config.tabs[safe: 0] ?? "今映",
                         categoryFilter: $categoryFilter,
                         openVideo: { v, t in open(v, t) },
                         openQueue: { queue = $0 },
                         importAction: { showPicker = true },
                         importFiles: { showFiles = true })
-                .tabItem { Label(config.tabs[safe: 0] ?? "首页", systemImage: "play.rectangle") }
+                .tabItem { Label(config.tabs[safe: 0] ?? "今映",
+                                 systemImage: config.theme.tabIcons[safe: 0] ?? "sparkles.tv") }
                 .tag(0)
-            LibraryTabReal(store: store, tabName: config.tabs[safe: 1] ?? "媒体库",
+            LibraryTabReal(store: store, tabName: config.tabs[safe: 1] ?? "片仓",
                            filter: $categoryFilter,
                            openVideo: { v, t in open(v, t) },
                            importAction: { showPicker = true },
                            importFiles: { showFiles = true })
-                .tabItem { Label(config.tabs[safe: 1] ?? "媒体库", systemImage: "square.grid.2x2") }
+                .tabItem { Label(config.tabs[safe: 1] ?? "片仓",
+                                 systemImage: config.theme.tabIcons[safe: 1] ?? "square.grid.3x3") }
                 .tag(1)
             CraftTabReal(store: store, config: config,
                          openVideo: { v, t in open(v, t) }, toast: notify)
-                .tabItem { Label(config.tabs[safe: 2] ?? "创作", systemImage: "wand.and.stars") }
+                .tabItem { Label(config.tabs[safe: 2] ?? "造片",
+                                 systemImage: config.theme.tabIcons[safe: 2] ?? "wand.and.rays") }
                 .tag(2)
-            MineTabReal(store: store, tabName: config.tabs[safe: 3] ?? "我的", toast: notify)
-                .tabItem { Label(config.tabs[safe: 3] ?? "我的", systemImage: "person.crop.circle") }
+            MineTabReal(store: store, tabName: config.tabs[safe: 3] ?? "账户", toast: notify)
+                .tabItem { Label(config.tabs[safe: 3] ?? "账户",
+                                 systemImage: config.theme.tabIcons[safe: 3] ?? "person.crop.circle") }
                 .tag(3)
         }
         .environmentObject(store)
+        .toolbarBackground(.visible, for: .tabBar)
+        .toolbarBackground(MZH.surface, for: .tabBar)
+        .toolbarColorScheme(.dark, for: .tabBar)
         .sheet(item: $playerVideo) { v in
             PlayerScreen(video: v, initialTool: playerTool).environmentObject(store)
         }
@@ -70,8 +77,10 @@ struct MainTabs: View {
         }
         .overlay(alignment: .top) {
             if showToast {
-                Text(toast).font(.caption).padding(.horizontal, 14).padding(.vertical, 9)
-                    .background(.ultraThinMaterial, in: Capsule())
+                Text(toast).font(.caption).foregroundStyle(MZH.text)
+                    .padding(.horizontal, 14).padding(.vertical, 9)
+                    .background(MZH.surface2, in: Capsule())
+                    .overlay(Capsule().stroke(MZH.line, lineWidth: 1))
                     .padding(.top, 12)
             }
         }
@@ -123,24 +132,30 @@ private struct HomeTabReal: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(greeting).font(.title2.bold())
-                        Text("本地影像的动感玩法 · 不联网也能播、能调、能剪")
-                            .font(.caption).foregroundStyle(.secondary)
+                    // 图 1 的深色 hero：品牌小字 + 大标题 + 副标题，不用浅色渐变卡
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("米帧盒播放器")
+                                .font(.caption.bold()).tracking(2)
+                                .foregroundStyle(MZH.primary)
+                            Spacer()
+                            Text(greeting).font(.caption2).foregroundStyle(MZH.muted)
+                        }
+                        Text("本地影像 · 归档 · 调色 · 拼帧")
+                            .font(.system(size: 27, weight: .heavy))
+                            .foregroundStyle(MZH.text)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("本地影像 · 归档 · 调色 · 节奏 · 拼帧")
+                            .font(.caption).foregroundStyle(MZH.muted)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(18)
-                    .background(LinearGradient(colors: [.blue.opacity(0.18), .purple.opacity(0.12)],
-                                               startPoint: .topLeading, endPoint: .bottomTrailing),
-                               in: RoundedRectangle(cornerRadius: 18))
+                    .padding(.top, 4)
 
-                    HStack(spacing: 0) {
+                    HStack(spacing: 10) {
                         stat("\(store.videos.count)", "影片")
                         stat("\(collections)", "合集")
                         stat("\(watching)", "在看")
                     }
-                    .padding(.vertical, 14)
-                    .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 16))
 
                     HStack {
                         Text("精选频道").font(.headline)
@@ -159,10 +174,10 @@ private struct HomeTabReal: View {
                                         Image(systemName: icon(for: c))
                                         Text(c)
                                         Text("\(store.videos.filter { $0.category == c }.count)")
-                                            .font(.caption2).foregroundStyle(.secondary)
+                                            .font(.caption2).foregroundStyle(MZH.muted)
                                     }
                                     .padding(.horizontal, 14).padding(.vertical, 10)
-                                    .background(categoryFilter == c ? Color.blue.opacity(0.18) : Color(.systemGray6),
+                                    .background(categoryFilter == c ? MZH.primary.opacity(0.22) : MZH.surface2,
                                                in: Capsule())
                                 }
                                 .buttonStyle(.plain)
@@ -183,12 +198,12 @@ private struct HomeTabReal: View {
                                     Text("随机放一部").font(.subheadline.bold())
                                     Text(store.videos[0].title).font(.caption).lineLimit(1)
                                     Text("本地片库共 \(store.videos.count) 部").font(.caption2)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(MZH.muted)
                                 }
                                 Spacer()
                                 Image(systemName: "play.circle.fill").font(.title2)
                             }
-                            .padding(12).background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 14))
+                            .padding(12).background(MZH.surface2, in: RoundedRectangle(cornerRadius: 14))
                         }
                         .buttonStyle(.plain)
                     }
@@ -205,11 +220,11 @@ private struct HomeTabReal: View {
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(v.title).font(.subheadline).lineLimit(1)
                                             Text("\(v.category) · \(Format.duration(v.duration))")
-                                                .font(.caption2).foregroundStyle(.secondary)
+                                                .font(.caption2).foregroundStyle(MZH.muted)
                                         }
                                         Spacer()
                                         Image(systemName: "chevron.right").font(.caption)
-                                            .foregroundStyle(.secondary)
+                                            .foregroundStyle(MZH.muted)
                                     }
                                     .padding(.vertical, 8)
                                 }
@@ -224,7 +239,7 @@ private struct HomeTabReal: View {
                             }
                             .buttonStyle(.borderedProminent).padding(.top, 10)
                         }
-                        .padding(12).background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 14))
+                        .padding(12).background(MZH.surface2, in: RoundedRectangle(cornerRadius: 14))
                     }
 
                     Button { showImportMenu = true } label: {
@@ -237,29 +252,35 @@ private struct HomeTabReal: View {
                         Button("取消", role: .cancel) {}
                     }
                     Text("导入只在本机建立索引，不上传服务器。")
-                        .font(.caption2).foregroundStyle(.secondary)
+                        .font(.caption2).foregroundStyle(MZH.muted)
                 }
                 .padding()
             }
             .navigationTitle(tabName)
+            .background(MZH.bg.ignoresSafeArea())
         }
     }
 
     private func stat(_ v: String, _ k: String) -> some View {
-        VStack(spacing: 2) {
+        VStack(spacing: 4) {
             Text(v).font(.title2.bold().monospacedDigit())
-            Text(k).font(.caption).foregroundStyle(.secondary)
-        }.frame(maxWidth: .infinity)
+                .foregroundStyle(MZH.primary)
+            Text(k).font(.caption2).foregroundStyle(MZH.muted)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .background(MZH.surface, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(MZH.line, lineWidth: 1))
     }
 
     private func emptyCard(_ title: String, _ sub: String) -> some View {
         VStack(spacing: 8) {
-            Image(systemName: "film.stack").font(.title).foregroundStyle(.secondary)
+            Image(systemName: "film.stack").font(.title).foregroundStyle(MZH.muted)
             Text(title).font(.subheadline.bold())
-            Text(sub).font(.caption).foregroundStyle(.secondary)
+            Text(sub).font(.caption).foregroundStyle(MZH.muted)
         }
         .frame(maxWidth: .infinity).padding(.vertical, 26)
-        .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 14))
+        .background(MZH.surface2, in: RoundedRectangle(cornerRadius: 14))
     }
 
     private func icon(for c: String) -> String {
@@ -279,7 +300,7 @@ private struct HomeTabReal: View {
                 .frame(width: 72, height: 50).clipped().cornerRadius(8)
         } else {
             Image(systemName: "film").frame(width: 72, height: 50)
-                .background(.gray.opacity(0.2), in: RoundedRectangle(cornerRadius: 8))
+                .background(MZH.surface2, in: RoundedRectangle(cornerRadius: 8))
         }
     }
 }
@@ -318,18 +339,18 @@ private struct LibraryTabReal: View {
                     overview(Format.bytes(store.totalBytes), "占用空间")
                 }
                 .padding(.vertical, 10)
-                .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 12))
+                .background(MZH.surface2, in: RoundedRectangle(cornerRadius: 12))
                 .padding(.horizontal)
 
                 HStack {
-                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                    Image(systemName: "magnifyingglass").foregroundStyle(MZH.muted)
                     TextField("搜索视频标题", text: $query)
                     if !query.isEmpty {
                         Button { query = "" } label: { Image(systemName: "xmark.circle.fill") }
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(MZH.muted)
                     }
                 }
-                .padding(10).background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 12))
+                .padding(10).background(MZH.surface2, in: RoundedRectangle(cornerRadius: 12))
                 .padding(.horizontal)
 
                 HStack {
@@ -363,10 +384,10 @@ private struct LibraryTabReal: View {
                     Spacer()
                     VStack(spacing: 10) {
                         Image(systemName: "square.grid.3x3.topleft.filled")
-                            .font(.system(size: 42)).foregroundStyle(.secondary)
+                            .font(.system(size: 42)).foregroundStyle(MZH.muted)
                         Text("万象库还是空的").font(.headline)
                         Text("点右上角 + 从相册或文件导入视频").font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(MZH.muted)
                     }
                     Spacer()
                 } else if grid {
@@ -387,7 +408,7 @@ private struct LibraryTabReal: View {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(v.title).font(.subheadline).lineLimit(1)
                                     Text("\(v.category) · \(Format.duration(v.duration)) · \(Format.bytes(v.bytes))")
-                                        .font(.caption2).foregroundStyle(.secondary)
+                                        .font(.caption2).foregroundStyle(MZH.muted)
                                 }
                                 Spacer()
                                 if multiSelect { check(v) }
@@ -413,6 +434,7 @@ private struct LibraryTabReal: View {
                 }
             }
             .navigationTitle(tabName)
+            .background(MZH.bg.ignoresSafeArea())
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showImportMenu = true } label: { Image(systemName: "plus") }
@@ -446,7 +468,7 @@ private struct LibraryTabReal: View {
     private func overview(_ v: String, _ k: String) -> some View {
         VStack(spacing: 2) {
             Text(v).font(.subheadline.bold().monospacedDigit()).lineLimit(1).minimumScaleFactor(0.7)
-            Text(k).font(.caption2).foregroundStyle(.secondary)
+            Text(k).font(.caption2).foregroundStyle(MZH.muted)
         }.frame(maxWidth: .infinity)
     }
 
@@ -459,7 +481,7 @@ private struct LibraryTabReal: View {
             }
             Text(v.title).font(.caption2).lineLimit(1)
             Text("\(v.category) · \(Format.duration(v.duration))")
-                .font(.caption2).foregroundStyle(.secondary)
+                .font(.caption2).foregroundStyle(MZH.muted)
         }
         .contentShape(Rectangle())
         .onTapGesture { tap(v) }
@@ -478,7 +500,7 @@ private struct LibraryTabReal: View {
 
     private func check(_ v: LocalVideo) -> some View {
         Image(systemName: picked.contains(v.id) ? "checkmark.circle.fill" : "circle")
-            .foregroundStyle(picked.contains(v.id) ? .blue : .secondary)
+            .foregroundStyle(picked.contains(v.id) ? MZH.primary : MZH.muted)
     }
 
     private func tap(_ v: LocalVideo) {
@@ -495,7 +517,7 @@ private struct LibraryTabReal: View {
             Image(uiImage: img).resizable().scaledToFill().clipped().cornerRadius(8)
         } else {
             Image(systemName: "film").frame(maxWidth: .infinity)
-                .background(.gray.opacity(0.18), in: RoundedRectangle(cornerRadius: 8))
+                .background(MZH.surface2, in: RoundedRectangle(cornerRadius: 8))
         }
     }
 }
@@ -568,9 +590,10 @@ private struct CraftTabReal: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("创作中心").font(.title2.bold())
+                    Text(config.craft.headline.isEmpty ? "四种玩法" : config.craft.headline)
+                        .font(.title2.bold())
                     Text("入口在播放器工具箱，选一部影片即可直达对应玩法")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(MZH.muted)
 
                     let cols = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
                     LazyVGrid(columns: cols, spacing: 12) {
@@ -587,15 +610,15 @@ private struct CraftTabReal: View {
                             } label: {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Image(systemName: f.icon).font(.title2)
-                                        .foregroundStyle(.blue)
+                                        .foregroundStyle(MZH.primary)
                                     Text(f.name).font(.subheadline.bold())
-                                    Text(f.desc).font(.caption2).foregroundStyle(.secondary)
+                                    Text(f.desc).font(.caption2).foregroundStyle(MZH.muted)
                                         .lineLimit(4)
                                     Spacer(minLength: 0)
                                 }
                                 .frame(maxWidth: .infinity, minHeight: 150, alignment: .leading)
                                 .padding(14)
-                                .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 16))
+                                .background(MZH.surface2, in: RoundedRectangle(cornerRadius: 16))
                             }
                             .buttonStyle(.plain)
                         }
@@ -604,7 +627,7 @@ private struct CraftTabReal: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Label("云端工坊", systemImage: "cloud.fill").font(.headline)
                         Text("云字幕任务与成片管理。临时文件最长 72 小时自动清理。")
-                            .font(.caption2).foregroundStyle(.secondary)
+                            .font(.caption2).foregroundStyle(MZH.muted)
                         Button { showSubtitle = true } label: {
                             Label("云字幕工坊 · 本机语音识别生成字幕", systemImage: "captions.bubble")
                                 .frame(maxWidth: .infinity)
@@ -615,11 +638,12 @@ private struct CraftTabReal: View {
                         }.buttonStyle(.bordered)
                     }
                     .padding(14)
-                    .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 16))
+                    .background(MZH.surface2, in: RoundedRectangle(cornerRadius: 16))
                 }
                 .padding()
             }
-            .navigationTitle(config.tabs[safe: 2] ?? "创作")
+            .navigationTitle(config.tabs[safe: 2] ?? "造片")
+            .background(MZH.bg.ignoresSafeArea())
             .sheet(isPresented: Binding(get: { choosing != nil },
                                         set: { if !$0 { choosing = nil } })) {
                 PickVideoSheet(store: store, tool: choosing ?? .grade) { v, t in
@@ -651,14 +675,15 @@ private struct PickVideoSheet: View {
                         VStack(alignment: .leading) {
                             Text(v.title).lineLimit(1)
                             Text("\(v.category) · \(Format.duration(v.duration))")
-                                .font(.caption2).foregroundStyle(.secondary)
+                                .font(.caption2).foregroundStyle(MZH.muted)
                         }
                         Spacer()
-                        Text(tool.rawValue).font(.caption).foregroundStyle(.blue)
+                        Text(tool.rawValue).font(.caption).foregroundStyle(MZH.primary)
                     }
                 }
             }
             .navigationTitle("选一部影片 · 打开\(tool.rawValue)")
+            .background(MZH.bg.ignoresSafeArea())
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("取消") { dismiss() } } }
         }
     }
@@ -678,20 +703,20 @@ private struct WorksView: View {
             Group {
                 if store.works.isEmpty {
                     VStack(spacing: 12) {
-                        Image(systemName: "tray").font(.largeTitle).foregroundStyle(.secondary)
+                        Image(systemName: "tray").font(.largeTitle).foregroundStyle(MZH.muted)
                         Text("还没有作品").font(.headline)
                         Text("调色成片、变速成片、胶片长图、字幕文件都会存到这里")
-                            .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                            .font(.caption).foregroundStyle(MZH.muted).multilineTextAlignment(.center)
                     }.padding()
                 } else {
                     List {
                         ForEach(store.works) { w in
                             HStack {
-                                Image(systemName: icon(w.kind)).foregroundStyle(.blue)
+                                Image(systemName: icon(w.kind)).foregroundStyle(MZH.primary)
                                 VStack(alignment: .leading) {
                                     Text(w.title).font(.subheadline).lineLimit(1)
                                     Text("\(w.kind) · \(Date(timeIntervalSince1970: w.createdAt).formatted(date: .abbreviated, time: .shortened))")
-                                        .font(.caption2).foregroundStyle(.secondary)
+                                        .font(.caption2).foregroundStyle(MZH.muted)
                                 }
                                 Spacer()
                                 Button { share = [store.workURL(for: w)]; showShare = true } label: {
@@ -713,6 +738,7 @@ private struct WorksView: View {
                 }
             }
             .navigationTitle("我的云作品")
+            .background(MZH.bg.ignoresSafeArea())
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("完成") { dismiss() } } }
             .sheet(isPresented: $showShare) { ShareSheet(items: share) }
             .sheet(isPresented: Binding(get: { previewURL != nil },
@@ -755,7 +781,7 @@ private struct SubtitleStudioView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("云字幕工坊").font(.title2.bold())
                     Text("视频不出设备：在本机提取音轨 → 系统语音识别 → 生成 SRT 字幕，临时音频任务结束即删除，云端副本最长 72 小时自动清理。")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(MZH.muted)
 
                     Button {
                         if store.videos.isEmpty { status = "请先导入视频" } else { showPick = true }
@@ -779,7 +805,7 @@ private struct SubtitleStudioView: View {
                         Spacer()
                         if running { ProgressView() }
                     }
-                    .padding(12).background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 12))
+                    .padding(12).background(MZH.surface2, in: RoundedRectangle(cornerRadius: 12))
 
                     if !srt.isEmpty {
                         Text("字幕预览（SRT）").font(.headline)
@@ -788,7 +814,7 @@ private struct SubtitleStudioView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .frame(height: 180).padding(10)
-                        .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 10))
+                        .background(MZH.surface2, in: RoundedRectangle(cornerRadius: 10))
                         Button {
                             store.addWork(title: target?.title ?? "字幕", kind: "字幕文件",
                                           data: Data(srt.utf8), ext: "srt")
@@ -800,6 +826,7 @@ private struct SubtitleStudioView: View {
                 .padding()
             }
             .navigationTitle("云字幕")
+            .background(MZH.bg.ignoresSafeArea())
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("完成") { dismiss() } } }
             .sheet(isPresented: $showPick) {
                 NavigationStack {
@@ -807,6 +834,7 @@ private struct SubtitleStudioView: View {
                         Button(v.title) { target = v; showPick = false }
                     }
                     .navigationTitle("选影片")
+                    .background(MZH.bg.ignoresSafeArea())
                 }
             }
         }

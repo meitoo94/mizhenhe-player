@@ -84,6 +84,7 @@ struct RootView: View {
                     }
             }
         }
+        .mzhScreen()
         .onReceive(tick) { _ in
             guard reopening, forced, !showPaywall else { return }
             secondsSinceDismiss += 1

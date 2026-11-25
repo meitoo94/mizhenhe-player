@@ -290,7 +290,7 @@ struct PlayerScreen: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(video.title).font(.subheadline.bold()).foregroundStyle(.white).lineLimit(1)
                         Text("\(Format.duration(video.duration)) · \(video.category) · 本地")
-                            .font(.caption2).foregroundStyle(.gray)
+                            .font(.caption2).foregroundStyle(MZH.muted)
                     }
                     Spacer()
                     Button { store.markPlayed(id: video.id) } label: {
@@ -447,7 +447,7 @@ private struct GradePanel: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                Text("横滑选影调预设，滑杆微调后实时预览").font(.caption).foregroundStyle(.secondary)
+                Text("横滑选影调预设，滑杆微调后实时预览").font(.caption).foregroundStyle(MZH.muted)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
                         ForEach(GradePreset.presets, id: \.name) { p in
@@ -457,7 +457,7 @@ private struct GradePanel: View {
                                 onSave(p)
                             }
                             .buttonStyle(.borderedProminent)
-                            .tint(grade.name == p.name ? .blue : .gray)
+                            .tint(grade.name == p.name ? MZH.primary : MZH.muted)
                         }
                     }
                 }
@@ -493,7 +493,7 @@ private struct GradePanel: View {
                     }.buttonStyle(.borderedProminent).disabled(busy)
                 }
                 Text("导出的新视频会存入「我的云作品」，并写入系统相册。调色参数随本片记忆。")
-                    .font(.caption2).foregroundStyle(.secondary)
+                    .font(.caption2).foregroundStyle(MZH.muted)
             }
             .padding()
         }
@@ -505,7 +505,7 @@ private struct GradePanel: View {
                 Text(title).font(.subheadline)
                 Spacer()
                 Text(String(format: "%.2f", value.wrappedValue)).font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(MZH.muted)
             }
             Slider(value: value, in: range)
         }
@@ -526,9 +526,9 @@ private struct TempoPanel: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("时间轴分段变速 0.25x–4x，方案随视频保存").font(.caption).foregroundStyle(.secondary)
+                Text("时间轴分段变速 0.25x–4x，方案随视频保存").font(.caption).foregroundStyle(MZH.muted)
                 if segments.isEmpty {
-                    Text("还没有变速段，点下方添加。").font(.subheadline).foregroundStyle(.secondary)
+                    Text("还没有变速段，点下方添加。").font(.subheadline).foregroundStyle(MZH.muted)
                 }
                 ForEach(Array(segments.enumerated()), id: \.element.id) { idx, seg in
                     VStack(alignment: .leading, spacing: 8) {
@@ -556,7 +556,7 @@ private struct TempoPanel: View {
                         .pickerStyle(.segmented)
                     }
                     .padding(12)
-                    .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 12))
+                    .background(MZH.surface2, in: RoundedRectangle(cornerRadius: 12))
                 }
                 HStack(spacing: 10) {
                     Button {
@@ -578,7 +578,7 @@ private struct TempoPanel: View {
                 }
                 .buttonStyle(.borderedProminent).disabled(busy)
                 Text("「预览」实时生效：改动后立即按新节奏播放。")
-                    .font(.caption2).foregroundStyle(.secondary)
+                    .font(.caption2).foregroundStyle(MZH.muted)
             }
             .padding()
         }
@@ -623,7 +623,7 @@ private struct FramesPanel: View {
                 } label: { Label(busy ? "取帧中…" : "等距取帧", systemImage: "film").frame(maxWidth: .infinity) }
                     .buttonStyle(.borderedProminent).disabled(busy)
 
-                if !hint.isEmpty { Text(hint).font(.caption).foregroundStyle(.secondary) }
+                if !hint.isEmpty { Text(hint).font(.caption).foregroundStyle(MZH.muted) }
 
                 if !images.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -658,7 +658,7 @@ private struct FramesPanel: View {
                     }
                 }
                 Text("自带片名与时间码边框，竖排 / 横排 / 九宫格三种版式。")
-                    .font(.caption2).foregroundStyle(.secondary)
+                    .font(.caption2).foregroundStyle(MZH.muted)
             }
             .padding()
         }

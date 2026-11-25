@@ -78,7 +78,7 @@ struct AccountDeletionView: View {
                 Text("当前账号：" + (AccountDeletion.isLoggedIn
                      ? (AccountDeletion.maskedPhone.isEmpty ? "已登录" : AccountDeletion.maskedPhone)
                      : "未登录"))
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.caption).foregroundStyle(MZH.muted)
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("注销后将永久删除：")
@@ -87,22 +87,22 @@ struct AccountDeletionView: View {
                     Text("· 本设备的广告渠道归因绑定")
                     Text("依法需保留的匿名交易流水会去标识化，不含账号标识。此操作不可撤销。")
                 }
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.caption).foregroundStyle(MZH.muted)
                 .padding(12)
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+                .background(MZH.surface2, in: RoundedRectangle(cornerRadius: 12))
 
                 if AccountDeletion.isLoggedIn {
                     TextField("输入「注销」两个字确认", text: $word)
                         .textFieldStyle(.roundedBorder)
                 } else {
                     Text("注销需要登录态校验，请先登录后再回来注销。")
-                        .font(.caption).foregroundStyle(.orange)
+                        .font(.caption).foregroundStyle(MZH.accent)
                 }
                 if let errorText {
                     Text(errorText).font(.caption).foregroundStyle(.red)
                 }
                 if !receipt.isEmpty {
-                    Text("账号已注销 · 回执 " + receipt).font(.caption).foregroundStyle(.green)
+                    Text("账号已注销 · 回执 " + receipt).font(.caption).foregroundStyle(MZH.green)
                 }
 
                 Button {
@@ -113,8 +113,8 @@ struct AccountDeletionView: View {
                         Text(AccountDeletion.isLoggedIn ? "确认注销" : "知道了")
                     }
                     .frame(maxWidth: .infinity).padding(.vertical, 13)
-                    .background(Color(hex: "#35E0C8"), in: RoundedRectangle(cornerRadius: 24))
-                    .foregroundStyle(Color(hex: "#06121A"))
+                    .background(MZH.primary, in: RoundedRectangle(cornerRadius: 24))
+                    .foregroundStyle(MZH.onPrimary)
                 }
                 .disabled(busy)
                 Spacer()

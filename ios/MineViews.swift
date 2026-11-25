@@ -20,16 +20,16 @@ struct MineTabReal: View {
                     Button { showLogin = true } label: {
                         HStack(spacing: 14) {
                             Image(systemName: "person.crop.circle.fill").font(.system(size: 44))
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(MZH.primary)
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(masked.isEmpty ? "未登录" : masked).font(.headline)
                                 Text(masked.isEmpty ? "手机号验证码登录，不登录也能用全部本地功能"
                                      : "已绑定手机号 · 点击查看账号资料")
-                                    .font(.caption).foregroundStyle(.secondary)
+                                    .font(.caption).foregroundStyle(MZH.muted)
                             }
                             Spacer()
                             Image(systemName: "chevron.right").font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(MZH.muted)
                         }
                     }
                     .buttonStyle(.plain)
@@ -38,11 +38,11 @@ struct MineTabReal: View {
                 Section {
                     NavigationLink { MemberCenterView() } label: {
                         HStack {
-                            Image(systemName: "crown.fill").foregroundStyle(.orange)
+                            Image(systemName: "crown.fill").foregroundStyle(MZH.accent)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("棱镜会员").font(.subheadline)
                                 Text("查看会员状态与权益").font(.caption2)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(MZH.muted)
                             }
                         }
                     }
@@ -52,7 +52,7 @@ struct MineTabReal: View {
                     NavigationLink { SettingsView(store: store, toast: toast) } label: {
                         Label("设置", systemImage: "gearshape")
                     }
-                    NavigationLink { HelpFeedbackView() } label: {
+                    NavigationLink { FeedbackCenterView() } label: {
                         Label("帮助与反馈", systemImage: "questionmark.circle")
                     }
                     NavigationLink { LegalView(kind: .agreement) } label: {
@@ -71,11 +71,12 @@ struct MineTabReal: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("米帧盒播放器").font(.caption.bold())
                         Text("本地影像 · 归档 · 调色 · 拼帧。导入、播放、识档、调色、变速、取帧全程不上传用户视频。")
-                            .font(.caption2).foregroundStyle(.secondary)
+                            .font(.caption2).foregroundStyle(MZH.muted)
                     }
                 }
             }
             .navigationTitle(tabName)
+            .mzhListBackground()
             .sheet(isPresented: $showLogin) {
                 LoginViewReal(ticket: $ticket, masked: $masked)
             }
@@ -102,48 +103,101 @@ private struct LoginViewReal: View {
     @Binding var masked: String
     @Environment(\.dismiss) private var dismiss
     @State private var phone = ""
-    @State private var confirm = ""
     @State private var agreed = false
     @State private var code = ""
     @State private var busy = false
     @State private var message = ""
+    @State private var agreeHint = false
     @State private var showLogout = false
+    @State private var showAgreement = false
+    @State private var showPrivacy = false
+
+    private var phoneOK: Bool { phone.count == 11 && phone.hasPrefix("1") }
 
     var body: some View {
         NavigationStack {
             Form {
                 if ticket.isEmpty {
-                    Section("手机号登录") {
+                    Section {
                         TextField("请输入 11 位手机号", text: $phone)
                             .keyboardType(.numberPad)
-                        TextField("再次确认手机号", text: $confirm)
-                            .keyboardType(.numberPad)
-                        TextField("验证码（本机演示可任意 4–6 位）", text: $code)
-                            .keyboardType(.numberPad)
-                        Toggle("已阅读并同意用户协议与隐私政策", isOn: $agreed)
+                            .textContentType(.telephoneNumber)
+                        HStack(spacing: 10) {
+                            TextField("验证码（演示版任意 4–6 位）", text: $code)
+                                .keyboardType(.numberPad)
+                            Button("获取验证码") {
+                                code = "1234"
+                                message = "演示版本暂未接入短信通道，已填入测试验证码 1234"
+                            }
+                            .font(.caption.bold())
+                            .foregroundStyle(MZH.primary)
+                            .buttonStyle(.plain)
+                        }
+                    } header: {
+                        Text("手机号登录")
+                    } footer: {
+                        Text("一个手机号对应一个账号；不登录也能使用全部本地功能。")
                     }
+
+                    // 明确的方形勾选框（旧版是灰色 Toggle，用户看不出那是可以点的「同意按钮」）
                     Section {
-                        Button {
-                            login()
-                        } label: {
-                            HStack {
-                                if busy { ProgressView() }
-                                Text(busy ? "登录中…" : "登录 / 注册").frame(maxWidth: .infinity)
+                        HStack(alignment: .top, spacing: 12) {
+                            Button {
+                                agreed.toggle()
+                                if agreed {
+                                    agreeHint = false
+                                    if message.hasPrefix("请先勾选") { message = "" }
+                                }
+                            } label: {
+                                Image(systemName: agreed ? "checkmark.square.fill" : "square")
+                                    .font(.system(size: 25))
+                                    .foregroundStyle(agreed ? MZH.primary : (agreeHint ? MZH.accent : MZH.muted))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(agreed ? "已同意，点击取消勾选" : "未同意，点击勾选")
+
+                            VStack(alignment: .leading, spacing: 7) {
+                                Text(agreed ? "已阅读并同意以下协议" : "请先勾选，表示已阅读并同意")
+                                    .font(.subheadline.bold())
+                                    .foregroundStyle(agreeHint ? MZH.accent : MZH.text)
+                                HStack(spacing: 3) {
+                                    Button("《用户协议》") { showAgreement = true }
+                                    Text("与").foregroundStyle(MZH.muted)
+                                    Button("《隐私政策》") { showPrivacy = true }
+                                }
+                                .font(.subheadline)
+                                .foregroundStyle(MZH.primary)
+                                .buttonStyle(.plain)
                             }
                         }
-                        .disabled(busy || phone.count != 11 || !phone.hasPrefix("1"))
-                        if !message.isEmpty {
-                            Text(message).font(.caption).foregroundStyle(.red)
-                        }
+                        .padding(.vertical, 5)
+                        .listRowBackground(MZH.surface)
                     }
+
                     Section {
-                        NavigationLink { LegalView(kind: .agreement) } label: { Text("用户协议") }
-                        NavigationLink { LegalView(kind: .privacy) } label: { Text("隐私政策") }
+                        Button { login() } label: {
+                            HStack(spacing: 8) {
+                                if busy { ProgressView().tint(MZH.onPrimary) }
+                                Text(busy ? "登录中…" : "登录 / 注册")
+                            }
+                            .mzhPrimaryButton()
+                        }
+                        .buttonStyle(.plain)
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets())
+                        .disabled(busy || !phoneOK)
+                        .opacity(phoneOK ? 1 : 0.55)
+                        if !message.isEmpty {
+                            Text(message).font(.caption)
+                                .foregroundStyle(message.hasPrefix("请先勾选") ? MZH.accent : MZH.danger)
+                        }
+                    } footer: {
+                        Text(phoneOK ? "勾选协议后即可登录。" : "请输入正确的 11 位手机号。")
                     }
                 } else {
                     Section("账号资料") {
-                        HStack { Text("绑定手机号"); Spacer(); Text(masked).foregroundStyle(.secondary) }
-                        HStack { Text("账号状态"); Spacer(); Text("正常").foregroundStyle(.secondary) }
+                        HStack { Text("绑定手机号"); Spacer(); Text(masked).foregroundStyle(MZH.muted) }
+                        HStack { Text("账号状态"); Spacer(); Text("正常").foregroundStyle(MZH.muted) }
                     }
                     Section {
                         Button("退出登录", role: .destructive) {
@@ -153,24 +207,49 @@ private struct LoginViewReal: View {
                 }
                 Section {
                     Text("核心播放 / 识档 / 调色 / 变速 / 取帧均可在不登录、不联网的情况下于设备本地完成。")
-                        .font(.caption2).foregroundStyle(.secondary)
+                        .font(.caption2).foregroundStyle(MZH.muted)
                 }
             }
             .navigationTitle(ticket.isEmpty ? "登录" : "账号资料")
+            .mzhListBackground()
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) { Button("完成") { dismiss() } }
             }
             .alert("已退出登录", isPresented: $showLogout) { Button("好") {} }
+            .sheet(isPresented: $showAgreement) {
+                NavigationStack {
+                    LegalView(kind: .agreement)
+                        .toolbar {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button("关闭") { showAgreement = false }
+                            }
+                        }
+                }
+            }
+            .sheet(isPresented: $showPrivacy) {
+                NavigationStack {
+                    LegalView(kind: .privacy)
+                        .toolbar {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button("关闭") { showPrivacy = false }
+                            }
+                        }
+                }
+            }
         }
     }
 
     private func login() {
-        guard agreed else { message = "请先同意用户协议与隐私政策"; return }
-        guard confirm.isEmpty || confirm == phone else { message = "两次手机号不一致"; return }
+        guard agreed else {
+            agreeHint = true
+            message = "请先勾选同意《用户协议》与《隐私政策》"
+            return
+        }
+        guard phoneOK else { message = "请输入正确的 11 位手机号"; return }
         busy = true; message = ""
         let body: [String: Any] = [
             "phone": phone,
-            "confirm_phone": confirm,
+            "confirm_phone": phone,
             "agreed": true,
             "code": code,
             "idfv": UIDevice.current.identifierForVendor?.uuidString ?? "",
@@ -217,11 +296,11 @@ private struct MemberCenterView: View {
                     Text(unlocked ? "已开通 · 尊享全部权益" : "当前状态：未开通")
                         .font(.subheadline)
                     Text("权益：更高的云字幕生成频次 / 每日额度，用完后次日自动恢复。")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(MZH.muted)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(18)
-                .background(LinearGradient(colors: [.purple.opacity(0.22), .blue.opacity(0.16)],
+                .background(LinearGradient(colors: [MZH.primary.opacity(0.14), MZH.accent.opacity(0.10)],
                                            startPoint: .topLeading, endPoint: .bottomTrailing),
                            in: RoundedRectangle(cornerRadius: 18))
 
@@ -236,25 +315,26 @@ private struct MemberCenterView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Apple 会员内购正在开发中").font(.subheadline.bold())
                     Text("目前版本未提供实际付费商品，协议与政策中也未列价格。内购上线后本页将开放购买入口；在此之前，所有本地能力均可免费使用。")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(MZH.muted)
                 }
-                .padding(14).background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 14))
+                .padding(14).background(MZH.surface2, in: RoundedRectangle(cornerRadius: 14))
             }
             .padding()
         }
         .navigationTitle("棱镜会员")
+        .background(MZH.bg.ignoresSafeArea())
     }
 
     private func benefit(_ icon: String, _ title: String, _ desc: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: icon).foregroundStyle(.blue).frame(width: 24)
+            Image(systemName: icon).foregroundStyle(MZH.primary).frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.subheadline)
-                Text(desc).font(.caption2).foregroundStyle(.secondary)
+                Text(desc).font(.caption2).foregroundStyle(MZH.muted)
             }
             Spacer()
         }
-        .padding(12).background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 12))
+        .padding(12).background(MZH.surface2, in: RoundedRectangle(cornerRadius: 12))
     }
 }
 
@@ -274,10 +354,10 @@ private struct SettingsView: View {
                         .foregroundStyle(.red)
                 }
                 Text("注销后账号信息删除或匿名化且不可恢复，本地相册原片不受影响。")
-                    .font(.caption2).foregroundStyle(.secondary)
+                    .font(.caption2).foregroundStyle(MZH.muted)
             }
             Section("帮助") {
-                NavigationLink { HelpFeedbackView() } label: {
+                NavigationLink { FeedbackCenterView() } label: {
                     Label("帮助与反馈", systemImage: "questionmark.circle")
                 }
                 NavigationLink { LegalView(kind: .agreement) } label: {
@@ -292,28 +372,29 @@ private struct SettingsView: View {
                     Text("片库视频")
                     Spacer()
                     Text("\(store.videos.count) 部 · \(Format.bytes(store.totalBytes))")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(MZH.muted)
                 }
                 HStack {
                     Text("我的云作品")
                     Spacer()
-                    Text("\(store.works.count) 项").foregroundStyle(.secondary)
+                    Text("\(store.works.count) 项").foregroundStyle(MZH.muted)
                 }
                 Button(role: .destructive) { clearConfirm = true } label: {
                     Label("清除本地片库索引与副本", systemImage: "trash")
                 }
                 Text("只删除 App 内的索引与副本，系统相册里的原视频不会被删除。")
-                    .font(.caption2).foregroundStyle(.secondary)
+                    .font(.caption2).foregroundStyle(MZH.muted)
             }
             Section("关于") {
-                HStack { Text("版本"); Spacer(); Text("1.0 (2)").foregroundStyle(.secondary) }
+                HStack { Text("版本"); Spacer(); Text(appVersionText()).foregroundStyle(MZH.muted) }
                 HStack { Text("客服邮箱"); Spacer(); Text("motionworld.support@126.com")
-                    .font(.caption).foregroundStyle(.secondary) }
+                    .font(.caption).foregroundStyle(MZH.muted) }
                 HStack { Text("备案号"); Spacer(); Text("琼ICP备2023010196号-6A")
-                    .font(.caption).foregroundStyle(.secondary) }
+                    .font(.caption).foregroundStyle(MZH.muted) }
             }
         }
         .navigationTitle("设置")
+        .mzhListBackground()
         .sheet(isPresented: $showDelete) {
             AccountDeletionView(channel: UserDefaults.standard
                 .string(forKey: "resolved_channel") ?? "organic")
@@ -330,71 +411,7 @@ private struct SettingsView: View {
     }
 }
 
-// MARK: - 帮助与反馈（报告 2.3：提交问题描述，自动附带脱敏运行日志）
-
-private struct HelpFeedbackView: View {
-    @State private var text = ""
-    @State private var share: [Any] = []
-    @State private var showShare = false
-    @State private var sent = false
-
-    var body: some View {
-        Form {
-            Section("问题描述") {
-                TextEditor(text: $text).frame(minHeight: 140)
-                Text("请描述遇到的问题、发生时间与操作步骤。")
-                    .font(.caption2).foregroundStyle(.secondary)
-            }
-            Section("自动附带的脱敏日志") {
-                Text(logText()).font(.caption2.monospaced())
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
-            }
-            Section {
-                Button { submit() } label: {
-                    Label(sent ? "已生成反馈文件" : "提交反馈", systemImage: "paperplane")
-                        .frame(maxWidth: .infinity)
-                }
-                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                Text("反馈文件保存在本机并通过系统分享面板发出，不含手机号、视频文件或精确位置。")
-                    .font(.caption2).foregroundStyle(.secondary)
-            }
-            Section("常见问题") {
-                faq("支持哪些格式？", "常见 MP4 / MOV / M4V，H.264 / HEVC 硬解优先。")
-                faq("导入会占双倍空间吗？", "会把选中的视频存一份到 App 内，以便离线播放；不上传服务器，系统相册原片不受影响。")
-                faq("播放卡顿怎么办？", "关闭后台应用、避免同时开启高颗粒感滤镜；4K 120fps 素材在动能曲线中建议不高于 2x。")
-                faq("iCloud 视频打不开？", "请先在 system 相册把视频下载到本机，再导入。")
-                faq("没登录能用吗？", "播放、识档、调色、变速、取帧均可在不登录、不联网的情况下于设备本地完成。")
-            }
-        }
-        .navigationTitle("帮助与反馈")
-        .sheet(isPresented: $showShare) { ShareSheet(items: share) }
-    }
-
-    private func faq(_ q: String, _ a: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(q).font(.subheadline.bold())
-            Text(a).font(.caption).foregroundStyle(.secondary)
-        }
-        .padding(.vertical, 2)
-    }
-
-    private func logText() -> String {
-        let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
-        return "app=米帧盒播放器\nversion=\(v)\nios=\(UIDevice.current.systemVersion)\nmodel=\(UIDevice.current.model)\nlocale=\(Locale.current.identifier)\nnetwork=not_collected\nphone=not_collected\nlocation=not_collected"
-    }
-
-    private func submit() {
-        let body = "问题描述：\n\(text)\n\n--- 脱敏运行日志 ---\n\(logText())\n"
-        guard let data = body.data(using: .utf8) else { return }
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("米帧盒-反馈-" + String(Int(Date().timeIntervalSince1970)) + ".txt")
-        try? data.write(to: url)
-        share = [url]
-        sent = true
-        showShare = true
-    }
-}
+// MARK: - 帮助与反馈已移到 FeedbackCenter.swift（对接 /site 后台用户反馈中心真实接口）
 
 // MARK: - 法务文档（报告 2.4 / 8：协议与隐私都要有可读正文）
 
@@ -411,27 +428,28 @@ private struct LegalView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Text(title).font(.title2.bold())
-                Text(version).font(.caption).foregroundStyle(.secondary)
+                Text(version).font(.caption).foregroundStyle(MZH.muted)
                 ForEach(Array(sections.enumerated()), id: \.offset) { _, s in
                     VStack(alignment: .leading, spacing: 6) {
                         Text(s.0).font(.headline)
-                        Text(s.1).font(.subheadline).foregroundStyle(.secondary)
+                        Text(s.1).font(.subheadline).foregroundStyle(MZH.muted)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
-                    .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 12))
+                    .background(MZH.surface2, in: RoundedRectangle(cornerRadius: 12))
                 }
                 if expanded {
-                    Text(extra).font(.caption).foregroundStyle(.secondary)
+                    Text(extra).font(.caption).foregroundStyle(MZH.muted)
                 }
                 Button(expanded ? "收起完整条款" : "展开完整条款") { expanded.toggle() }
                     .buttonStyle(.bordered)
                 Text("本页面为 App 内置版本；如需法律全文可联系 motionworld.support@126.com。")
-                    .font(.caption2).foregroundStyle(.secondary)
+                    .font(.caption2).foregroundStyle(MZH.muted)
             }
             .padding()
         }
         .navigationTitle(title)
+        .background(MZH.bg.ignoresSafeArea())
     }
 
     private var sections: [(String, String)] {

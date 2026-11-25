@@ -603,6 +603,109 @@ CONFIG_SIGN_SECRET = os.environ.get("MZH_CONFIG_SECRET",
                                     "demo-secret-change-in-production").encode("utf-8")
 
 
+# ---------------------------------------------------------------- 用户反馈中心
+# 对接 Yii2 /site 后台「用户反馈中心」真实接口（models/UserFeedback.php）：
+#   GET  /api/feedback/types    投诉类型字典（公开）
+#   POST /api/feedback/upload   截图（multipart, 字段名 file）
+#   POST /api/feedback/submit   {types[], content, images[], contact, device_no}
+# 反馈写入 user_feedback 独立台账；不改渠道配置、不动任何跑量渠道，
+# 所以这条链路不经过 BRIDGE 的「写操作只放行 mzhtest」闸门。
+FEEDBACK_BASE = os.environ.get("MZH_FEEDBACK_BASE", "https://app.kqi.ink").rstrip("/")
+FEEDBACK_LEDGER = os.path.join(EVIDENCE, "feedback_ledger.json")
+FEEDBACK_TOKENS = {}
+# 与 UserFeedback::TYPES 完全一致；上游不可达时用它保证选项仍可渲染
+FEEDBACK_TYPES = [
+    "包含贩毒、迷信、暴力、恐怖、政治敏感信息",
+    "包括诈骗诱导信息",
+    "充值会员无法使用功能",
+    "需要更多功能",
+    "充值后未到账/无充值记录",
+    "无法充值/充值提示失败",
+    "点错了误充",
+    "其他",
+]
+
+
+def feedback_request(path, payload=None, token="", raw=None, ctype="", timeout=12):
+    """标准库调用上游 /api/*，返回 (http_ok, payload)。"""
+    import urllib.error
+    import urllib.request
+    hdr = {"Accept": "application/json", "User-Agent": "MizhenheFeedback/1.0"}
+    body = raw
+    if raw is None and payload is not None:
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        hdr["Content-Type"] = "application/json"
+    elif raw is not None and ctype:
+        hdr["Content-Type"] = ctype
+    if token:
+        hdr["Authorization"] = "Bearer " + token
+    req = urllib.request.Request(FEEDBACK_BASE + path, data=body, headers=hdr,
+                                 method="POST" if body is not None else "GET")
+    # 服务器本机直连优先（避免被部署机上的全局 HTTP 代理劫持），
+    # 直连不通时再退回环境变量代理；HTTP 4xx/5xx 是业务响应，不重试。
+    def _open(opener):
+        try:
+            with opener.open(req, timeout=timeout) as resp:
+                return resp.read().decode("utf-8", "replace")
+        except urllib.error.HTTPError as e:
+            return e.read().decode("utf-8", "replace")
+
+    try:
+        direct = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        text = _open(direct)
+    except Exception as e1:
+        try:
+            text = _open(urllib.request.build_opener())
+        except Exception as e2:
+            return False, {"code": -1, "msg": "upstream_unreachable",
+                           "detail": (str(e1) + " | " + str(e2))[:160]}
+    try:
+        return True, json.loads(text)
+    except Exception:
+        return False, {"code": -1, "msg": "upstream_non_json", "detail": text[:160]}
+
+
+def feedback_code(p):
+    """上游 code=0 表示成功，不能用 `or` 兜底（0 会被当成假值）。"""
+    try:
+        return int(p.get("code", -1))
+    except Exception:
+        return -1
+
+
+def feedback_token(device_no):
+    """游客 token（后台允许游客提交反馈），按设备缓存 6 小时。"""
+    cached = FEEDBACK_TOKENS.get(device_no)
+    if cached and now_ts() - cached[1] < 6 * 3600:
+        return cached[0]
+    ok, p = feedback_request("/api/auth/guest",
+                             {"device_id": device_no, "platform": "ios"})
+    if not ok or feedback_code(p) not in (0, 200):
+        return ""
+    tk = str((p.get("data") or {}).get("token") or "")
+    if tk:
+        FEEDBACK_TOKENS[device_no] = (tk, now_ts())
+    return tk
+
+
+def feedback_ledger():
+    try:
+        with open(FEEDBACK_LEDGER, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def feedback_save(device_no, rec):
+    with LOCK:
+        d = feedback_ledger()
+        d[device_no] = rec
+        tmp = FEEDBACK_LEDGER + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(d, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, FEEDBACK_LEDGER)
+
+
 def hmac_sign(raw: bytes) -> str:
     return hmac.new(CONFIG_SIGN_SECRET, raw, hashlib.sha256).hexdigest()
 
@@ -1057,6 +1160,33 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _feedback_device(self, raw=""):
+        """设备号统一哈希，避免把原始 IDFV 传到上游。"""
+        s = str(raw or "").strip()[:128] or "unknown-device"
+        return "mzh_" + hashlib.sha256(s.encode("utf-8")).hexdigest()[:24]
+
+    def _feedback_upload(self):
+        """截图：multipart 原始 body 原样透传（不解析、不落盘）。"""
+        n = int(self.headers.get("Content-Length", "0") or 0)
+        raw = self.rfile.read(n) if n > 0 else b""
+        ctype = self.headers.get("Content-Type", "")
+        dev = self._feedback_device(self.headers.get("X-Device-No", ""))
+        token = feedback_token(dev)
+        if not token:
+            self._send(502, {"ok": False, "error": "auth_unavailable",
+                             "msg": "反馈服务暂不可用，请稍后重试"})
+            return
+        ok, p = feedback_request("/api/feedback/upload", token=token,
+                                 raw=raw, ctype=ctype)
+        if ok and feedback_code(p) in (0, 200):
+            self._send(200, {"ok": True,
+                             "url": str((p.get("data") or {}).get("url") or "")},
+                       {"Cache-Control": "no-store"})
+        else:
+            self._send(200, {"ok": False, "error": "upload_failed",
+                             "msg": str(p.get("msg") or "截图上传失败，请重试")},
+                       {"Cache-Control": "no-store"})
+
     def _udid_page(self):
         base = self.base_url()
         tpl = """<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
@@ -1151,6 +1281,25 @@ a{color:#35E0C8}</style></head><body><h1>设备已登记</h1>
     def do_GET(self):
         u = urlparse(self.path)
         q = parse_qs(u.query)
+
+        # ---- 用户反馈中心（→ Yii2 /api/feedback/*） ---------------------------
+        if u.path == "/v1/feedback/types":
+            ok, p = feedback_request("/api/feedback/types")
+            upstream = ok and feedback_code(p) in (0, 200)
+            types = []
+            if upstream:
+                types = (p.get("data") or {}).get("types") or []
+            if not types:
+                types = FEEDBACK_TYPES
+            self._send(200, {"ok": True, "types": types,
+                             "source": "yii2" if upstream else "local"},
+                       {"Cache-Control": "no-store"})
+            return
+        if u.path == "/v1/feedback/status":
+            dev = self._feedback_device(q.get("device_no", [""])[0])
+            self._send(200, {"ok": True, "last": feedback_ledger().get(dev)},
+                       {"Cache-Control": "no-store"})
+            return
 
         # ---- 可视化渠道展示后台 -----------------------------------------------
         if u.path in ("/admin", "/admin/"):
@@ -1454,6 +1603,10 @@ a{{color:{primary};text-decoration:none}}
         # iOS 回传的是 plist / PKCS#7，不是 JSON，必须在 _body() 消费流之前拦截
         if u.path == "/udid/collect":
             self._udid_collect()
+            return
+        # 截图是 multipart，必须在 _body() 消费流之前原样读走
+        if u.path == "/v1/feedback/upload":
+            self._feedback_upload()
             return
         b = self._body()
 
@@ -1966,6 +2119,49 @@ a{{color:{primary};text-decoration:none}}
                     append_log("upstream_errors", {"path": u.path, "error": str(e)})
             v = VIP.get(b.get("idfv", ""))
             self._send(200, {"is_vip": bool(v), "vip": v})
+            return
+
+        if u.path == "/v1/feedback/submit":
+            dev = self._feedback_device(str(b.get("device_no") or ""))
+            types = b.get("types") or []
+            if isinstance(types, str):
+                types = [x.strip() for x in re.split(r"[,，]", types) if x.strip()]
+            types = [str(x).strip() for x in types if str(x).strip()][:8]
+            content = str(b.get("content") or "").strip()[:2000]
+            contact = str(b.get("contact") or "").strip()[:128]
+            images = [str(x) for x in (b.get("images") or [])
+                      if str(x).startswith("/uploads/feedback/")][:9]
+            if not types or not content:
+                self._send(400, {"ok": False, "error": "invalid",
+                                 "msg": "请选择问题类型并填写描述"})
+                return
+            token = feedback_token(dev)
+            if not token:
+                self._send(502, {"ok": False, "error": "auth_unavailable",
+                                 "msg": "反馈服务暂不可用，请稍后重试"})
+                return
+            ok, p = feedback_request("/api/feedback/submit",
+                                     {"types": types, "content": content,
+                                      "contact": contact, "images": images,
+                                      "device_no": dev}, token=token)
+            if ok and feedback_code(p) in (0, 200):
+                fid = (p.get("data") or {}).get("id")
+                rec = {"id": fid, "at": now_ts(), "types": types,
+                       "content": content[:200], "contact": contact,
+                       "images": images, "status": "处理中"}
+                feedback_save(dev, rec)
+                append_log("feedback", dict(rec, device_no=dev))
+                self._send(200, {"ok": True, "id": fid,
+                                 "msg": str(p.get("msg") or "反馈已提交，感谢你的反馈"),
+                                 "feedback": rec})
+                return
+            msg = str(p.get("msg") or "提交失败，请稍后重试")
+            extra = p.get("data") if isinstance(p.get("data"), dict) else {}
+            self._send(200, {"ok": False,
+                             "error": "pending" if "处理中" in msg else "submit_failed",
+                             "msg": msg,
+                             "pending_id": extra.get("pending_id"),
+                             "pending_at": extra.get("pending_at")})
             return
 
         self._send(404, {"error": "not_found", "path": u.path})
