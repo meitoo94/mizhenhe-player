@@ -1,0 +1,14 @@
+// Debug：默认直接用已部署的公网后端，云 Mac / TestFlight 真机都能连。
+// 需要连本机 8790 联调时，把下面这行换回 http:/$()/192.168.11.14:8790
+// ① 到 App Store Connect / developer.apple.com 查 Team ID，替换下面的占位。
+// ② Bundle ID 上线后不可改，先定好；Debug / Release 用同一个，避免两套描述文件。
+MZH_TEAM_ID = 25F879952L
+MZH_BUNDLE_ID = com.mizhenhe.player
+MZH_VERSION = 1.0
+MZH_BUILD_NUMBER = 1
+
+// xcconfig 里 "//" 会被当注释，URL 用 /$()/ 还原双斜杠。
+// Xcode 会把 $() 展开为空字符串，最终得到 https://app.kqi.ink/mzh
+CONFIG_BASE_URL = https:/$()/app.kqi.ink/mzh
+
+CODE_SIGN_STYLE = Automatic

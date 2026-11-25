@@ -1,0 +1,147 @@
+{
+  "meta": {
+    "name": "xinsheng_player",
+    "target": "新声影像播放器 / id6789638090 / com.freshtone.medla / 华伟 郭",
+    "cloned_at": "2026-11-25",
+    "note": "按公开资料还原的皮肤配置。paywall 段落的界面文案沿用上一款录屏实测值作为占位；新声本体的运行态未录屏取证，见 evidence.borrowed。"
+  },
+  "default_channel": "xs_douyin_a",
+  "appstore_url": "https://apps.apple.com/cn/app/id6789638090",
+  "normal": {
+    "tabs": ["光廊", "声库", "创坊", "我的"],
+    "headline": "本地视频播放 · 配音跟读 · 混剪连播"
+  },
+  "channels": {
+    "organic": {
+      "enabled": false,
+      "mode": "normal",
+      "desc": "自然量 / 商店直接搜索 / 审核流量"
+    },
+    "xs_douyin_a": {
+      "enabled": true,
+      "mode": "paywall",
+      "desc": "投放渠道 A - 全量",
+      "guard": {
+        "allow_countries": ["cn"],
+        "block_builds": [],
+        "block_ip_prefixes": [],
+        "start_after_hours": 0.0,
+        "active_window": null,
+        "rollout": 1.0
+      },
+      "paywall": {
+        "splash": {
+          "title": "专业视频播放",
+          "subtitle": "精彩视频尽情观看",
+          "button": "进入",
+          "countdown_seconds": 6
+        },
+        "trial": {
+          "video_url": "https://cdn.example.com/v/trial_15s.mp4",
+          "poster_url": "https://cdn.example.com/img/poster.jpg",
+          "countdown_seconds": 15,
+          "vip_button": "开通会员",
+          "hint": "试看视频为演示资源，开通 VIP 解锁全部功能",
+          "end_title": "试看结束",
+          "end_body": "开通会员即可解锁完整内容",
+          "end_primary": "开通会员",
+          "end_secondary": "稍后再说"
+        },
+        "vip": {
+          "title": "播放器VIP会员",
+          "packages": [
+            {"id": "vip_3y", "name": "三年", "price": 198.00, "origin_price": 598.00,
+             "perk": "有效期 1095 天 · 全站内容 / 私密播放", "tag": "超值推荐"},
+            {"id": "vip_1y", "name": "一年", "price": 168.00, "origin_price": 398.00,
+             "perk": "有效期 365 天 · 全站内容 / 私密播放", "tag": ""},
+            {"id": "vip_1m", "name": "月会员", "price": 98.00, "origin_price": 128.00,
+             "perk": "有效期 31 天 · 全站内容 / 私密播放", "tag": ""}
+          ],
+          "button": "支付宝支付",
+          "agreements": [
+            "《用户协议》",
+            "《隐私政策》",
+            "《会员协议》"
+          ]
+        },
+        "checkout": {
+          "method": "alipay_h5",
+          "order_endpoint": "http://127.0.0.1:8787/v1/order",
+          "cashier_base": "https://mclient.alipay.com",
+          "support_url": "https://kindsoft.vip"
+        }
+      }
+    },
+    "xs_gdt_b": {
+      "enabled": true,
+      "mode": "paywall",
+      "desc": "投放渠道 B - 灰度 30% / 安装 24 小时后开启",
+      "guard": {
+        "allow_countries": ["cn"],
+        "block_builds": ["1.0.0"],
+        "block_ip_prefixes": [],
+        "start_after_hours": 24.0,
+        "active_window": null,
+        "rollout": 0.30
+      },
+      "paywall": {
+        "splash": {
+          "title": "专业视频播放",
+          "subtitle": "精彩视频尽情观看",
+          "button": "进入",
+          "countdown_seconds": 5
+        },
+        "trial": {
+          "video_url": "https://cdn.example.com/v/trial_b.mp4",
+          "poster_url": "https://cdn.example.com/img/poster_b.jpg",
+          "countdown_seconds": 20,
+          "vip_button": "开通会员",
+          "hint": "试看视频为演示资源，开通 VIP 解锁全部功能",
+          "end_title": "试看结束",
+          "end_body": "开通会员即可解锁完整内容",
+          "end_primary": "开通会员",
+          "end_secondary": "稍后再说"
+        },
+        "vip": {
+          "title": "播放器VIP会员",
+          "packages": [
+            {"id": "vip_3y", "name": "三年", "price": 198.00, "origin_price": 598.00,
+             "perk": "有效期 1095 天 · 全站内容", "tag": "超值推荐"},
+            {"id": "vip_1m", "name": "月会员", "price": 98.00, "origin_price": 128.00,
+             "perk": "有效期 31 天 · 全站内容", "tag": ""}
+          ],
+          "button": "支付宝支付",
+          "agreements": ["《用户协议》", "《隐私政策》", "《会员协议》"]
+        },
+        "checkout": {
+          "method": "alipay_h5",
+          "order_endpoint": "http://127.0.0.1:8787/v1/order",
+          "cashier_base": "https://mclient.alipay.com",
+          "support_url": "https://kindsoft.vip"
+        }
+      }
+    }
+  },
+  "evidence": {
+    "measured": {
+      "appstore_metadata": "research/xinsheng_lookup.json",
+      "normal_tabs": "research/xs_assets/01_guanglang.jpg (底部标签栏: 光廊 / 声库 / 创坊 / 我的)",
+      "headline": "App Store 副标题「本地视频播放 · 配音跟读 · 混剪连播」",
+      "vip_prices": "research/xs_member.html 会员协议: 月 98/31天, 一年 168/365天, 三年 198/1095天, 连续包月 98, 连续包年 168",
+      "reviews": "research/xinsheng_reviews_p1.json: 11 个评分均分 1.63, 可见 5 条 1 星 (2026-10-16 ~ 11-06)",
+      "live_since": "releaseDate 2026-07-15, 最后更新 2026-08-05, 2026-11-25 仍在架"
+    },
+    "borrowed": {
+      "splash_trial_copy": "沿用上一款录屏实测的开屏与试看文案, 本款运行态未录屏取证",
+      "origin_price": "划线价沿用上一款录屏实测的 598/398/128, 会员协议只写了现价",
+      "checkout_method": "支付宝 H5 为上一款录屏实测; 本款会员协议只写「支付宝、微信等」及自动续费条款",
+      "trial_video_url": "占位 CDN 地址, 需替换成自有素材"
+    },
+    "legal_urls": [
+      "https://bfq-cdn.kindsoft.vip/files/protocol/agreement.html",
+      "https://bfq-cdn.kindsoft.vip/files/protocol/privacyPolicy.html",
+      "https://bfq-cdn.kindsoft.vip/files/protocol/member.html",
+      "https://bfq-cdn.kindsoft.vip/files/protocol/info_detail.html"
+    ]
+  }
+}

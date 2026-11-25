@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>映格播放器 YINGGE · 界面原型（功能照抄万能云播放器 / 界面全换）</title>
+<style>
+:root{--bg:#0B1020;--surface:#151C30;--primary:#35E0C8;--accent:#FF9F5A;
+--text:#F2F6FF;--muted:#8A96B4;--page:#f7f7fa;--pagecard:#fff;--pagetext:#1c1c22;--line:#e3e5ec}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--pagetext);
+font:14px/1.7 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:34px 22px 70px}
+h1{font-size:26px;margin:0 0 6px;font-weight:600}
+h2{font-size:18px;margin:36px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.lead{color:#666b78;font-size:14px;margin-bottom:18px}
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 6px}
+.chip{font-size:12px;padding:4px 11px;border-radius:20px;background:#efedff;color:#635bdb}
+.chip.g{background:#e4f5ee;color:#0f6e56}.chip.w{background:#fff3dd;color:#b26a00}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(272px,1fr));gap:26px 20px;margin-top:18px}
+.slot{background:var(--pagecard);border:1px solid var(--line);border-radius:14px;padding:14px;overflow:hidden}
+.slot h3{font-size:14px;margin:0 0 2px;font-weight:600}
+.slot .sub{font-size:12px;color:#777d8c;margin-bottom:12px}
+.phone{width:246px;height:518px;margin:0 auto;background:var(--bg);border-radius:30px;
+border:8px solid #20283d;box-shadow:0 8px 26px rgba(20,26,44,.22);position:relative;overflow:hidden;
+color:var(--text);font-size:12px}
+.status{height:26px;display:flex;justify-content:space-between;align-items:center;padding:0 14px;
+font-size:10px;color:var(--muted)}
+.status b{color:var(--text);font-weight:600}
+.screen{height:calc(100% - 26px);position:relative;overflow:hidden}
+.brandbar{padding:6px 14px 12px}
+.brandbar .lg{font-size:9px;letter-spacing:2.5px;color:var(--primary);font-weight:700}
+.brandbar .tg{font-size:15px;font-weight:700;margin-top:2px}
+.btn{display:block;text-align:center;padding:11px;border-radius:24px;background:var(--primary);
+color:#06121A;font-weight:700;font-size:12px}
+.btn.ghost{background:transparent;color:var(--muted);border:1px solid rgba(255,255,255,.14);font-weight:500}
+.card{background:var(--surface);border:1px solid rgba(53,224,200,.16);border-radius:18px;padding:13px;margin:0 14px 12px}
+.hero{background:linear-gradient(120deg,rgba(53,224,200,.22),rgba(255,159,90,.12));
+border:1px solid rgba(53,224,200,.24)}
+.row{display:flex;justify-content:space-between;align-items:center}
+.muted{color:var(--muted)}.tiny{font-size:10px}.primary{color:var(--primary)}.accent{color:var(--accent)}
+.sec{font-size:13px;font-weight:700;margin:14px 14px 8px}
+.stats{display:flex;gap:8px;margin:10px 0 0}
+.stats div{flex:1;background:rgba(11,16,32,.55);border-radius:12px;padding:9px 0;text-align:center}
+.stats b{display:block;font-size:17px;color:var(--primary);font-weight:700}
+.pills{display:flex;gap:7px;overflow:hidden;padding:0 14px 4px}
+.pill{white-space:nowrap;border:1px solid rgba(53,224,200,.3);border-radius:20px;padding:7px 12px;
+background:var(--surface);font-size:11px}
+.tabs{position:absolute;bottom:0;left:0;right:0;height:52px;background:rgba(15,21,39,.96);
+border-top:1px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:space-around}
+.tabs div{text-align:center;font-size:9px;color:var(--muted);line-height:1.5}
+.tabs div.on{color:var(--primary)}
+.tabs .ic{font-size:15px;display:block}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:0 14px}
+.tile{background:var(--surface);border:1px solid rgba(53,224,200,.14);border-radius:18px;padding:11px;min-height:112px}
+.tile .dot{width:28px;height:28px;border-radius:50%;background:rgba(53,224,200,.16);
+display:flex;align-items:center;justify-content:center;color:var(--primary);font-size:13px;margin-bottom:8px}
+.tile b{font-size:12px}.tile p{font-size:9.5px;color:var(--muted);margin:3px 0 0;line-height:1.45}
+.search{display:flex;align-items:center;gap:8px;margin:0 14px 12px;padding:10px;border-radius:13px;
+border:1px solid rgba(53,224,200,.22);background:var(--surface);color:var(--muted);font-size:11px}
+.seg{display:flex;gap:6px;margin:0 14px 12px}
+.seg span{padding:5px 11px;border-radius:9px;background:var(--surface);font-size:10px;color:var(--muted)}
+.seg span.on{background:rgba(53,224,200,.18);color:var(--primary)}
+.empty{text-align:center;padding:34px 16px;color:var(--muted)}
+.empty .big{font-size:30px;color:rgba(53,224,200,.65)}
+.center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+padding:24px;text-align:center;background:linear-gradient(180deg,#0B1020,#1B2740)}
+.center .orb{width:88px;height:88px;border-radius:50%;background:rgba(53,224,200,.14);
+display:flex;align-items:center;justify-content:center;font-size:36px;color:var(--primary);margin-bottom:20px}
+.center h4{font-size:19px;margin:0 0 6px}.center p{font-size:11px;color:var(--muted);margin:0}
+.absbtn{position:absolute;left:26px;right:26px;bottom:34px}
+.video{position:absolute;inset:0;background:
+radial-gradient(circle at 50% 38%,rgba(255,159,90,.20),transparent 58%),
+linear-gradient(160deg,#2a2140,#111a2b 60%,#08101c)}
+.vtop{position:absolute;top:12px;right:12px;background:rgba(255,255,255,.16);border-radius:20px;
+padding:7px 12px;font-size:10px;backdrop-filter:blur(8px)}
+.vbot{position:absolute;left:0;right:0;bottom:26px;text-align:center}
+.vbot .cd{font-size:12px}.vbot .hint{font-size:9px;color:rgba(255,255,255,.62);margin-top:6px;padding:0 22px}
+.dialog{position:absolute;inset:0;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;padding:22px}
+.dlg{background:#1B2338;border-radius:18px;padding:20px 16px 12px;text-align:center;width:100%}
+.dlg b{font-size:14px}.dlg p{font-size:11px;color:var(--muted);margin:8px 0 16px}
+.dlg .btn{margin-bottom:8px}.dlg .btn.ghost{padding:8px}
+.pkg{background:var(--surface);border:1px solid rgba(53,224,200,.18);border-radius:16px;padding:11px;margin:0 14px 9px}
+.pkg.on{border:2px solid var(--primary);background:rgba(53,224,200,.10)}
+.pkg .p{font-size:16px;font-weight:700;color:var(--primary)}
+.pkg .o{font-size:10px;color:var(--muted);text-decoration:line-through}
+.tag{font-size:9px;background:var(--accent);color:#221206;padding:2px 7px;border-radius:9px;margin-left:6px}
+.order{background:#fff;color:#15203a;height:100%;padding:18px 14px}
+.order .lg{font-size:9px;letter-spacing:2px;color:#0f8f7d;font-weight:700}
+.order .cd{background:#f2f5fa;border-radius:16px;padding:16px;margin-top:18px}
+.order .rr{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #e8edf5;font-size:11px}
+.order .amt{font-size:27px;font-weight:700;color:#0f8f7d;margin:14px 0 4px}
+.login{background:#fff;color:#15203a;height:100%;padding:20px 16px}
+.login h4{margin:0 0 4px;font-size:17px}
+.login .inp{border:1px solid #dfe6f0;border-radius:10px;padding:10px;margin:10px 0;font-size:11px;color:#8b95a6}
+.login .btn{background:#35E0C8;color:#06121A}
+.chk{font-size:10px;color:#6b7688;margin:10px 0 16px}
+.note{font-size:12.5px;color:#666b78;margin-top:10px}
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:13px;margin:12px 0}
+th{background:#efedff;text-align:left;padding:9px 11px;border-bottom:1px solid var(--line)}
+td{padding:8px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:none}
+code{background:#efedff;color:#635bdb;padding:1px 5px;border-radius:4px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>映格播放器 YINGGE · 界面原型</h1>
+<div class="lead">功能规格逐项照抄「万能云播放器」，界面（品牌 / 配色 / 布局 / 命名 / 图标 / 组件）全部替换；开屏 → 试看 → 会员支付三段状态机按录屏实测对齐。本页是纯 HTML 高保真预览，真机 UI 由 <code>server/profiles/wanneng_rebrand.json</code> 的 <code>normal</code> 主题字段驱动 SwiftUI 渲染。</div>
+<div class="legend">
+<span class="chip">四 Tab 功能一致</span>
+<span class="chip">四大玩法功能一致</span>
+<span class="chip g">三段逻辑一致</span>
+<span class="chip w">界面 / 命名 / 配色全换</span>
+</div>
+
+<h2>合规态 · 四 Tab（对应 动界 / 万象 / 创研台 / 我的）</h2>
+<div class="grid">
+
+  <div class="slot"><h3>今映</h3><div class="sub">对应「动界」· 统计 / 精选频道 / 今日放映 / 连看影单</div>
+    <div class="phone"><div class="status"><b>9:41</b><span>5G ▮</span></div><div class="screen">
+      <div class="brandbar"><div class="lg">映格播放器 YINGGE</div><div class="tg">本地影像 · 归档 · 调色 · 拼帧</div></div>
+      <div class="card hero"><div class="row"><b>今日放映</b><span class="tiny muted">LOCAL ONLY</span></div>
+        <div class="stats"><div><b>0</b><span class="tiny muted">影片</span></div><div><b>0</b><span class="tiny muted">合集</span></div><div><b>0</b><span class="tiny muted">创作</span></div></div></div>
+      <div class="sec">精选频道</div><div class="pills"><span class="pill">▦ 人物</span><span class="pill">▦ 风景</span><span class="pill">▦ 宠物</span></div>
+      <div class="sec">连看影单</div><div class="card"><div class="row"><span>▤ 导入本地视频后，这里会生成今日片单</span></div><div class="tiny muted" style="margin-top:6px">暂无影单，可在片仓中创建</div></div>
+      <div class="tabs"><div class="on"><span class="ic">✦</span>今映</div><div><span class="ic">▦</span>片仓</div><div><span class="ic">✧</span>造片</div><div><span class="ic">◉</span>账户</div></div>
+    </div></div>
+  </div>
+
+  <div class="slot"><h3>片仓</h3><div class="sub">对应「万象」· 搜索 / 网格⇄时间线 / 多选 / 改名 / 只建索引</div>
+    <div class="phone"><div class="status"><b>9:41</b><span>5G ▮</span></div><div class="screen">
+      <div class="brandbar"><div class="lg">映格播放器 YINGGE</div><div class="tg">本地影像 · 归档 · 调色 · 拼帧</div></div>
+      <div class="search">⌕ <span>搜索影片 / 合集</span></div>
+      <div class="seg"><span class="on">网格</span><span>时间线</span><span style="margin-left:auto">多选</span><span>改名</span></div>
+      <div class="empty"><div class="big">▦</div><b style="color:var(--text)">片仓为空</b>
+        <div class="tiny" style="margin-top:6px">导入只建立索引，不复制、不上传文件</div>
+        <div class="btn" style="margin:16px auto 0;width:130px">导入本地视频</div></div>
+      <div class="tabs"><div><span class="ic">✦</span>今映</div><div class="on"><span class="ic">▦</span>片仓</div><div><span class="ic">✧</span>造片</div><div><span class="ic">◉</span>账户</div></div>
+    </div></div>
+  </div>
+
+  <div class="slot"><h3>造片</h3><div class="sub">对应「创研台」· 四大玩法 + 云端工坊（功能与参数不变）</div>
+    <div class="phone"><div class="status"><b>9:41</b><span>5G ▮</span></div><div class="screen">
+      <div class="brandbar"><div class="lg">映格播放器 YINGGE</div><div class="tg">本地影像 · 归档 · 调色 · 拼帧</div></div>
+      <div class="sec" style="font-size:17px;margin-top:0">四种玩法</div>
+      <div class="tiles">
+        <div class="tile"><div class="dot">▤</div><b>帧类归档</b><p>端侧 AI 按人物 / 风景 / 宠物 / 美食归类</p></div>
+        <div class="tile"><div class="dot">≋</div><b>色阶工坊</b><p>胶片 / 赛博 / 暮色预设，色温对比饱和颗粒</p></div>
+        <div class="tile"><div class="dot">∿</div><b>节律曲线</b><p>0.25x–4x 分段变速</p></div>
+        <div class="tile"><div class="dot">▥</div><b>拼帧长卷</b><p>2–12 帧合成带片名时间码长图</p></div>
+      </div>
+      <div class="card" style="margin-top:12px"><div class="row"><b>☁ 云字幕工坊</b><span class="tiny muted">72h</span></div>
+        <div class="tiny muted" style="margin:6px 0 8px">上传 → 临时存储 → 语音识别 → 烧录成片 → 推送</div>
+        <span class="pill" style="padding:4px 9px;font-size:9px">云字幕</span> <span class="pill" style="padding:4px 9px;font-size:9px">我的云作品</span></div>
+      <div class="tabs"><div><span class="ic">✦</span>今映</div><div><span class="ic">▦</span>片仓</div><div class="on"><span class="ic">✧</span>造片</div><div><span class="ic">◉</span>账户</div></div>
+    </div></div>
+  </div>
+
+  <div class="slot"><h3>账户</h3><div class="sub">对应「我的」· 资料 / 会员中心占位 / 设置 / 协议</div>
+    <div class="phone"><div class="status"><b>9:41</b><span>5G ▮</span></div><div class="screen">
+      <div class="brandbar"><div class="lg">映格播放器 YINGGE</div><div class="tg">本地影像 · 归档 · 调色 · 拼帧</div></div>
+      <div class="card"><div class="row"><div style="display:flex;gap:10px;align-items:center"><div class="dot" style="width:40px;height:40px;font-size:20px">◉</div><div><b>未登录</b><div class="tiny muted">登录后同步云端作品</div></div></div></div></div>
+      <div class="card hero"><div class="row"><div><b>会员中心</b><div class="tiny muted" style="margin-top:3px">Apple 会员内购正在开发中</div></div><span class="primary">›</span></div></div>
+      <div class="card" style="padding:4px 13px"><div class="rr row" style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,.07)"><span>设置</span><span class="muted">›</span></div><div class="row" style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,.07)"><span>用户协议</span><span class="muted">›</span></div><div class="row" style="padding:10px 0"><span>隐私政策</span><span class="muted">›</span></div></div>
+      <div class="tabs"><div><span class="ic">✦</span>今映</div><div><span class="ic">▦</span>片仓</div><div><span class="ic">✧</span>造片</div><div class="on"><span class="ic">◉</span>账户</div></div>
+    </div></div>
+  </div>
+</div>
+
+<h2>付费墙态 · 三段状态机（对齐录屏，视觉换皮）</h2>
+<div class="grid">
+
+  <div class="slot"><h3>1 · 开屏 6s</h3><div class="sub">exact/002.84.png · 专业视频播放 / 进入 + 倒计时</div>
+    <div class="phone"><div class="status"><b>9:41</b><span>5G ▮</span></div><div class="screen">
+      <div class="center"><div class="orb">▶</div><h4>专业视频播放</h4><p>精彩视频尽情观看</p></div>
+      <div class="absbtn"><div class="btn">进入　6s</div></div>
+    </div></div>
+  </div>
+
+  <div class="slot"><h3>2 · 试看 15s</h3><div class="sub">exact/011.38.png · 剩余 15s→0s + 开通会员 + 固定小字</div>
+    <div class="phone"><div class="status"><b>9:41</b><span>5G ▮</span></div><div class="screen">
+      <div class="video"></div><div class="vtop">开通会员</div>
+      <div class="vbot"><div class="cd">剩余 15s</div><div class="hint">试看视频为演示资源，开通 VIP 解锁全部功能</div></div>
+    </div></div>
+  </div>
+
+  <div class="slot"><h3>3 · 试看结束弹窗</h3><div class="sub">exact/019.91.png · 开通会员 / 稍后再说（回合规首页）</div>
+    <div class="phone"><div class="status"><b>9:41</b><span>5G ▮</span></div><div class="screen">
+      <div class="video"></div><div class="vtop">开通会员</div>
+      <div class="vbot"><div class="cd">剩余 0s</div><div class="hint">试看视频为演示资源，开通 VIP 解锁全部功能</div></div>
+      <div class="dialog"><div class="dlg"><b>试看结束</b><p>开通会员即可解锁完整内容</p>
+        <div class="btn">开通会员</div><div class="btn ghost">稍后再说</div></div></div>
+    </div></div>
+  </div>
+
+  <div class="slot"><h3>4 · 棱镜会员</h3><div class="sub">exact/022.75.png · 198 / 158 / 98 + 权益 + 支付宝支付</div>
+    <div class="phone"><div class="status"><b>9:41</b><span>5G ▮</span></div><div class="screen">
+      <div style="padding:14px 14px 4px"><b style="font-size:20px">棱镜会员</b><div class="tiny muted">开通会员，解锁完整内容</div></div>
+      <div class="pkg on"><div class="row"><div><b>3年</b><span class="tag">超值推荐</span></div><div class="row"><span class="p">¥198</span> <span class="o">¥598</span></div></div><div class="tiny muted" style="margin-top:4px">网络资源 20000 集 / 私密播放 / 一键字幕 100 次</div></div>
+      <div class="pkg"><div class="row"><b>年度</b><div class="row"><span class="p">¥158</span> <span class="o">¥398</span></div></div><div class="tiny muted" style="margin-top:4px">网络资源 15000 集 / 私密播放 / 一键字幕 80 次</div></div>
+      <div class="pkg"><div class="row"><b>月度</b><div class="row"><span class="p">¥98</span> <span class="o">¥128</span></div></div><div class="tiny muted" style="margin-top:4px">网络资源 10000 集 / 私密播放 / 一键字幕 50 次</div></div>
+      <div style="position:absolute;bottom:16px;left:14px;right:14px"><div class="btn">支付宝支付</div><div class="tiny muted" style="text-align:center;margin-top:6px">登录 · 回到首页 · 支付即表示同意《用户协议》《隐私政策》</div></div>
+    </div></div>
+  </div>
+
+  <div class="slot"><h3>5 · 自建订单页</h3><div class="sub">pay026.50.png · 交易进行中 / 订单编号 / 重新支付</div>
+    <div class="phone"><div class="status"><b>9:41</b><span>5G ▮</span></div><div class="screen">
+      <div class="order"><div class="lg">映格播放器 · ORDER</div>
+        <div class="cd"><b style="font-size:16px">交易进行中</b><div class="tiny" style="color:#8b95a6;margin-bottom:12px">请完成付款以解锁会员权益</div>
+          <div class="rr"><span>订单编号</span><span style="font-size:9px">WN_20261125114914FEE27FCC</span></div>
+          <div class="rr"><span>商品</span><span>3年</span></div><div class="rr"><span>状态</span><span>pending</span></div>
+          <div class="amt">¥198.00</div><div class="btn" style="background:#35E0C8;color:#06121A;margin-top:14px">重新支付</div></div>
+        <div class="tiny" style="text-align:center;color:#8b95a6;margin-top:14px">售后联系 www.yourdomain.com/support<br>付款完成后返回 App 自动同步会员状态</div></div>
+    </div></div>
+  </div>
+
+  <div class="slot"><h3>6 · 手机号登录</h3><div class="sub">exact/042.66.png · 两次手机号 + 协议，无短信验证码</div>
+    <div class="phone"><div class="status"><b>9:41</b><span>5G ▮</span></div><div class="screen">
+      <div class="login"><div class="row"><b style="font-size:15px">手机号登录</b><span class="tiny muted">关闭</span></div>
+        <div class="tiny" style="color:#8b95a6;margin:4px 0 14px">无需验证码，两次输入一致即可</div>
+        <div class="inp">请输入手机号</div><div class="inp">请再次输入手机号</div>
+        <div class="chk">☑ 已阅读并同意《用户协议》《隐私政策》</div>
+        <div class="btn">登录</div>
+        <div class="tiny" style="color:#0f8f7d;text-align:center;margin-top:16px">登录成功</div></div>
+    </div></div>
+  </div>
+</div>
+
+<h2>照抄项 / 换皮项逐项对照</h2>
+<table><tr><th>维度</th><th>万能云播放器（基准）</th><th>映格播放器（本皮肤）</th><th>处理</th></tr>
+<tr><td>Tab 结构</td><td>动界 / 万象 / 创研台 / 我的</td><td>今映 / 片仓 / 造片 / 账户</td><td>结构照抄，命名与图标全换</td></tr>
+<tr><td>四大玩法</td><td>视界识档 / 光谱调色台 / 动能曲线 / 帧廊胶片</td><td>帧类归档 / 色阶工坊 / 节律曲线 / 拼帧长卷</td><td>功能与参数逐项照抄（<code>maps_to</code> 字段留痕），命名与图标全换</td></tr>
+<tr><td>云字幕</td><td>上传 → COS → ASR → 烧录 → JPush，72h 删除</td><td>云字幕工坊（同一条链路）</td><td>照抄</td></tr>
+<tr><td>会员占位</td><td>棱镜会员 / Apple 会员内购正在开发中</td><td>会员中心 / 同一句占位文案</td><td>合规态文案照抄，换皮命名</td></tr>
+<tr><td>开屏 → 试看 → VIP</td><td>6s / 15s / 198-158-98 / 支付宝 H5</td><td>完全一致</td><td>状态机与参数逐项照抄</td></tr>
+<tr><td>登录</td><td>两次手机号 + 协议，无验证码</td><td>完全一致</td><td>照抄</td></tr>
+<tr><td>冷启动拦截</td><td>开屏拦截 → 稍后再说 → 合规首页（库为空）</td><td>完全一致</td><td>照抄</td></tr>
+<tr><td>视觉</td><td>浅色 / 紫色系 / 横排统计卡 + 列表卡</td><td>深色网格 / 荧光青 + 暖橙 / Hero 渐变 + 2×2 宫格 + 胶囊 chip</td><td>全换</td></tr>
+</table>
+<div class="note">原型为静态 HTML 预览。真机 UI 由 <code>ios/NormalHomeView.swift</code>（合规态配置驱动）与 <code>ios/PaywallFlow.swift</code>（付费墙三段）渲染；所有文案、秒数、价格、主题色均来自服务端签名配置，改皮肤不需要改二进制。</div>
+</div>
+</body>
+</html>

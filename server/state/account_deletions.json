@@ -1,0 +1,228 @@
+{
+  "deletions": [
+    {
+      "receipt": "DEL20261125152401B2137B56",
+      "ts": 1795591441,
+      "phone_hash": "9d64b7dfa91613b2",
+      "idfv_hash": "ec36a9dee01c6ab7a959dc5a",
+      "channel": "wn_douyin_a",
+      "deleted": {
+        "logins": 1,
+        "vip": 0,
+        "orders_deidentified": 0,
+        "device_bindings": 0
+      },
+      "retained": "匿名交易流水(去标识化) / 广告点击日志(不含账号标识)"
+    },
+    {
+      "receipt": "DEL20261125163413162FF5F5",
+      "ts": 1795595653,
+      "phone_hash": "168ab3144a2decbc",
+      "idfv_hash": "ec36a9dee01c6ab7a959dc5a",
+      "channel": "bbdd1",
+      "deleted": {
+        "logins": 1,
+        "vip": 1,
+        "orders_deidentified": 3,
+        "device_bindings": 2
+      },
+      "retained": "匿名交易流水(去标识化) / 广告点击日志(不含账号标识)"
+    },
+    {
+      "receipt": "DEL20261125163418750E6BDC",
+      "ts": 1795595658,
+      "phone_hash": "9d64b7dfa91613b2",
+      "idfv_hash": "ec36a9dee01c6ab7a959dc5a",
+      "channel": "wn_douyin_a",
+      "deleted": {
+        "logins": 1,
+        "vip": 0,
+        "orders_deidentified": 0,
+        "device_bindings": 0
+      },
+      "retained": "匿名交易流水(去标识化) / 广告点击日志(不含账号标识)"
+    },
+    {
+      "receipt": "DEL2026112516344192BC04CF",
+      "ts": 1795595681,
+      "phone_hash": "168ab3144a2decbc",
+      "idfv_hash": "ec36a9dee01c6ab7a959dc5a",
+      "channel": "bbdd1",
+      "deleted": {
+        "logins": 1,
+        "vip": 1,
+        "orders_deidentified": 1,
+        "device_bindings": 2
+      },
+      "retained": "匿名交易流水(去标识化) / 广告点击日志(不含账号标识)"
+    },
+    {
+      "receipt": "DEL20261125163607691197E9",
+      "ts": 1795595767,
+      "phone_hash": "168ab3144a2decbc",
+      "idfv_hash": "ec36a9dee01c6ab7a959dc5a",
+      "channel": "bbdd1",
+      "deleted": {
+        "logins": 1,
+        "vip": 1,
+        "orders_deidentified": 3,
+        "device_bindings": 2
+      },
+      "retained": "匿名交易流水(去标识化) / 广告点击日志(不含账号标识)"
+    },
+    {
+      "receipt": "DEL20261125163617E1B1B9AA",
+      "ts": 1795595777,
+      "phone_hash": "9d64b7dfa91613b2",
+      "idfv_hash": "ec36a9dee01c6ab7a959dc5a",
+      "channel": "wn_douyin_a",
+      "deleted": {
+        "logins": 1,
+        "vip": 0,
+        "orders_deidentified": 0,
+        "device_bindings": 0
+      },
+      "retained": "匿名交易流水(去标识化) / 广告点击日志(不含账号标识)"
+    },
+    {
+      "receipt": "DEL202611251636509B4B70AE",
+      "ts": 1795595810,
+      "phone_hash": "168ab3144a2decbc",
+      "idfv_hash": "ec36a9dee01c6ab7a959dc5a",
+      "channel": "bbdd1",
+      "deleted": {
+        "logins": 1,
+        "vip": 1,
+        "orders_deidentified": 3,
+        "device_bindings": 2
+      },
+      "retained": "匿名交易流水(去标识化) / 广告点击日志(不含账号标识)"
+    },
+    {
+      "receipt": "DEL2026112516370003D45B88",
+      "ts": 1795595820,
+      "phone_hash": "9d64b7dfa91613b2",
+      "idfv_hash": "ec36a9dee01c6ab7a959dc5a",
+      "channel": "wn_douyin_a",
+      "deleted": {
+        "logins": 1,
+        "vip": 0,
+        "orders_deidentified": 0,
+        "device_bindings": 0
+      },
+      "retained": "匿名交易流水(去标识化) / 广告点击日志(不含账号标识)"
+    },
+    {
+      "receipt": "DEL202611251637312CA551D4",
+      "ts": 1795595851,
+      "phone_hash": "168ab3144a2decbc",
+      "idfv_hash": "ec36a9dee01c6ab7a959dc5a",
+      "channel": "bbdd1",
+      "deleted": {
+        "logins": 1,
+        "vip": 1,
+        "orders_deidentified": 3,
+        "device_bindings": 2
+      },
+      "retained": "匿名交易流水(去标识化) / 广告点击日志(不含账号标识)"
+    },
+    {
+      "receipt": "DEL20261125163751F49EEE20",
+      "ts": 1795595871,
+      "phone_hash": "168ab3144a2decbc",
+      "idfv_hash": "ec36a9dee01c6ab7a959dc5a",
+      "channel": "bbdd1",
+      "deleted": {
+        "logins": 1,
+        "vip": 1,
+        "orders_deidentified": 3,
+        "device_bindings": 2
+      },
+      "retained": "匿名交易流水(去标识化) / 广告点击日志(不含账号标识)"
+    },
+    {
+      "receipt": "DEL20261125163755C3D19173",
+      "ts": 1795595875,
+      "phone_hash": "9d64b7dfa91613b2",
+      "idfv_hash": "ec36a9dee01c6ab7a959dc5a",
+      "channel": "wn_douyin_a",
+      "deleted": {
+        "logins": 1,
+        "vip": 0,
+        "orders_deidentified": 0,
+        "device_bindings": 0
+      },
+      "retained": "匿名交易流水(去标识化) / 广告点击日志(不含账号标识)"
+    },
+    {
+      "receipt": "DEL20261125175204F9F53A7C",
+      "ts": 1795600324,
+      "phone_hash": "168ab3144a2decbc",
+      "idfv_hash": "ec36a9dee01c6ab7a959dc5a",
+      "channel": "bbdd1",
+      "deleted": {
+        "logins": 1,
+        "vip": 1,
+        "orders_deidentified": 3,
+        "device_bindings": 2
+      },
+      "retained": "匿名交易流水(去标识化) / 广告点击日志(不含账号标识)"
+    },
+    {
+      "receipt": "DEL20261125175209710FA37F",
+      "ts": 1795600329,
+      "phone_hash": "9d64b7dfa91613b2",
+      "idfv_hash": "ec36a9dee01c6ab7a959dc5a",
+      "channel": "wn_douyin_a",
+      "deleted": {
+        "logins": 1,
+        "vip": 0,
+        "orders_deidentified": 0,
+        "device_bindings": 0
+      },
+      "retained": "匿名交易流水(去标识化) / 广告点击日志(不含账号标识)"
+    },
+    {
+      "receipt": "DEL2026112517540277E1C24F",
+      "ts": 1795600442,
+      "phone_hash": "168ab3144a2decbc",
+      "idfv_hash": "ec36a9dee01c6ab7a959dc5a",
+      "channel": "bbdd1",
+      "deleted": {
+        "logins": 1,
+        "vip": 1,
+        "orders_deidentified": 3,
+        "device_bindings": 2
+      },
+      "retained": "匿名交易流水(去标识化) / 广告点击日志(不含账号标识)"
+    },
+    {
+      "receipt": "DEL20261125175406813101FC",
+      "ts": 1795600446,
+      "phone_hash": "9d64b7dfa91613b2",
+      "idfv_hash": "ec36a9dee01c6ab7a959dc5a",
+      "channel": "wn_douyin_a",
+      "deleted": {
+        "logins": 1,
+        "vip": 0,
+        "orders_deidentified": 0,
+        "device_bindings": 0
+      },
+      "retained": "匿名交易流水(去标识化) / 广告点击日志(不含账号标识)"
+    },
+    {
+      "receipt": "DEL20261125183655F8801240",
+      "ts": 1795603015,
+      "phone_hash": "168ab3144a2decbc",
+      "idfv_hash": "ec36a9dee01c6ab7a959dc5a",
+      "channel": "bbdd1",
+      "deleted": {
+        "logins": 1,
+        "vip": 1,
+        "orders_deidentified": 3,
+        "device_bindings": 2
+      },
+      "retained": "匿名交易流水(去标识化) / 广告点击日志(不含账号标识)"
+    }
+  ]
+}

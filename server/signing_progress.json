@@ -1,0 +1,193 @@
+{
+  "updated_at": "2026-11-25 23:12:19",
+  "mainline": {
+    "done": 2,
+    "total": 8,
+    "next": {
+      "n": 3,
+      "title": "创建 App ID + App Store 描述文件",
+      "owner": "你",
+      "action": "Identifiers 注册 com.mizhenhe.player → Profiles → ＋ → Distribution / App Store → 下载 .mobileprovision",
+      "target": "deploy/signing/in/*.mobileprovision",
+      "status": "todo",
+      "hint": "必须选 App Store 类型；Ad Hoc 类型会在 exportArchive 阶段失败。"
+    },
+    "steps": [
+      {
+        "n": 1,
+        "title": "开通/确认 Apple Developer Program 并拿 Team ID",
+        "owner": "你",
+        "action": "登录 developer.apple.com/account → Membership，确认是付费会员；把 10 位 Team ID 存成一行文本",
+        "target": "deploy/signing/in/team_id.txt",
+        "status": "done",
+        "hint": "个人 ¥688/年，一般几小时~2 天生效。没有付费会员就无法生成 Distribution 证书，任何机器都出不了可安装的包。"
+      },
+      {
+        "n": 2,
+        "title": "用我生成好的 CSR 换 Distribution 证书",
+        "owner": "你",
+        "action": "Certificates → ＋ → Apple Distribution（中文界面叫「苹果发行」）→ 上传桌面 mizhenhe_distribution.csr → 下载 .cer 放进 in/",
+        "target": "deploy/signing/in/*.cer",
+        "status": "done",
+        "hint": "CSR 和私钥已生成且成对，不要重新生成；Apple 下载的文件名可能是 apple_distribution.cer，任意 .cer 都能自动识别。"
+      },
+      {
+        "n": 3,
+        "title": "创建 App ID + App Store 描述文件",
+        "owner": "你",
+        "action": "Identifiers 注册 com.mizhenhe.player → Profiles → ＋ → Distribution / App Store → 下载 .mobileprovision",
+        "target": "deploy/signing/in/*.mobileprovision",
+        "status": "todo",
+        "hint": "必须选 App Store 类型；Ad Hoc 类型会在 exportArchive 阶段失败。"
+      },
+      {
+        "n": 4,
+        "title": "生成 App Store Connect API 密钥",
+        "owner": "你",
+        "action": "App Store Connect → 用户和访问 → 集成 → 密钥 → 生成（App Manager 权限）→ 下载 .p8，记下 Key ID 和 Issuer ID",
+        "target": "deploy/signing/in/AuthKey_*.p8 + asc_ids.txt",
+        "status": "todo",
+        "hint": "p8 只能下载一次。Key ID 会由文件名自动识别，Issuer ID 请写进 in/issuer_id.txt。"
+      },
+      {
+        "n": 5,
+        "title": "在 App Store Connect 新建 App 记录",
+        "owner": "你",
+        "action": "我的 App → ＋ → 名称填「米帧盒播放器」、Bundle ID 选 com.mizhenhe.player、SKU 随便填 → 建好后告诉我一声",
+        "target": "（无需文件，口头确认）",
+        "status": "todo",
+        "hint": "TestFlight 上传前必须有这条 App 记录；内部测试组加你自己的 Apple ID 邮箱即可。"
+      },
+      {
+        "n": 6,
+        "title": "准备一台 macOS 编译器",
+        "owner": "你选一条",
+        "action": "A：跑 python deploy/github_device_auth.py --start 拿 8 位码 → 在已登录 GitHub 的浏览器打开 github.com/login/device 输入并授权 → --poll 自动落 token，我走 api.github.com 全自动建仓/传码/出包（推荐，公开仓库免费）　B：租一台云 Mac 给我 SSH",
+        "target": "deploy/signing/in/github_repo.txt",
+        "status": "todo",
+        "hint": "github.com 网页慢且偶发 5xx（跟 WiFi/手机流量无关），但 api.github.com 稳定；token 走设备授权拿，不用手机、不用进 PAT 设置页，bootstrap 全程走 REST API。GitHub 的 macos-26 runner 带 Xcode 26，免费。"
+      },
+      {
+        "n": 7,
+        "title": "我出包并自动上传到 TestFlight",
+        "owner": "我",
+        "action": "材料齐后我跑 prepare_secrets.py → 填 Secrets → 触发 CI → 出 ipa → 上传，全程不用你动手",
+        "target": "download/ipa/*.ipa",
+        "status": "todo",
+        "hint": ""
+      },
+      {
+        "n": 8,
+        "title": "手机装 TestFlight，之后每次改完点「更新」",
+        "owner": "你",
+        "action": "App Store 搜 TestFlight 安装 → 用你的 Apple ID 登录 → 接受邀请 → 装米帧盒播放器",
+        "target": "（手机）",
+        "status": "todo",
+        "hint": "内部测试不用苹果审核，上传处理完几分钟就能装；以后我每次出新构建，你手机会收到推送。"
+      }
+    ],
+    "name": "TestFlight · 官方迭代分发（推荐）",
+    "desc": "上传后手机自动收到更新，适合长期反复改、反复测；材料多 2 项。"
+  },
+  "fastline": {
+    "done": 4,
+    "total": 7,
+    "next": {
+      "n": 5,
+      "title": "准备一台 macOS 编译器",
+      "owner": "你选一条",
+      "action": "A：跑 python deploy/github_device_auth.py --start 拿 8 位码 → 在已登录 GitHub 的浏览器打开 github.com/login/device 输入并授权 → --poll 自动落 token，我走 api.github.com 全自动建仓/传码/出包（推荐，公开仓库免费）　B：租一台云 Mac 给我 SSH",
+      "target": "deploy/signing/in/github_repo.txt",
+      "status": "todo",
+      "hint": "github.com 网页慢且偶发 5xx（跟 WiFi/手机流量无关），但 api.github.com 稳定；token 走设备授权拿，不用手机、不用进 PAT 设置页，bootstrap 全程走 REST API。GitHub 的 macos-26 runner 带 Xcode 26，免费。"
+    },
+    "steps": [
+      {
+        "n": 1,
+        "title": "开通/确认 Apple Developer Program 并拿 Team ID",
+        "owner": "你",
+        "action": "登录 developer.apple.com/account → Membership，确认是付费会员；把 10 位 Team ID 存成一行文本",
+        "target": "deploy/signing/in/team_id.txt",
+        "status": "done",
+        "hint": "个人 ¥688/年，一般几小时~2 天生效。没有付费会员就无法生成 Distribution 证书，任何机器都出不了可安装的包。"
+      },
+      {
+        "n": 2,
+        "title": "用我生成好的 CSR 换 Distribution 证书",
+        "owner": "你",
+        "action": "Certificates → ＋ → Apple Distribution（中文界面叫「苹果发行」）→ 上传桌面 mizhenhe_distribution.csr → 下载 .cer 放进 in/",
+        "target": "deploy/signing/in/*.cer",
+        "status": "done",
+        "hint": "CSR 和私钥已生成且成对，不要重新生成；Apple 下载的文件名可能是 apple_distribution.cer，任意 .cer 都能自动识别。"
+      },
+      {
+        "n": 3,
+        "title": "拿到你 iPhone 的 UDID",
+        "owner": "你",
+        "action": "iPhone 用 Safari 打开 https://app.kqi.ink/mzh/udid → 点「获取本机 UDID」→ 设置里安装描述文件，UDID 自动回传服务器",
+        "target": "deploy/signing/in/udid.txt",
+        "status": "done",
+        "hint": "装完告诉我一声，我跑 next.py --pull-udid 自动同步进工程；多台设备各点一次，一行一个。"
+      },
+      {
+        "n": 4,
+        "title": "注册设备 + 创建 Ad Hoc 描述文件",
+        "owner": "你",
+        "action": "Devices → ＋ 登记 UDID → Profiles → ＋ → Distribution / 临时(Ad Hoc) → 选设备 → 下载 .mobileprovision",
+        "target": "deploy/signing/in/*.mobileprovision",
+        "status": "done",
+        "hint": "这条线不需要 p8、不需要 App Store Connect、不需要新建 App 记录；证书 + 描述文件 + 私钥三件套已验过一致，p12 与 6 个 Secrets 已生成。"
+      },
+      {
+        "n": 5,
+        "title": "准备一台 macOS 编译器",
+        "owner": "你选一条",
+        "action": "A：跑 python deploy/github_device_auth.py --start 拿 8 位码 → 在已登录 GitHub 的浏览器打开 github.com/login/device 输入并授权 → --poll 自动落 token，我走 api.github.com 全自动建仓/传码/出包（推荐，公开仓库免费）　B：租一台云 Mac 给我 SSH",
+        "target": "deploy/signing/in/github_repo.txt",
+        "status": "todo",
+        "hint": "github.com 网页慢且偶发 5xx（跟 WiFi/手机流量无关），但 api.github.com 稳定；token 走设备授权拿，不用手机、不用进 PAT 设置页，bootstrap 全程走 REST API。GitHub 的 macos-26 runner 带 Xcode 26，免费。"
+      },
+      {
+        "n": 6,
+        "title": "我出包并生成扫码安装链接",
+        "owner": "我",
+        "action": "API 上传的代码落到 main 触发 ios-adhoc.yml 在 macos-26 出 Ad Hoc ipa → 我用 --artifact 经 API 下载 ipa 放进 download/ipa/ → python deploy/release_ipa.py --deploy 生成 OTA manifest + 二维码 + 下载页切换",
+        "target": "download/ipa/*.ipa",
+        "status": "todo",
+        "hint": ""
+      },
+      {
+        "n": 7,
+        "title": "手机扫码安装；以后每次改完重新扫一次",
+        "owner": "你",
+        "action": "用 iPhone 相机/ Safari 扫下载页的安装二维码 → 点安装 → 设置里信任一次开发者",
+        "target": "（手机）",
+        "status": "todo",
+        "hint": ""
+      }
+    ],
+    "name": "Ad Hoc · 扫码直装（最快看到改动）",
+    "desc": "不用 p8、不用 App Store Connect、不用审核，改完一条命令就能装；每台设备要登记 UDID。"
+  },
+  "materials": {
+    "team_id": "25F879952L",
+    "csr": "deploy/signing/out/mizhenhe_distribution.csr",
+    "private_key": "deploy/signing/out/mizhenhe_distribution.key",
+    "cert": "deploy/signing/in/apple_distribution.cer",
+    "profile": "deploy/signing/in/Mizhenhe_Ad_Hoc.mobileprovision",
+    "profile_type": "Ad Hoc",
+    "profile_uuid": "54a43c5e-3320-4f04-92e2-5ab2fefedc25",
+    "profile_team": "25F879952L",
+    "profile_bundle": "com.mizhenhe.player",
+    "profile_devices": 1,
+    "p8": "",
+    "asc_key_id": "",
+    "asc_issuer_id": "",
+    "udid": "00008140-000E75810E3A801C",
+    "github_repo": "",
+    "secrets_ready": "6/9",
+    "secrets_ready_adhoc": "6/6",
+    "ipa": []
+  },
+  "note": "Apple 后台带双重认证，登录和点击必须本人做；本脚本不联网、不读取任何账号密码。"
+}

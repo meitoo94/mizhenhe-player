@@ -1,0 +1,160 @@
+{
+  "kill_switch": false,
+  "channels": {
+    "organic": {
+      "normal_tabs": [
+        "今映",
+        "片仓",
+        "造片",
+        "账户"
+      ],
+      "home_sections": [
+        "精选频道",
+        "今日放映",
+        "连看影单"
+      ],
+      "craft_features": [
+        "frame_classify",
+        "grade_studio",
+        "tempo_curve",
+        "frame_strip"
+      ],
+      "cloud_subtitle": true,
+      "membership_entry": true,
+      "paywall_modules": {
+        "splash": true,
+        "trial": true,
+        "vip": true,
+        "checkout": true,
+        "login": true
+      },
+      "visible_packages": []
+    },
+    "wn_douyin_a": {
+      "normal_tabs": [
+        "今映",
+        "片仓",
+        "造片",
+        "账户"
+      ],
+      "home_sections": [
+        "精选频道",
+        "今日放映",
+        "连看影单"
+      ],
+      "craft_features": [
+        "frame_classify",
+        "grade_studio",
+        "tempo_curve",
+        "frame_strip"
+      ],
+      "cloud_subtitle": true,
+      "membership_entry": true,
+      "paywall_modules": {
+        "splash": true,
+        "trial": true,
+        "vip": true,
+        "checkout": true,
+        "login": true
+      },
+      "visible_packages": [
+        "vip_3y",
+        "vip_1y",
+        "vip_1m"
+      ]
+    },
+    "wn_gdt_b": {
+      "normal_tabs": [
+        "今映",
+        "片仓",
+        "造片",
+        "账户"
+      ],
+      "home_sections": [
+        "精选频道",
+        "今日放映",
+        "连看影单"
+      ],
+      "craft_features": [
+        "frame_classify",
+        "grade_studio",
+        "tempo_curve",
+        "frame_strip"
+      ],
+      "cloud_subtitle": true,
+      "membership_entry": true,
+      "paywall_modules": {
+        "splash": true,
+        "trial": true,
+        "vip": true,
+        "checkout": true,
+        "login": true
+      },
+      "visible_packages": [
+        "vip_3y",
+        "vip_1m"
+      ]
+    },
+    "bbdd1": {
+      "normal_tabs": [
+        "今映",
+        "片仓",
+        "造片",
+        "账户"
+      ],
+      "home_sections": [
+        "精选频道",
+        "今日放映"
+      ],
+      "craft_features": [
+        "frame_classify",
+        "grade_studio"
+      ],
+      "cloud_subtitle": false,
+      "membership_entry": true,
+      "paywall_modules": {
+        "splash": true,
+        "trial": true,
+        "vip": true,
+        "checkout": true,
+        "login": true
+      },
+      "visible_packages": [
+        "vip_3y",
+        "vip_1m"
+      ]
+    },
+    "mzhtest": {
+      "normal_tabs": [
+        "今映",
+        "片仓",
+        "造片",
+        "账户"
+      ],
+      "home_sections": [
+        "精选频道",
+        "今日放映",
+        "连看影单"
+      ],
+      "craft_features": [
+        "frame_classify",
+        "grade_studio",
+        "tempo_curve",
+        "frame_strip"
+      ],
+      "cloud_subtitle": true,
+      "membership_entry": true,
+      "paywall_modules": {
+        "splash": true,
+        "trial": true,
+        "vip": true,
+        "checkout": true,
+        "login": true
+      },
+      "visible_packages": [
+        "vip_3y",
+        "vip_1m"
+      ]
+    }
+  }
+}

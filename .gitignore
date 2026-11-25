@@ -1,0 +1,26 @@
+# Apple 签名材料 / 私钥 / 安装包：一律不进 Git
+deploy/signing/in/
+deploy/signing/out/*.key
+deploy/signing/out/*.p12
+deploy/signing/out/*.pem
+deploy/signing/out/*.plist
+deploy/signing/secrets/
+deploy/signing/in/*.p8
+*.p8
+*.p12
+*.mobileprovision
+*.cer
+download/ipa/*.ipa
+xcode/build/
+*.xcarchive
+DerivedData/
+
+# ===== 公开仓库安全边界 =====
+# 以下本地操作手册内含后台明文密码 / Basic Auth 直达链接，禁止推到 GitHub
+后台合并与原后台接口接入说明.html
+后端部署到app.kqi.ink-操作手册.html
+接下去怎么做-从能下载到上架.html
+服务器授权-一步开通.html
+__pycache__/
+*.pyc
+evidence/

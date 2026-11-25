@@ -1,0 +1,129 @@
+# 零租金备选路线：不租 Mac，用 GitHub 的 macOS 26 runner 编译并上传 TestFlight。
+# macos-26 镜像自 2026-07 起默认 Xcode 26.6 / iOS 26 SDK，满足 2026-04-28 上传要求。
+# 公开仓库标准 runner 免费；私有仓库 macOS 分钟按 10x 消耗免费额度，超出 $0.062/分钟。
+#
+# 前置 secrets（仓库 Settings > Secrets and variables > Actions）：
+#   MZH_TEAM_ID, MZH_BUNDLE_ID（另需 ASC 三项，见下）
+#   MZH_CONFIG_BASE_URL（可选；不填就用仓库里已写好的 https:/$()/app.kqi.ink/mzh，
+#     必须连 /mzh 子路径一起填：https:/$()/app.kqi.ink/mzh）
+#   ASC_KEY_ID, ASC_ISSUER_ID, ASC_P8_BASE64（.p8 的 base64）
+#   CERT_P12_BASE64, CERT_PASSWORD（Apple Distribution 证书）
+#   PROFILE_BASE64, PROFILE_UUID（App Store 描述文件）
+# secrets 由 deploy/signing/prepare_secrets.py 生成，不要手敲 base64。
+# 注意：CI 上没有 Xcode 账号交互登录，所以走手动签名，不用自动签名。
+
+name: iOS Archive → TestFlight
+
+# 只手动触发：ASC 材料（.p8 / Key ID / Issuer ID / App 记录）还没就位时，
+# 每次 push 都跑这条会红灯；日常改动请走 ios-adhoc.yml 自动出 Ad Hoc 包。
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ios-testflight.yml'
+
+jobs:
+  archive:
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      MZH_TEAM_ID: ${{ secrets.MZH_TEAM_ID }}
+      MZH_BUNDLE_ID: ${{ secrets.MZH_BUNDLE_ID }}
+      MZH_CONFIG_BASE_URL: ${{ secrets.MZH_CONFIG_BASE_URL }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_P8_BASE64: ${{ secrets.ASC_P8_BASE64 }}
+      CERT_P12_BASE64: ${{ secrets.CERT_P12_BASE64 }}
+      CERT_PASSWORD: ${{ secrets.CERT_PASSWORD }}
+      PROFILE_BASE64: ${{ secrets.PROFILE_BASE64 }}
+      PROFILE_UUID: ${{ secrets.PROFILE_UUID }}
+      KEYCHAIN_PASSWORD: ${{ github.run_id }}-${{ github.run_attempt }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 校验工具链（Xcode 26+ / iOS 26 SDK）
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          xcodebuild -version | awk '/^Xcode/{print $2}' | cut -d. -f1 | \
+            awk '{if ($1 < 26) {print "Xcode < 26，上传会被拒"; exit 1} else print "Xcode 版本合格"}'
+
+      - name: 安装 XcodeGen
+        run: brew install xcodegen
+
+      - name: 注入 Team ID / Bundle ID / 后端域名
+        run: |
+          set -euo pipefail
+          # xcconfig 里 "//" 会被当注释，用 /$()/ 还原双斜杠。
+          # 默认值必须带 /mzh 子路径，否则 App 会打到域名根、拿不到 /v1/config。
+          URL="${MZH_CONFIG_BASE_URL:-https:/\$()/app.kqi.ink/mzh}"
+          for f in xcode/Config-Debug.xcconfig xcode/Config-Release.xcconfig; do
+            sed -i '' "s|^MZH_TEAM_ID = .*|MZH_TEAM_ID = $MZH_TEAM_ID|" "$f"
+            sed -i '' "s|^MZH_BUNDLE_ID = .*|MZH_BUNDLE_ID = $MZH_BUNDLE_ID|" "$f"
+          done
+          sed -i '' "s|^CONFIG_BASE_URL = .*|CONFIG_BASE_URL = $URL|" xcode/Config-Release.xcconfig
+          grep -E '^(MZH_|CONFIG_BASE_URL)' xcode/Config-Release.xcconfig
+
+      - name: 导入签名材料
+        run: bash xcode/scripts/import_signing.sh
+
+      - name: 生成 Xcode 工程
+        run: cd xcode && xcodegen generate --spec project.yml
+
+      - name: Release Archive（手动签名）
+        run: |
+          xcodebuild \
+            -project "xcode/米帧盒播放器.xcodeproj" \
+            -scheme "米帧盒播放器" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/米帧盒播放器.xcarchive" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            DEVELOPMENT_TEAM="$MZH_TEAM_ID" \
+            PRODUCT_BUNDLE_IDENTIFIER="$MZH_BUNDLE_ID" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_UUID" \
+            clean archive
+
+      - name: 导出 App Store IPA
+        run: |
+          set -euo pipefail
+          cp xcode/ExportOptions.plist "$RUNNER_TEMP/ExportOptions-CI.plist"
+          /usr/libexec/PlistBuddy -c "Set :teamID $MZH_TEAM_ID" "$RUNNER_TEMP/ExportOptions-CI.plist"
+          /usr/libexec/PlistBuddy -c "Set :signingStyle manual" "$RUNNER_TEMP/ExportOptions-CI.plist"
+          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles dict" "$RUNNER_TEMP/ExportOptions-CI.plist"
+          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:$MZH_BUNDLE_ID string $PROFILE_UUID" \
+            "$RUNNER_TEMP/ExportOptions-CI.plist"
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/米帧盒播放器.xcarchive" \
+            -exportPath "$RUNNER_TEMP/ipa" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions-CI.plist"
+          ls -lh "$RUNNER_TEMP/ipa"
+
+      - name: 上传 TestFlight
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          echo "$ASC_P8_BASE64" | base64 -d \
+            > "$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          IPA="$(ls -1t "$RUNNER_TEMP/ipa"/*.ipa | head -1)"
+          # altool 在新版 Xcode 中逐步下线；失败时自动换 Transporter 上传。
+          if xcrun altool --upload-app --type ios -f "$IPA" \
+              --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" --verbose; then
+            echo "altool 上传完成"
+          else
+            echo "altool 不可用，改用 iTMSTransporter"
+            xcrun iTMSTransporter -m upload -assetFile "$IPA" \
+              -apiKey "$ASC_KEY_ID" -apiIssuer "$ASC_ISSUER_ID" -v informational
+          fi
+
+      - name: 留存 IPA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 米帧盒播放器-ipa
+          path: ${{ runner.temp }}/ipa/*.ipa
+          if-no-files-found: ignore

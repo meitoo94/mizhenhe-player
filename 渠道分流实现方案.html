@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>渠道分流实现方案 · 倒计时 + 视频 + VIP 充值</title>
+<style>
+:root{
+  --bg:#f7f7fa; --card:#fff; --text:#1c1c22; --muted:#666b78; --line:#e3e5ec;
+  --accent:#635bdb; --accent-soft:#efedff; --warm:#b26a00; --warm-soft:#fff3dd;
+  --cool:#185fa5; --cool-soft:#e8f2fc; --ok:#0f6e56; --ok-soft:#e4f5ee; --red:#a32d2d; --red-soft:#fceaea;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#15161c; --card:#1e2028; --text:#eceef5; --muted:#a0a5b3; --line:#333641;
+  --accent:#a5a0ff; --accent-soft:#2c2a48; --warm:#e8b566; --warm-soft:#3a2f1c;
+  --cool:#8abbe8; --cool-soft:#20344a; --ok:#6fd3b0; --ok-soft:#1d3a31; --red:#f09595; --red-soft:#3a2020;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:1040px;margin:0 auto;padding:36px 24px 80px}
+h1{font-size:28px;line-height:1.35;margin:0 0 8px;font-weight:600}
+h2{font-size:20px;margin:46px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line);font-weight:600}
+h3{font-size:16px;margin:26px 0 10px;font-weight:600}
+p{margin:8px 0 14px}
+.lead{color:var(--muted);font-size:14px;margin-bottom:22px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:14px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:14px;margin:12px 0}
+th{background:var(--accent-soft);color:var(--text);text-align:left;padding:10px 12px;font-weight:600;border-bottom:1px solid var(--line)}
+td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:none}
+.tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:20px;background:var(--accent-soft);color:var(--accent);margin:0 4px 4px 0}
+.tag.w{background:var(--warm-soft);color:var(--warm)} .tag.c{background:var(--cool-soft);color:var(--cool)}
+.tag.g{background:var(--ok-soft);color:var(--ok)} .tag.r{background:var(--red-soft);color:var(--red)}
+code,pre{font-family:"SF Mono",Consolas,"Courier New",monospace}
+code{background:var(--accent-soft);color:var(--accent);padding:1px 5px;border-radius:4px;font-size:13px}
+pre{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;font-size:12.5px;line-height:1.65;margin:12px 0}
+pre code{background:none;color:inherit;padding:0}
+.kv{font-size:13.5px;color:var(--muted);margin:2px 0}
+.kv b{color:var(--text);font-weight:600}
+.hl{background:var(--warm-soft);border-left:3px solid var(--warm);padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0}
+.ok{background:var(--ok-soft);border-left:3px solid var(--ok);padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0}
+.danger{background:var(--red-soft);border-left:3px solid var(--red);padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0}
+.small{font-size:13px;color:var(--muted)}
+ul,ol{margin:8px 0 14px;padding-left:22px} li{margin:5px 0}
+.flow{width:100%;height:auto;display:block;margin:6px 0 4px}
+.flow .box{fill:var(--card);stroke:var(--line)}
+.flow .boxA{fill:var(--cool-soft);stroke:var(--cool)}
+.flow .boxB{fill:var(--accent-soft);stroke:var(--accent)}
+.flow .boxC{fill:var(--warm-soft);stroke:var(--warm)}
+.flow .boxD{fill:var(--ok-soft);stroke:var(--ok)}
+.flow text{fill:var(--text);font:13px -apple-system,"PingFang SC",sans-serif}
+.flow .sub{fill:var(--muted);font-size:11px}
+.flow .ttl{fill:var(--text);font-size:13px;font-weight:600}
+.flow .ln{stroke:var(--accent);stroke-width:1.8;fill:none}
+.flow .dash{stroke:var(--red);stroke-width:1.8;stroke-dasharray:6 5;fill:none}
+.flow .grp{fill:var(--muted);font-size:11px;letter-spacing:1px}
+.foot{margin-top:50px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>渠道分流实现方案：倒计时 + 视频内容 + VIP 充值</h1>
+<div class="lead">按渠道号在运行时切换业务形态的可运行最小工程 · 服务端 Python 标准库 / 客户端 SwiftUI / 落地页 H5 · 2026-11-25 本地实测通过</div>
+
+<div class="card">
+  <p style="margin-top:0"><b>需求对齐</b>：不绑定具体视频题材，实现的是「一个由服务端配置驱动的三段式壳」——<span class="tag">开屏倒计时</span><span class="tag">视频试看倒计时</span><span class="tag">VIP 套餐与充值</span>。视频地址、倒计时秒数、套餐价格、按钮文案全部是配置项，题材换素材即可。</p>
+  <p style="margin-bottom:0"><b>一句话原理</b>：iOS 不允许像安卓那样按渠道打不同二进制包，所以渠道号必须通过「广告点击侧 → 首次启动侧」的归因链路带进去；App 启动时拿渠道号请求配置服务，服务端决定这台设备跑 <code>normal</code> 还是 <code>paywall</code>，客户端只执行结果。<b>二进制里两套 UI 都编译进去，但没有任何硬编码的渠道判断。</b></p>
+</div>
+
+<h2>1. 全链路：断点在哪里</h2>
+
+<svg class="flow" viewBox="0 0 1000 372" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="var(--accent)"/>
+    </marker>
+    <marker id="arr" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="var(--red)"/>
+    </marker>
+  </defs>
+
+  <text class="grp" x="10" y="24">广告侧</text>
+  <text class="grp" x="368" y="24">苹果商店</text>
+  <text class="grp" x="548" y="24">设备侧 / 客户端</text>
+  <text class="grp" x="548" y="214">服务端</text>
+
+  <rect class="boxA" x="10"  y="36" width="180" height="62" rx="9"/>
+  <text class="ttl" x="24" y="60">广告投放</text>
+  <text class="sub" x="24" y="80">落地页带 ch=douyin_1125_a</text>
+
+  <rect class="boxA" x="212" y="36" width="180" height="62" rx="9"/>
+  <text class="ttl" x="226" y="60">落地页 H5</text>
+  <text class="sub" x="226" y="80">点击打点 + 写剪贴板凭据</text>
+
+  <rect class="box" x="414" y="36" width="150" height="62" rx="9"/>
+  <text class="ttl" x="428" y="60">App Store</text>
+  <text class="sub" x="428" y="80">同一个二进制包</text>
+
+  <rect class="boxB" x="586" y="36" width="180" height="62" rx="9"/>
+  <text class="ttl" x="600" y="60">首次启动归因</text>
+  <text class="sub" x="600" y="80">剪贴板 / ASA / 指纹</text>
+
+  <rect class="boxC" x="790" y="36" width="198" height="62" rx="9"/>
+  <text class="ttl" x="804" y="60">形态决策</text>
+  <text class="sub" x="804" y="80">normal 或 paywall</text>
+
+  <path class="ln" d="M190,67 L208,67" marker-end="url(#ar)"/>
+  <path class="ln" d="M392,67 L410,67" marker-end="url(#ar)"/>
+  <path class="dash" d="M564,67 L582,67" marker-end="url(#arr)"/>
+  <path class="ln" d="M766,67 L786,67" marker-end="url(#ar)"/>
+
+  <text class="sub" x="520" y="118" text-anchor="middle" fill="var(--red)">安装断点：上下文不随包传递</text>
+  <path class="dash" d="M573,108 L573,132" fill="none"/>
+
+  <rect class="box" x="10" y="140" width="382" height="52" rx="9"/>
+  <text class="ttl" x="24" y="162">合规态 normal</text>
+  <text class="sub" x="24" y="182">四 Tab：动界 / 万象 / 创研台 / 我的，完整可用</text>
+
+  <rect class="boxC" x="414" y="140" width="574" height="52" rx="9"/>
+  <text class="ttl" x="428" y="162">付费墙态 paywall（三段式 + 充值）</text>
+  <text class="sub" x="428" y="182">开屏倒计时 → 视频试看倒计时 → 试看结束弹窗 → VIP 套餐 → 收银台 → 解锁</text>
+
+  <text class="grp" x="10" y="232">配置服务（本次已本地启动并实测）</text>
+
+  <rect class="boxD" x="10"  y="244" width="228" height="66" rx="9"/>
+  <text class="ttl" x="24" y="268">POST /v1/click</text>
+  <text class="sub" x="24" y="288">记录 IP/UA/时区/屏幕/时间</text>
+
+  <rect class="boxD" x="258" y="244" width="228" height="66" rx="9"/>
+  <text class="ttl" x="272" y="268">POST /v1/attribution</text>
+  <text class="sub" x="272" y="288">凭据验签 → 渠道号 + 置信度</text>
+
+  <rect class="boxD" x="506" y="244" width="228" height="66" rx="9"/>
+  <text class="ttl" x="520" y="268">POST /v1/config</text>
+  <text class="sub" x="520" y="288">守卫判定 → 带 HMAC 签名配置</text>
+
+  <rect class="boxD" x="754" y="244" width="234" height="66" rx="9"/>
+  <text class="ttl" x="768" y="268">/v1/order → /v1/pay/notify</text>
+  <text class="sub" x="768" y="288">下单 → 回调 → 会员状态</text>
+
+  <path class="ln" d="M238,277 L254,277" marker-end="url(#ar)"/>
+  <path class="ln" d="M486,277 L502,277" marker-end="url(#ar)"/>
+  <path class="ln" d="M734,277 L750,277" marker-end="url(#ar)"/>
+
+  <rect class="box" x="10" y="326" width="978" height="34" rx="8"/>
+  <text class="sub" x="24" y="348">默认态恒为 normal：无网 / 超时 / 验签失败 / 渠道未知 / 守卫未通过 / 灰度外，全部回落合规态，不会「因出错反而打开付费墙」</text>
+</svg>
+
+<h2>2. 真正的难点：跨安装把渠道号带进 App</h2>
+
+<p>从广告点击到首次启动中间隔着 App Store，<b>没有系统级参数透传</b>。iOS 一个 Bundle ID 只有一个二进制，也不存在「渠道包」。工程上只有下面四条路，实际项目一般同时接前三条做优先级兜底。</p>
+
+<table>
+<tr><th style="width:150px">方案</th><th>怎么把渠道号带过去</th><th style="width:180px">覆盖</th><th style="width:220px">限制与代价</th></tr>
+<tr>
+  <td><b>① 剪贴板签名凭据</b><br><span class="tag g">已实现</span></td>
+  <td>落地页在「去下载」点击手势内调用 <code>clipboard.writeText</code>，写入 <code>https://ch.example.com/t/&lt;urlencoded CHTOK1#click_id|channel|ts|sig&gt;</code>；App 首启读取并验签，服务端按 <code>click_id</code> 反查渠道。读完立刻清空。</td>
+  <td>任意广告渠道，精度最高（置信度 1.0）</td>
+  <td>iOS 16+ 读 <code>UIPasteboard.string</code> 会弹系统粘贴许可；用 <code>detectPatterns(for:[.probableWebURL])</code> 静默预探测，只对命中者读取。用户手动复制别的内容会丢失凭据。</td>
+</tr>
+<tr>
+  <td><b>② Apple Search Ads 归因</b><br><span class="tag c">接口位已留</span></td>
+  <td>客户端 <code>AAAttribution.attributionToken()</code>（AdServices，iOS 14.3+），服务端 POST <code>https://api-adservices.apple.com/api/v1/</code> 换出 <code>campaignId</code>，再映射到内部渠道号。</td>
+  <td>仅 Apple Search Ads 流量，官方且不可伪造</td>
+  <td>不覆盖信息流/短视频/联盟广告；需要服务端实现 token 换取与 <code>campaignId → channel</code> 映射表。本工程已留 <code>asa_token</code> 上报位。</td>
+</tr>
+<tr>
+  <td><b>③ 设备指纹概率匹配</b><br><span class="tag g">已实现</span></td>
+  <td>广告侧记录 <code>IP / UA / 机型 / 时区 / 语言 / 屏幕 / 时间戳</code>；App 首启上报同组字段，服务端在近 24h 点击日志里加权打分找最匹配的一条。</td>
+  <td>剪贴板被清、ASA 不命中时的兜底</td>
+  <td><b>有误判风险</b>：同一运营商 NAT 出口下无关用户可能撞车。已加两道硬门槛：非 IP 维度至少命中 2 项 <b>且</b> 总分 ≥ 70，实测把误判从 68 分挡下。</td>
+</tr>
+<tr>
+  <td><b>④ Deferred Deep Link</b><br><span class="tag">可接入</span></td>
+  <td>AppsFlyer / Adjust Onelink 或自建 Universal Link：点击时存设备指纹，首启通过 SDK 取回延迟深度链接参数（含渠道号）。</td>
+  <td>全渠道，商业 SDK 精度较高</td>
+  <td>需要接第三方 SDK（隐私清单、ATT 适配、额外成本），或自建一套等价的指纹服务 —— 也就是方案 ③ 的加强版。</td>
+</tr>
+</table>
+
+<div class="hl">
+<b>卸载重装仍能保持渠道态</b>：归因结果写 Keychain 而不是 UserDefaults（<code>ios/KeychainStore.swift:53</code> 同时持久化首次安装时间）。同一台设备重装后无需再点广告，配置服务仍能按原渠道判定。
+</div>
+
+<h2>3. 五层结构与代码索引</h2>
+
+<table>
+<tr><th style="width:130px">层</th><th style="width:250px">文件</th><th>职责 / 关键实现位置</th></tr>
+<tr><td><b>广告落地页</b></td><td><code>landing/index.html</code></td><td>采集指纹 <code>:51</code>、剪贴板凭据 URL 化 <code>:68</code>、手势内写入 <code>:71</code>、打点后跳商店 <code>:96</code>。占位符 <code>__CHANNEL__</code> 由服务端按 <code>/lp?ch=</code> 注入，一份页面可投任意渠道。</td></tr>
+<tr><td><b>点击/归因</b></td><td><code>server/app.py</code></td><td>渠道表 <code>:44</code>、凭据验签 <code>:165</code>、指纹打分 <code>:199</code>、<code>/v1/click</code> <code>:405</code>、<code>/v1/attribution</code> <code>:415</code>。点击日志与归因结果落盘 <code>evidence/*.jsonl</code>。</td></tr>
+<tr><td><b>配置决策</b></td><td><code>server/app.py</code></td><td>守卫判定 <code>resolve()</code> <code>:232</code>、规范化 JSON + HMAC 签名 <code>build_config()</code> <code>:279</code>、<code>/v1/config</code> <code>:455</code>。<b>开关改服务端即可，不需要发版。</b></td></tr>
+<tr><td><b>客户端归因</b></td><td><code>ios/ChannelAttribution.swift</code></td><td>缓存优先 <code>:22</code>、归因主流程 <code>:43</code>、设备上下文 <code>:65</code>、剪贴板读取 <code>:92</code>、ASA token <code>:121</code>。</td></tr>
+<tr><td><b>客户端配置</b></td><td><code>ios/RemoteConfig.swift</code></td><td>启动流程 <code>:32</code>、拉取与回落 <code>:42</code>、应用结果 <code>:71</code>、验签 + 新鲜度 <code>:89</code>。默认态 <code>.fallbackNormal</code> 定义在 <code>ios/ChannelModels.swift:38</code>。</td></tr>
+<tr><td><b>双态 UI</b></td><td><code>ios/AppEntry.swift</code> / <code>NormalHomeView.swift</code> / <code>PaywallFlow.swift</code></td><td>路由 <code>AppEntry.swift:19</code>；合规四 Tab <code>NormalHomeView.swift:5</code>；付费墙状态机 <code>PaywallFlow.swift:11</code>，开屏 <code>:91</code>、试看 <code>:136</code>、套餐 <code>:207</code>、下单 <code>:53</code>、会员查询 <code>:77</code>。</td></tr>
+<tr><td><b>支付</b></td><td><code>server/app.py</code></td><td><code>/v1/order</code> <code>:479</code> 生成订单号与收银台地址，<code>/v1/pay/notify</code> 回调写会员，<code>/v1/vip/status</code> 供客户端回前台查询。</td></tr>
+</table>
+
+<h2>4. 决策引擎：一台设备落在哪个形态，由这些输入共同决定</h2>
+
+<p>客户端只上报 <code>channel / idfv / build / country / install_ts</code> 和 IP，所有判断在服务端 <code>resolve()</code> 里完成，逐条短路返回 <code>normal</code>。这也是「同一商店包，不同人打开不一样」的全部原因。</p>
+
+<table>
+<tr><th style="width:180px">守卫维度</th><th>判定</th><th style="width:250px">不通过时的返回</th></tr>
+<tr><td>渠道存在 / 启用</td><td><code>CHANNELS[channel].enabled</code> 且 <code>mode == paywall</code></td><td><code>channel_unknown</code> / <code>channel_disabled</code> → normal</td></tr>
+<tr><td>国家 / 地区</td><td><code>country ∈ allow_countries</code></td><td><code>country_not_allowed</code> → normal</td></tr>
+<tr><td>版本黑名单</td><td><code>build ∉ block_builds</code></td><td><code>build_blocked</code> → normal</td></tr>
+<tr><td>IP 前缀黑名单</td><td><code>ip</code> 不匹配 <code>block_ip_prefixes</code></td><td><code>ip_blocked</code> → normal</td></tr>
+<tr><td>安装后延迟</td><td><code>now - install_ts ≥ start_after_hours</code></td><td><code>install_age_x_lt_Nh</code> → normal</td></tr>
+<tr><td>投放时间窗</td><td>UTC 小时落在 <code>active_window</code> 内</td><td><code>outside_window</code> → normal</td></tr>
+<tr><td>灰度比例</td><td><code>md5(idfv|channel) % 10000 &lt; rollout*10000</code>，同一设备结果稳定</td><td><code>rollout_miss</code> → normal</td></tr>
+<tr><td>配置完整性 / 验签</td><td>客户端校验 HMAC + <code>issued_at</code> 新鲜度</td><td>验签失败清缓存 → normal</td></tr>
+</table>
+
+<div class="ok">
+<b>为什么必须「默认 normal」</b>：把付费墙设为「需要所有条件同时成立才开」，而不是「出错就开」，可以让无网、超时、服务端故障、渠道缺失、配置异常这些情况全部自然落到合规态。这既是稳定性设计，也让配置服务的可用性成为唯一开关点。
+</div>
+
+<h2>5. 配置驱动：三段式壳里没有任何业务常量</h2>
+
+<p>客户端二进制里只有 UI 骨架，所有内容由 <code>/v1/config</code> 下发。换视频素材、改倒计时、调价、换支付通道都不需要重新提包：</p>
+
+<pre><code>{
+  "mode": "paywall",
+  "channel": "douyin_1125_a",
+  "ttl": 600,
+  "paywall": {
+    "splash": { "title":"专业视频播放", "subtitle":"精彩视频尽情观看",
+                "button":"进入", "countdown_seconds": 6 },
+    "trial":  { "video_url":"https://cdn.../trial_15s.mp4",
+                "countdown_seconds": 15, "vip_button":"开通会员",
+                "hint":"试看视频为演示资源，开通 VIP 解锁全部功能",
+                "end_title":"试看结束", "end_primary":"开通会员",
+                "end_secondary":"稍后再说" },
+    "vip":    { "title":"棱镜会员", "button":"支付宝支付",
+                "packages":[{"id":"vip_3y","name":"3年","price":198.00,...}, ...] },
+    "checkout": { "method":"alipay_h5", "order_endpoint":"...", "cashier_base":"..." }
+  }
+}</code></pre>
+
+<div class="grid">
+  <div class="card"><b>① 开屏倒计时</b><p class="small">全屏品牌页 + N 秒倒计时按钮，倒计时归零或点击「进入」进入试看。秒数、文案全来自配置。</p></div>
+  <div class="card"><b>② 视频试看倒计时</b><p class="small">AVPlayer 播服务端下发的 <code>video_url</code>，右上常驻会员入口，底部显示剩余秒数与提示小字，归零弹「试看结束」双按钮。</p></div>
+  <div class="card"><b>③ VIP 套餐与充值</b><p class="small">套餐列表、划线原价、推荐标签、协议文字、支付按钮全部配置化；选中套餐后创建订单并拉起收银台。</p></div>
+  <div class="card"><b>④ 回前台解锁</b><p class="small">从 H5 收银台返回时查 <code>/v1/vip/status</code>，已支付则切到无倒计时全屏播放页。</p></div>
+</div>
+
+<p><b>签名方式做了一个工程处理</b>：服务端把配置对象序列化成规范化 JSON <b>字符串</b>，对这段字符串的原始字节做 HMAC-SHA256，响应为 <code>{config: "&lt;json string&gt;", sig: "..."}</code>。客户端直接验字符串字节再反序列化，避免 Python 的 <code>198.0</code> 与 Swift 的 <code>198</code> 这类跨语言浮点/键序序列化差异导致验签失败（<code>server/app.py:279</code> / <code>ios/RemoteConfig.swift:89</code>）。生产建议升级成「服务端私钥签 Ed25519 + 客户端内置公钥验」，对称密钥存在被从二进制抠出的可能。</p>
+
+<h2>6. 支付闭环</h2>
+
+<p>整套账号、订单、会员状态都在自建服务端，不依赖 StoreKit：</p>
+<ol>
+<li>客户端选中套餐 → <code>POST /v1/order</code>，服务端按渠道表校验套餐与金额，生成订单号和收银台地址</li>
+<li><code>UIApplication.shared.open</code> 拉起自建订单页，由它 302 到 <code>mclient.alipay.com</code> H5 收银台（录屏里 <code>trade.jxpdf.com</code> → 支付宝就是这一跳）</li>
+<li>支付通道回调 <code>/v1/pay/notify</code> → 订单标记 paid、写入会员有效期</li>
+<li>App 从后台回前台 → <code>/v1/vip/status</code> → 切到已解锁形态</li>
+</ol>
+
+<h2>7. 本地实测实录（真实输出，非示例）</h2>
+
+<p>服务已在 <code>http://127.0.0.1:8787</code> 启动，<code>python server/selftest.py</code> 端到端跑完 15 个请求，<b>SELFTEST PASS</b>。完整响应在 <code>evidence/selftest_output.json</code>，控制台实录在 <code>evidence/selftest_console.txt</code>。</p>
+
+<table>
+<tr><th>场景</th><th>归因结果 / 配置判定</th><th>形态</th></tr>
+<tr><td>剪贴板带签名凭据</td><td><code>douyin_1125_a</code>，confidence 1.0，<code>clipboard_token</code></td><td><span class="tag w">paywall</span></td></tr>
+<tr><td>自然量、无凭据、特征不足</td><td><code>organic</code>，score 63、<code>non_ip_hits_1</code>，被「≥2 项且 ≥70」门槛拒绝</td><td><span class="tag g">normal</span></td></tr>
+<tr><td>剪贴板丢失、指纹完整命中</td><td><code>douyin_1125_a</code>，score 95、<code>non_ip_hits_4</code></td><td><span class="tag w">paywall</span></td></tr>
+<tr><td><code>organic</code> 请求配置</td><td><code>channel_disabled</code></td><td><span class="tag g">normal</span></td></tr>
+<tr><td>渠道 A 请求配置</td><td><code>install_age_ok_2.00h</code> + <code>rollout_hit_bucket7928</code></td><td><span class="tag w">paywall</span></td></tr>
+<tr><td>渠道 B / 安装 2h</td><td><code>install_age_2.00h_lt_24.0h</code></td><td><span class="tag g">normal</span></td></tr>
+<tr><td>渠道 B / 安装 48h / 灰度外</td><td><code>rollout_miss_bucket9829_need3000</code></td><td><span class="tag g">normal</span></td></tr>
+<tr><td>渠道 B / 安装 48h / 灰度命中</td><td><code>install_age_ok_48.00h</code> + <code>rollout_hit_bucket280</code></td><td><span class="tag w">paywall</span></td></tr>
+<tr><td>不存在渠道 / 地区 us</td><td><code>channel_unknown</code> / <code>country_not_allowed:us</code></td><td><span class="tag g">normal</span></td></tr>
+</table>
+
+<pre><code>[验签] expected = returned = 20f09897221311494c60d5f9f33a0e2dd52d11ab83d231121ee3add98a1a9933  match: True
+[付费墙配置摘要] {"mode":"paywall","splash_countdown":6,"trial_countdown":15,
+                 "packages":[["3年",198.0],["年度",158.0],["月度",98.0]],"checkout":"alipay_h5"}
+[创建VIP订单] DOU20261125031718FC815D1A  198.00  pending
+[支付回调]   DOU20261125031718FC815D1A  paid
+[会员状态]   付费 idfv is_vip=true / 未付费 idfv is_vip=false
+[落地页]     /lp?ch=... 200, 5434 bytes, 三个占位符全部替换完成
+SELFTEST PASS</code></pre>
+
+<h2>8. 工程要点与边界</h2>
+
+<ul>
+<li><b>归因误判是概率方案的固有局限。</b>同出口 IP + 同时区 + 同屏幕的无关用户仍可能撞车。生产应把指纹当作低置信度补充：要么要求 <code>confidence ≥ 0.9</code>，要么只在点击侧与 App 侧都能拿到高精度信号（IDFV 关联、deferred deeplink）时才采信。</li>
+<li><b>缓存策略。</b>客户端按 <code>ttl=600s</code> 缓存配置用于秒开，过期且拉取失败即回落 normal；验签失败会主动清缓存。生产可把 TTL 拉长，但要权衡「关开关后多久全量生效」。</li>
+<li><b>配置签名。</b>当前用对称 HMAC 演示，生产换非对称签名；<code>issued_at</code> 新鲜度校验阻断旧配置重放。</li>
+<li><b>资源不下发在包内。</b>视频 URL、海报、套餐价格全部走配置，包内没有可直接静态比对的付费素材。</li>
+<li><b>开关维度可继续加。</b>目前实现了渠道/国家/版本/IP/安装时长/时间窗/灰度；还可以接设备型号、系统版本、语言、Apple 归因 campaignId、账号白名单等。</li>
+<li><b>服务端要换成生产部署。</b>当前是标准库 <code>ThreadingHTTPServer</code> + 内存状态 + jsonl 落盘，用于验证链路；生产换成带持久库的服务（渠道表、点击日志、订单、会员、去重），全链路 HTTPS。</li>
+</ul>
+
+<h2>9. 与录屏现象的对照</h2>
+
+<table>
+<tr><th style="width:280px">录屏里看到的</th><th>对应本方案的位置</th></tr>
+<tr><td>冷启动是「专业视频播放 / 精彩视频尽情观看 / 进入」+ 6s 倒计时，不是商店品牌页</td><td><code>PaywallConfig.splash</code> → <code>PaywallFlow.swift:91</code></td></tr>
+<tr><td>15s 试看 + 右上「开通会员」+ 底部固定提示小字 + 试看结束双按钮弹窗</td><td><code>PaywallConfig.trial</code> → <code>PaywallFlow.swift:136</code></td></tr>
+<tr><td>棱镜会员 3年 ¥198 / 年度 ¥158 / 月度 ¥98，底部「支付宝支付」</td><td><code>PaywallConfig.vip</code> → <code>PaywallFlow.swift:207</code></td></tr>
+<tr><td>跳自建订单页再 302 支付宝 H5，收款完全不走 StoreKit</td><td><code>server/app.py:479</code> → 收银台 → <code>/v1/pay/notify</code></td></tr>
+<tr><td>商店描述写「Apple 会员内购正在开发中」，会员页是等待占位；录屏同一位置是完整收银台</td><td>normal 态 <code>NormalHomeView.swift</code> 的会员占位 vs paywall 态完整套餐页，<b>同一个二进制、两种运行形态</b></td></tr>
+<tr><td>合规首页「动界」在，但库是空的（0 影片 / 0 合集）</td><td><code>NormalHomeView.swift:5</code> 四 Tab 完整可点，不与付费形态冲突</td></tr>
+</table>
+
+<h3>接到真实项目里要做的六件事</h3>
+<ol>
+<li>新建 SwiftUI 工程，把 <code>ios/*.swift</code> 全部拖入；<code>AppEntry.swift:11</code> 的 <code>baseURL</code> 换成自己的 HTTPS 配置域名。</li>
+<li>Info.plist 配 <code>NSAppTransportSecurity</code>（本地 http 联调）、<code>IDFA</code>/ATT 视归因方案而定；加 <code>PrivacyInfo.xcprivacy</code> 声明所需 API 与数据收集。</li>
+<li>合规态页面换成你自己的正常业务；付费墙态的 CDN 视频、海报、套餐、协议 URL 移到服务端渠道表。</li>
+<li>把 <code>CHANNELS</code> 从代码常量改成数据库表 + 管理后台，投放时按 campaign 建渠道号，落地页用 <code>/lp?ch=</code> 分发。</li>
+<li>按上一轮结论准备 macOS 构建环境（CI 即可）：编译、签名、上传仍必须在 macOS 上跑，这套分流逻辑本身与构建平台无关。</li>
+<li>订单/会员接真实支付通道并做服务端验签回调；若要走 App 内购买，则把 <code>checkout.method</code> 换成 StoreKit 2 实现，配置结构不用改。</li>
+</ol>
+
+<h2>10. 交付文件</h2>
+<table>
+<tr><th style="width:330px">路径</th><th>说明</th></tr>
+<tr><td><code>channel-switch/server/app.py</code></td><td>配置服务，542 行，零依赖，<code>python server/app.py --port 8787</code> 启动</td></tr>
+<tr><td><code>channel-switch/server/selftest.py</code></td><td>端到端自检，覆盖归因/守卫/验签/下单/会员</td></tr>
+<tr><td><code>channel-switch/landing/index.html</code></td><td>广告落地页，渠道号由 URL 注入</td></tr>
+<tr><td><code>channel-switch/ios/*.swift</code></td><td>7 个文件：模型、Keychain、归因、配置、路由、合规 UI、付费墙 UI</td></tr>
+<tr><td><code>channel-switch/evidence/</code></td><td>自检响应 JSON、控制台实录、点击/决策/订单 jsonl 日志</td></tr>
+<tr><td><code>research/录屏取证-推广引流与支付链路分析.html</code></td><td>上一轮的现象侧取证报告，与本方案互为对照</td></tr>
+</table>
+
+<div class="foot">
+本报告与代码均为本地真实运行产物。服务端当前仍在 <code>127.0.0.1:8787</code> 运行，可直接访问 <code>/lp?ch=douyin_1125_a</code>、<code>/admin/channels</code>、<code>/admin/logs</code> 查看渠道表与判定日志。<br>
+Swift 客户端代码未在 macOS/Xcode 上编译（本机 Windows，无 Xcode 工具链），属唯一未执行步骤；按上一轮结论，给出可 SSH 的 Mac 或 macOS CI 即可补上编译与真机联调。
+</div>
+
+</div>
+</body>
+</html>

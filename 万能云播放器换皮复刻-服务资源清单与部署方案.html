@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>万能云播放器换皮复刻 · 服务资源清单与部署方案</title>
+<style>
+:root{
+  --bg:#f7f7fa; --card:#fff; --text:#1c1c22; --muted:#666b78; --line:#e3e5ec;
+  --accent:#635bdb; --accent-soft:#efedff; --warm:#b26a00; --warm-soft:#fff3dd;
+  --cool:#185fa5; --cool-soft:#e8f2fc; --ok:#0f6e56; --ok-soft:#e4f5ee; --red:#a32d2d; --red-soft:#fceaea;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#15161c; --card:#1e2028; --text:#eceef5; --muted:#a0a5b3; --line:#333641;
+  --accent:#a5a0ff; --accent-soft:#2c2a48; --warm:#e8b566; --warm-soft:#3a2f1c;
+  --cool:#8abbe8; --cool-soft:#20344a; --ok:#6fd3b0; --ok-soft:#1d3a31; --red:#f09595; --red-soft:#3a2020;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:1080px;margin:0 auto;padding:36px 24px 80px}
+h1{font-size:28px;line-height:1.35;margin:0 0 8px;font-weight:600}
+h2{font-size:20px;margin:44px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line);font-weight:600}
+h3{font-size:16px;margin:26px 0 10px;font-weight:600}
+p{margin:8px 0 14px}
+.lead{color:var(--muted);font-size:14px;margin-bottom:22px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:14px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:13.5px;margin:12px 0}
+th{background:var(--accent-soft);color:var(--text);text-align:left;padding:10px 12px;font-weight:600;border-bottom:1px solid var(--line)}
+td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:none}
+.tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:20px;background:var(--accent-soft);color:var(--accent);margin:0 4px 4px 0}
+.tag.w{background:var(--warm-soft);color:var(--warm)} .tag.c{background:var(--cool-soft);color:var(--cool)}
+.tag.g{background:var(--ok-soft);color:var(--ok)} .tag.r{background:var(--red-soft);color:var(--red)}
+code,pre{font-family:"SF Mono",Consolas,"Courier New",monospace}
+code{background:var(--accent-soft);color:var(--accent);padding:1px 5px;border-radius:4px;font-size:12.5px}
+pre{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;font-size:12.5px;line-height:1.65;margin:12px 0}
+pre code{background:none;color:inherit;padding:0}
+.hl{background:var(--warm-soft);border-left:3px solid var(--warm);padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0}
+.ok{background:var(--ok-soft);border-left:3px solid var(--ok);padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0}
+.small{font-size:13px;color:var(--muted)}
+ul,ol{margin:8px 0 14px;padding-left:22px} li{margin:5px 0}
+.flow{width:100%;height:auto;display:block;margin:6px 0 4px}
+.flow .box{fill:var(--card);stroke:var(--line)}
+.flow .boxA{fill:var(--cool-soft);stroke:var(--cool)}
+.flow .boxB{fill:var(--accent-soft);stroke:var(--accent)}
+.flow .boxC{fill:var(--warm-soft);stroke:var(--warm)}
+.flow .boxD{fill:var(--ok-soft);stroke:var(--ok)}
+.flow text{fill:var(--text);font:13px -apple-system,"PingFang SC",sans-serif}
+.flow .sub{fill:var(--muted);font-size:11px}
+.flow .ttl{fill:var(--text);font-size:13px;font-weight:600}
+.flow .ln{stroke:var(--accent);stroke-width:1.8;fill:none}
+.flow .grp{fill:var(--muted);font-size:11px;letter-spacing:1px}
+.foot{margin-top:50px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:16px 0}
+.kpi div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.kpi b{display:block;font-size:22px;color:var(--accent);font-weight:700}
+.kpi span{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>万能云播放器换皮复刻 · 服务资源清单与部署方案</h1>
+<div class="lead">2026-11-25 · 回到「万能云播放器」原型：功能逐项照抄，界面全部重做，开屏 → 短视频试看 → VIP 充值三段逻辑按录屏实测对齐。本文重点回答「已有服务器 / 后台 / 网站 / App，还需要哪些服务资源」。</div>
+
+<div class="card">
+<b>本次已落地</b>（不是方案稿，本地真实跑过）：
+<ul>
+<li>新皮肤 <code>server/profiles/wanneng_rebrand.json</code>：品牌「米帧盒播放器」，深色网格 + 荧光青 / 暖橙，四 Tab、四大玩法命名与图标全换，但功能规格与万能云逐项一一对应（配置里保留 <code>maps_to</code> 留痕）。</li>
+<li>三段逻辑补齐：新增<b>自建订单页</b>（交易进行中 / 订单编号 / 金额 / 重新支付）、<b>手机号免验证码登录</b>（两次输入 + 协议）、<b>冷启动拦截一次 + 稍后再说回合规首页</b>；客户端界面改为完全配置驱动。</li>
+<li>端到端自检 <code>server/test_wanneng.py</code> 在 <code>127.0.0.1:8789</code> 实跑 <b>42/42 PASS</b>，原始响应存 <code>evidence/wanneng_test.json</code>。</li>
+<li>界面原型 <code>design/米帧盒播放器-界面原型.html</code>：9 屏高保真预览（合规态 4 Tab + 付费墙 6 屏）。</li>
+</ul>
+</div>
+
+<div class="kpi">
+<div><b>42/42</b><span>端到端断言通过</span></div>
+<div><b>3</b><span>渠道配置（organic / A / B）</span></div>
+<div><b>11</b><span>服务端路由</span></div>
+<div><b>4.9 KB</b><span>单次 paywall 配置实测体积</span></div>
+</div>
+
+<h2>一、功能照抄 / 界面全换，逐项对照</h2>
+<table>
+<tr><th>维度</th><th>万能云播放器（基准）</th><th>米帧盒播放器（新皮肤）</th><th>处理</th></tr>
+<tr><td>信息架构</td><td>4 Tab：动界 / 万象 / 创研台 / 我的</td><td>4 Tab：今映 / 片仓 / 造片 / 账户</td><td><span class="tag c">结构照抄</span><span class="tag w">命名/图标全换</span></td></tr>
+<tr><td>首页</td><td>统计卡 0 影片 / 0 合集、精选频道、今日放映、连看影单</td><td>Hero 渐变卡 + 胶囊频道 chip + 分区流</td><td><span class="tag c">数据项照抄</span><span class="tag w">组件全换</span></td></tr>
+<tr><td>媒体库</td><td>搜索 / 网格⇄时间线 / 多选 / 改名 / 只建索引不上传</td><td>同功能，描边搜索框 + 分段控件 + 空态插画</td><td><span class="tag c">照抄</span><span class="tag w">视觉全换</span></td></tr>
+<tr><td>四大玩法</td><td>视界识档 / 光谱调色台 / 动能曲线 / 帧廊胶片</td><td>帧类归档 / 色阶工坊 / 节律曲线 / 拼帧长卷</td><td><span class="tag c">功能与参数照抄</span> 2×2 宫格替代纵向列表</td></tr>
+<tr><td>玩法参数</td><td>端侧 AI 四类归档；胶片/赛博/暮色 + 色温对比饱和颗粒 + 导出；0.25x–4x 分段变速；2–12 帧拼长图</td><td>一字不改，只换展示名</td><td><span class="tag c">照抄</span></td></tr>
+<tr><td>云端工坊</td><td>云字幕：上传 → COS 临时存储 → ASR → 烧录 → JPush，72h 自动删除；我的云作品</td><td>云字幕工坊：同一条链路与 72h 规则</td><td><span class="tag c">照抄</span></td></tr>
+<tr><td>会员（合规态）</td><td>棱镜会员 → 「Apple 会员内购正在开发中」占位</td><td>会员中心 → 同一句占位文案</td><td><span class="tag c">照抄</span></td></tr>
+<tr><td>主题</td><td>浅色 / 紫色系 / 圆角列表卡</td><td>深靛 <code>#0B1020</code> + 荧光青 <code>#35E0C8</code> + 暖橙 <code>#FF9F5A</code>，细网格底纹、Hero 渐变、胶囊 chip</td><td><span class="tag w">全换</span></td></tr>
+</table>
+<p class="small">主题色、Tab 名、模块名、文案全部在服务端 <code>normal</code> 配置里，SwiftUI 侧 <code>NormalHomeView.swift</code> 只做渲染，换第二套皮肤不需要改代码、不需要发版。</p>
+
+<h2>二、开屏 / 短视频 / 会员支付三段逻辑对齐</h2>
+<table>
+<tr><th>环节</th><th>录屏证据</th><th>对齐的参数与行为</th><th>代码位置</th></tr>
+<tr><td>归因 → 切态</td><td>广告点击进商店 → 首启即付费墙</td><td>剪贴板签名凭据 &gt; ASA &gt; 指纹兜底；守卫 7 项；默认恒 <code>normal</code></td><td><code>server/app.py:281</code>、<code>ios/ChannelAttribution.swift:22</code></td></tr>
+<tr><td>① 开屏</td><td><code>exact/002.84.png</code></td><td>「专业视频播放 / 精彩视频尽情观看 / 进入」+ <b>6s 倒计时</b>，到 0 自动进入</td><td><code>ios/PaywallFlow.swift:142</code></td></tr>
+<tr><td>② 试看</td><td><code>exact/011.38.png</code></td><td>全屏竖版视频 + 右上「开通会员」+ <b>剩余 15s→0s</b> + 固定小字「试看视频为演示资源，开通 VIP 解锁全部功能」</td><td><code>ios/PaywallFlow.swift:190</code></td></tr>
+<tr><td>③ 试看结束</td><td><code>exact/019.91.png</code></td><td>弹窗「试看结束」，仅「开通会员 / 稍后再说」；稍后再说回合规首页且库为空</td><td><code>ios/PaywallFlow.swift:246</code>、<code>ios/AppEntry.swift:31</code></td></tr>
+<tr><td>④ 会员套餐</td><td><code>exact/022.75.png</code></td><td>3年 ¥198（划线 598）/ 年度 ¥158（398）/ 月度 ¥98（128）；权益「网络资源 10000–20000 集 / 私密播放 / 一键字幕 50–100 次」；底部「支付宝支付」；<b>月比 3 年贵，锚定长期档</b></td><td><code>ios/PaywallFlow.swift:263</code></td></tr>
+<tr><td>⑤ 自建订单页</td><td><code>key/pay026.50.png</code> <code>trade.jxpdf.com</code></td><td>「交易进行中 / 订单编号 / 商品 / 状态 / ¥198.00 / 重新支付 / 售后联系」，从服务端价格建单，客户端不传价格</td><td><code>server/app.py:438</code>、<code>server/app.py:584</code></td></tr>
+<tr><td>⑥ 收银台</td><td><code>exact/028.44.png</code></td><td>订单页 302 到 <code>mclient.alipay.com</code> 支付宝 H5，¥198.00；回前台查会员状态</td><td><code>ios/PaywallFlow.swift:82</code>、<code>:107</code></td></tr>
+<tr><td>⑦ 登录</td><td><code>exact/042.66.png</code> → <code>054.04.png</code></td><td>两次手机号输入 + 勾选《用户协议》《隐私政策》，<b>无短信验证码</b>，成功后回合规首页</td><td><code>ios/PaywallFlow.swift:369</code>、<code>server/app.py:615</code></td></tr>
+<tr><td>⑧ 状态闭环</td><td><code>exact/056.88.png</code></td><td>付费 → <code>is_vip=true</code>；未付费 <code>false</code>；首页与会员页可来回切；冷启动只拦一次</td><td><code>server/app.py:641</code>、<code>ios/AppEntry.swift:23</code></td></tr>
+</table>
+<div class="ok"><b>边界说明</b>：录屏里「按月/年自动续费」条款来自上一轮抓到的「新声」会员协议，本款录屏未出现续费勾选，因此本次皮肤只实现一次性下单，不臆造自动续费。视频题材是配置项（<code>trial.video_url</code>），二进制里没有任何写死的素材。</div>
+
+<h2>三、需要什么服务资源</h2>
+
+<h3>3.1 你已有的四类资源 → 直接复用映射</h3>
+<p>按你说的「本地有服务器、后台、网站、App，在云上跑」，以及截图里「播放器」空间下 <code>主程序</code> / <code>代码助手1号</code> 的分工，交付也按这两块切开：<b>主程序</b> = <code>server/app.py</code> + SwiftUI 客户端；<b>代码助手1号</b> = 皮肤配置、自检脚本、界面原型、素材与文案。</p>
+<table>
+<tr><th>你已有</th><th>本方案里承担什么</th><th>要补的改造</th></tr>
+<tr><td>服务器（云主机 / 云行这类 IDC）</td><td>跑配置 API、归因、订单、支付回调、落地页、法务静态站、日志</td><td>装 Python 3（零依赖即可跑）、反向代理 + HTTPS、进程守护（systemd / supervisor）、出站放行 <code>api-adservices.apple.com</code></td></tr>
+<tr><td>后台（管理端）</td><td>渠道表、灰度、安装时长、时间窗、全局开关、判定日志、订单与会员查询</td><td>把 <code>/admin/channels</code>、<code>/admin/logs</code> 接进现有后台并<b>加鉴权 + 只允许内网</b>；<code>enabled=false</code> 做成一键全量关</td></tr>
+<tr><td>网站（已备案域名）</td><td>隐私政策 / 用户协议 / 会员协议 / 技术支持页、售后联系 URL、落地页域名</td><td>补 4 份静态文档 + 页脚备案号 + 独立子域；确认备案主体与网站内容类别一致</td></tr>
+<tr><td>App（iOS 工程）</td><td>合规态 + 付费墙两套 UI、归因、验签、Keychain</td><td>接本仓库 7 个 Swift 文件；构建时注入 <code>SkinTabs</code> / <code>SkinHeadline</code>；换 <code>ChannelAttribution.baseURL</code></td></tr>
+</table>
+<p class="small">「云行」检索到两类同名主体：北京云行互联（<code>yxclouds.com</code>，持 IDC / CDN / ISP 牌照）与云行科技（电力物联网）。这里按「你自己的云主机托管」处理；如果指的是前者，对象存储、CDN、备案服务码可以在同一平台直接开，下面 3.2 的 ③④ 项就能省掉采购。</p>
+
+<h3>3.2 必需资源总表</h3>
+<table>
+<tr><th>#</th><th>资源</th><th>用途</th><th>最小规格 / 要求</th><th>是否已有</th></tr>
+<tr><td>①</td><td>应用 / API 服务器</td><td>11 个路由、HMAC 签名、决策引擎</td><td>2C4G / 40GB SSD / 5Mbps；Python 3.8+；systemd 托管</td><td><span class="tag g">复用已有服务器</span></td></tr>
+<tr><td>②</td><td>关系数据库</td><td>渠道表、点击、归因、订单、会员、登录、决策日志（6–7 张表）</td><td>MySQL 8 / PostgreSQL；本地 demo 用内存 + jsonl，生产必须持久化 + 订单表唯一索引</td><td><span class="tag g">复用已有后台 DB</span></td></tr>
+<tr><td>③</td><td>缓存 / KV</td><td>幂等键、限流、灰度 bucket、会话、配置版本</td><td>Redis 1GB，可与 ① 同机</td><td><span class="tag c">通常需补</span></td></tr>
+<tr><td>④</td><td>对象存储 + CDN</td><td>15s 竖屏试看片、封面、图标；防盗链签名 URL（5 分钟）</td><td>100GB 存储；1TB/月流量起；H.264 480/720/1080 三档 + 封面</td><td><span class="tag w">需补</span></td></tr>
+<tr><td>⑤</td><td>视频转码</td><td>素材 → 多码率 / HLS 切片 / 首帧封面</td><td>ffmpeg 自建（0 元）或云点播按量；单条 15s 素材约 2–4MB</td><td><span class="tag c">可自建</span></td></tr>
+<tr><td>⑥</td><td>域名 + ICP 备案 + HTTPS</td><td>5 个子域对外服务；大陆节点必须备案</td><td>主域 1 个 + 5 条解析；DV 证书免费；备案 5–20 工作日</td><td><span class="tag g">网站已有，需加子域</span></td></tr>
+<tr><td>⑦</td><td>支付通道</td><td>支付宝 H5 手机网站支付（<code>alipay.trade.wap.pay</code>）+ 异步 <code>notify_url</code></td><td>企业营业执照、已备案域名、签约；回调必须公网 HTTPS、验签 + 幂等 + 对账</td><td><span class="tag w">需确认 / 签约</span></td></tr>
+<tr><td>⑧</td><td>推送通道</td><td>云字幕完成通知（JPush 极光）</td><td>AppKey + APNs 密钥（p8）；不做云端工坊可省</td><td><span class="tag c">二期可选</span></td></tr>
+<tr><td>⑨</td><td>ASR + 临时存储</td><td>云字幕：COS 临时桶（72h 生命周期）+ 语音识别 + ffmpeg 烧录</td><td>腾讯云 COS + 录音文件识别；按量计费</td><td><span class="tag c">二期可选</span></td></tr>
+<tr><td>⑩</td><td>日志与监控</td><td>点击 / 决策 / 订单 / 登录四路日志 + 告警 + 秒级全局开关</td><td>本地 jsonl 已实现；生产接日志采集 + 简单看板</td><td><span class="tag g">已有雏形</span></td></tr>
+<tr><td>⑪</td><td>macOS 构建环境</td><td>Xcode 编译 / 签名 / Archive / 上传</td><td>GitHub Actions macOS runner、云 Mac 或你手边 Mac SSH</td><td><span class="tag w">需补</span></td></tr>
+<tr><td>⑫</td><td>Apple 开发者账号</td><td>上架 / TestFlight / App Store Connect / AdServices</td><td>ADP 99 USD/年 + 双重认证 + API Key（Issuer ID / Key ID / .p8）+ Team ID</td><td><span class="tag w">需补</span></td></tr>
+</table>
+<div class="hl"><b>结论</b>：你已有的服务器 + 后台 + 网站 + App 能覆盖大约一半的基础设施。<b>真正要新增的只有 5 项</b>：对象存储/CDN（④）、支付通道签约（⑦）、macOS 构建环境（⑪）、Apple 开发者账号（⑫），以及把现有域名拆出子域并配好 HTTPS（⑥）。Redis、转码、推送、ASR 都可以后补或自建。</div>
+
+<h3>3.3 域名与子域规划</h3>
+<table>
+<tr><th>子域</th><th>承载</th><th>对应本工程路由</th><th>要求</th></tr>
+<tr><td><code>lp.</code></td><td>广告落地页（写剪贴板凭据 → 跳商店）</td><td><code>/lp</code> <code>/go</code> <code>/v1/click</code></td><td>HTTPS、用户手势内写剪贴板、记录 UA/IP/指纹</td></tr>
+<tr><td><code>cfg.</code></td><td>配置与归因 API</td><td><code>/v1/attribution</code> <code>/v1/config</code> <code>/v1/vip/status</code></td><td><code>Cache-Control: no-store</code>、响应带签名、出站到 <code>api-adservices.apple.com</code></td></tr>
+<tr><td><code>trade.</code></td><td>自建订单页 + 支付回调</td><td><code>/v1/order</code> <code>/order/&lt;no&gt;</code> <code>/v1/pay/notify</code> <code>/v1/login</code></td><td>公网 HTTPS、回调验签、订单号唯一、幂等</td></tr>
+<tr><td><code>legal.</code></td><td>隐私政策 / 用户协议 / 会员协议 / 技术支持</td><td>静态 HTML（本仓库 <code>research/</code> 有 4 份可改写模板）</td><td>页脚备案号、与备案内容一致、App Store 填这两个 URL</td></tr>
+<tr><td><code>cdn.</code></td><td>试看视频、封面、图标</td><td>静态资源</td><td>签名 URL / Referer 防盗链、5 分钟有效期</td></tr>
+<tr><td><code>admin.</code>（建议内网）</td><td>渠道表与判定日志</td><td><code>/admin/channels</code> <code>/admin/logs</code></td><td>鉴权 + IP 白名单，不对外暴露</td></tr>
+</table>
+
+<h3>3.4 接口契约（本工程 11 个路由 → 生产部署要点）</h3>
+<table>
+<tr><th>路由</th><th>作用</th><th>生产必须补的</th></tr>
+<tr><td><code>GET /lp?ch=</code></td><td>落地页，注入渠道号与商店链接</td><td>独立子域、点击手势内写剪贴板</td></tr>
+<tr><td><code>GET /go?ch=</code></td><td>302 到 App Store + 点击打点</td><td>记录出口 IP、UA、机型、时区、语言、屏幕</td></tr>
+<tr><td><code>POST /v1/click</code></td><td>打点并返回 <code>CHTOK1</code> 剪贴板凭据</td><td>HMAC 密钥换成 KMS 托管、7 天有效期</td></tr>
+<tr><td><code>POST /v1/attribution</code></td><td>首启归因</td><td>接 AdServices：服务端 POST <code>https://api-adservices.apple.com/api/v1/</code> 换 campaignId → 渠道映射</td></tr>
+<tr><td><code>POST /v1/config</code></td><td>下发 HMAC 签名配置</td><td>对称密钥升级为 <b>Ed25519 私钥签 + 客户端公钥验</b>；渠道表落 DB；全局开关</td></tr>
+<tr><td><code>POST /v1/order</code></td><td>建单</td><td>价格只从服务端套餐表取、幂等键、订单号全局唯一</td></tr>
+<tr><td><code>GET /order/&lt;no&gt;</code></td><td>自建订单页</td><td>公网 HTTPS、跳支付宝 H5、售后联系 URL</td></tr>
+<tr><td><code>POST /v1/pay/notify</code></td><td>支付异步回调</td><td>支付宝公钥验签、幂等、异步对账、会员到期时间按套餐计算</td></tr>
+<tr><td><code>POST /v1/login</code></td><td>手机号免验证码登录</td><td>脱敏存储、频控、票据有效期、绑定会员态</td></tr>
+<tr><td><code>POST /v1/vip/status</code></td><td>查会员状态</td><td>按账号 + idfv 双键查询</td></tr>
+<tr><td><code>GET /admin/*</code></td><td>渠道表 / 判定日志</td><td>鉴权 + 内网；<code>enabled=false</code> 秒级全量关</td></tr>
+</table>
+
+<h3>3.5 容量与成本推导（数字来源标清）</h3>
+<p>本次<b>实测</b>：单次 paywall 配置响应 <b>4,949 字节</b>、normal 响应 <b>2,631 字节</b>（<code>127.0.0.1:8789</code> 真实返回）。按 1 万日活、每台每天 2 次冷启动拉配置算：</p>
+<ul>
+<li>配置 API：1 万 × 2 × 4.9 KB ≈ <b>98 MB/天</b>，峰值 QPS 远小于 50，2C4G + 5Mbps 绰绰有余 —— <b>API 不是瓶颈</b>。</li>
+<li>CDN：竖屏 15s / 720×1280 / ~1.5 Mbps ≈ <b>2–4 MB</b> 一次播放；1 万次日播放 ≈ 30 GB/天 ≈ <b>900 GB/月</b> —— <b>流量成本几乎全在视频</b>。</li>
+<li>存储：10 条素材 × 3 码率 × 3 MB + 封面 ≈ <b>100 MB</b>，100GB 桶足够放很多套皮肤素材。</li>
+<li>数据库：点击 + 决策 + 订单 + 登录约 6–7 张表，日增 10 万行量级，按月归档决策日志即可。</li>
+</ul>
+<table>
+<tr><th>项目</th><th>量级（人民币 / 月，公开常见价位估算，未询价）</th></tr>
+<tr><td>服务器 + DB + Redis（复用已有）</td><td><b>0</b>；若新购 2C4G 约 ¥60–150</td></tr>
+<tr><td>域名（1 主域 + 5 子域）</td><td>¥50–100 / 年；DV 证书 0</td></tr>
+<tr><td>对象存储 100GB</td><td>¥10–20</td></tr>
+<tr><td>CDN 1TB / 月</td><td>¥150–250</td></tr>
+<tr><td>视频转码（ffmpeg 自建）</td><td>0；云点播按量 ¥0.1–0.3 / 分钟输出</td></tr>
+<tr><td>支付通道</td><td>无月费，按交易额费率约 0.6%–1%</td></tr>
+<tr><td>macOS 构建</td><td>公开仓库 GH Actions macOS runner 免费；私有约 $0.062/分钟；云 Mac ¥150–900/月</td></tr>
+<tr><td>Apple Developer Program</td><td>99 USD / 年</td></tr>
+<tr><td><b>合计（复用已有服务器 / 后台 / 网站）</b></td><td><b>约 ¥250–450 / 月 + 99 USD / 年 + 支付费率</b>（不含广告投放与素材制作）</td></tr>
+</table>
+
+<h3>3.6 明确不需要的资源</h3>
+<p><span class="tag g">不需要</span> 短信验证码服务（登录两次手机号即可，录屏实测无验证码）· <span class="tag g">不需要</span> StoreKit / IAP 商品配置（走自建收银台）· <span class="tag g">不需要</span> 下载引擎 / 网盘 API / 投屏协议（合规态只建本地索引）· <span class="tag g">不需要</span> 动态下发可执行代码（只下发 JSON 配置 + 媒体 URL）· <span class="tag g">不需要</span> GPU 服务器（端侧 AI 归类在手机跑）· <span class="tag c">二期才需要</span> ASR / COS / 极光推送（只有启用云字幕工坊时）。</p>
+
+<h3>3.7 Apple 侧资源清单</h3>
+<table>
+<tr><th>项</th><th>说明</th></tr>
+<tr><td>ADP 会员</td><td>99 USD/年；个人身份 24–48h，公司需 D-U-N-S</td></tr>
+<tr><td>App Store Connect</td><td>名称 / 副标题 / 关键词 / 描述 / 审核备注 / 隐私政策 URL / 支持 URL</td></tr>
+<tr><td>证书与签名</td><td>Development / Distribution 证书、Provisioning Profile、API Key（Issuer ID / Key ID / <code>.p8</code>）+ Team ID</td></tr>
+<tr><td>素材</td><td>1024×1024 图标、6.9" 截图 4–6 张、4+ 分级、<code>Info.plist</code>、<code>PrivacyInfo.xcprivacy</code> 隐私清单</td></tr>
+<tr><td>归因</td><td>AdServices <code>AAAttribution.attributionToken()</code>（客户端，无需额外账号），服务端出站换 campaignId</td></tr>
+<tr><td>验收</td><td>TestFlight + 一台真 iPhone（iOS 16 剪贴板许可弹窗、支付跳转、后台回前台必须真机验）</td></tr>
+</table>
+
+<h3>3.8 部署顺序</h3>
+<ol>
+<li>主域下加 5 条子域解析，申请 DV 证书，大陆节点完成备案（可与后续并行，周期最长）。</li>
+<li>把 <code>server/app.py</code> 布到现有服务器，systemd 托管，反向代理 HTTPS；<code>SWITCH_SECRET</code> 走环境变量 / KMS。</li>
+<li>把内存状态换成数据库表（渠道、点击、归因、订单、会员、登录、决策），Redis 接幂等与限流。</li>
+<li>法务站 4 份静态页上线，页脚挂备案号；App Store Connect 填隐私政策 URL / 支持 URL。</li>
+<li>对象存储 + CDN 开起来，15s 试看素材转 3 码率 + 封面，配签名 URL；替换 <code>trial.video_url</code> / <code>poster_url</code>。</li>
+<li>支付通道签约，<code>/v1/pay/notify</code> 接支付宝异步通知并验签，对账脚本跑通。</li>
+<li>现有后台接入 <code>/admin/channels</code> 与 <code>/admin/logs</code>，鉴权 + 内网，做一键全量关。</li>
+<li>iOS 工程接 7 个 Swift 文件，构建时注入 <code>SkinTabs</code> / <code>SkinHeadline</code>，<code>baseURL</code> 指向 <code>cfg.</code> 子域。</li>
+<li>macOS CI 跑 Archive / 签名 / 上传 TestFlight，真机跑一遍完整链路。</li>
+<li>提审；上线后按渠道灰度从 5% → 30% → 全量，观察决策日志与订单成功率。</li>
+</ol>
+
+<svg class="flow" viewBox="0 0 1000 300" xmlns="http://www.w3.org/2000/svg">
+  <text class="grp" x="16" y="24">已有资源（复用）</text>
+  <rect class="boxA" x="16" y="40" width="150" height="52" rx="9"/>
+  <text class="ttl" x="30" y="62">服务器 / 后台</text><text class="sub" x="30" y="80">API · DB · 日志 · 开关</text>
+  <rect class="boxA" x="16" y="104" width="150" height="52" rx="9"/>
+  <text class="ttl" x="30" y="126">网站 / 已备案域</text><text class="sub" x="30" y="144">法务站 · 落地页 · 子域</text>
+  <rect class="boxA" x="16" y="168" width="150" height="52" rx="9"/>
+  <text class="ttl" x="30" y="190">iOS App 工程</text><text class="sub" x="30" y="208">归因 · 两态 UI · 验签</text>
+
+  <text class="grp" x="210" y="24">需要新增（5 项）</text>
+  <rect class="boxC" x="210" y="40" width="160" height="52" rx="9"/>
+  <text class="ttl" x="224" y="62">对象存储 + CDN</text><text class="sub" x="224" y="80">试看片 / 封面 / 防盗链</text>
+  <rect class="boxC" x="210" y="104" width="160" height="52" rx="9"/>
+  <text class="ttl" x="224" y="126">支付通道签约</text><text class="sub" x="224" y="144">支付宝 H5 + notify 回调</text>
+  <rect class="boxC" x="210" y="168" width="160" height="52" rx="9"/>
+  <text class="ttl" x="224" y="190">macOS 构建环境</text><text class="sub" x="224" y="208">编译 / 签名 / 上传</text>
+  <rect class="boxC" x="210" y="232" width="160" height="52" rx="9"/>
+  <text class="ttl" x="224" y="254">ADP + ASC</text><text class="sub" x="224" y="272">99 USD/年 · 提审</text>
+
+  <text class="grp" x="420" y="24">运行时链路</text>
+  <rect class="box" x="420" y="40" width="130" height="52" rx="9"/>
+  <text class="ttl" x="432" y="62">lp. 落地页</text><text class="sub" x="432" y="80">剪贴板凭据</text>
+  <rect class="box" x="570" y="40" width="130" height="52" rx="9"/>
+  <text class="ttl" x="582" y="62">App Store</text><text class="sub" x="582" y="80">下载安装</text>
+  <rect class="boxB" x="720" y="40" width="130" height="52" rx="9"/>
+  <text class="ttl" x="732" y="62">首启归因</text><text class="sub" x="732" y="80">Keychain / ASA</text>
+  <rect class="boxB" x="870" y="40" width="115" height="52" rx="9"/>
+  <text class="ttl" x="882" y="62">cfg. 配置</text><text class="sub" x="882" y="80">normal/paywall</text>
+  <path class="ln" d="M550 66 H570"/><path class="ln" d="M700 66 H720"/><path class="ln" d="M850 66 H870"/>
+
+  <rect class="boxB" x="420" y="140" width="130" height="52" rx="9"/>
+  <text class="ttl" x="432" y="162">开屏 6s</text><text class="sub" x="432" y="180">倒计时 → 进入</text>
+  <rect class="boxB" x="570" y="140" width="130" height="52" rx="9"/>
+  <text class="ttl" x="582" y="162">试看 15s</text><text class="sub" x="582" y="180">cdn. 视频 + 小字</text>
+  <rect class="boxC" x="720" y="140" width="130" height="52" rx="9"/>
+  <text class="ttl" x="732" y="162">VIP 198/158/98</text><text class="sub" x="732" y="180">三档 + 权益</text>
+  <rect class="boxC" x="870" y="140" width="115" height="52" rx="9"/>
+  <text class="ttl" x="882" y="162">trade. 订单</text><text class="sub" x="882" y="180">→ 支付宝 H5</text>
+  <path class="ln" d="M550 166 H570"/><path class="ln" d="M700 166 H720"/><path class="ln" d="M850 166 H870"/>
+
+  <rect class="boxD" x="420" y="232" width="180" height="52" rx="9"/>
+  <text class="ttl" x="432" y="254">支付回调 / 会员态</text><text class="sub" x="432" y="272">验签 · 幂等 · 对账</text>
+  <rect class="boxD" x="620" y="232" width="180" height="52" rx="9"/>
+  <text class="ttl" x="632" y="254">手机号免验证码登录</text><text class="sub" x="632" y="272">两次输入 + 协议</text>
+  <rect class="boxD" x="820" y="232" width="165" height="52" rx="9"/>
+  <text class="ttl" x="832" y="254">回合规首页</text><text class="sub" x="832" y="272">库为空 / 可再切会员页</text>
+  <path class="ln" d="M600 258 H620"/><path class="ln" d="M800 258 H820"/>
+  <text class="sub" x="16" y="292">蓝色 = 已有可复用　橙色 = 需新增　紫色 = 现有工程已实现　绿色 = 本次补齐</text>
+</svg>
+
+<h2>四、本地实测结果（真实输出）</h2>
+<pre><code>$ python server/app.py --port 8789 --profile server/profiles/wanneng_rebrand.json
+[profile] loaded mizhenhe_wn_v1 | channels=['organic','wn_douyin_a','wn_gdt_b','bbdd1']
+        | normal_tabs=['今映','片仓','造片','账户']
+
+$ python server/test_wanneng.py
+  PASS  合规态四 Tab 已换皮          | ['今映','片仓','造片','账户']
+  PASS  四大玩法功能逐项照抄        | ['视界识档','光谱调色台','动能曲线','帧廊胶片']
+  PASS  开屏 6s + 进入
+  PASS  试看 15s + 固定小字
+  PASS  试看结束弹窗双按钮
+  PASS  三档价格 198 / 158 / 98      | [198.0, 158.0, 98.0]
+  PASS  支付通道 = 自建订单页 + 支付宝 H5
+  PASS  手机号免验证码登录          | phone_no_sms
+  PASS  冷启动拦截一次 + 稍后回首页
+  PASS  自然量 = normal / 渠道 A = paywall / HMAC 验签一致
+  PASS  安装时长守卫 / 灰度外回落 / 灰度命中
+  PASS  订单金额 ¥198 / 自建订单页 / 重新支付 / 售后联系
+  PASS  免验证码登录成功并脱敏      | 138****8000
+  PASS  付费设备 is_vip=true / 未付费 false
+WAN NENG REBRAND SELFTEST PASS 42/42
+saved: evidence/wanneng_test.json</code></pre>
+<div class="ok">服务当前仍在 <code>127.0.0.1:8789</code> 运行，可直接打开 <code>/lp?ch=wn_douyin_a</code>、<code>/admin/channels</code>、<code>/admin/logs</code> 查看判定日志；<code>/order/&lt;订单号&gt;</code> 能看到新建的自建订单页。</div>
+
+<h2>五、上线前必须替换的占位</h2>
+<table>
+<tr><th>位置</th><th>当前值</th><th>换成</th></tr>
+<tr><td><code>profiles/wanneng_rebrand.json:11</code></td><td><code>id0000000000</code></td><td>你自己的 App Store App ID</td></tr>
+<tr><td><code>:101 / :102</code></td><td><code>cdn.yourdomain.com/v/trial_15s.mp4</code></td><td>自有 CDN 的 15s 竖屏试看片与封面</td></tr>
+<tr><td><code>:131</code></td><td><code>www.yourdomain.com/support</code></td><td>自有售后 / 技术支持页</td></tr>
+<tr><td><code>:129</code></td><td><code>mclient.alipay.com</code></td><td>先跳自己的 <code>trade.</code> 订单页，再由服务端换取真实收银台 URL</td></tr>
+<tr><td><code>ios/AppEntry.swift:9</code></td><td><code>https://config.yourdomain.com</code></td><td><code>cfg.</code> 子域</td></tr>
+<tr><td><code>ios/RemoteConfig.swift:23</code></td><td>对称 HMAC demo 密钥</td><td>Ed25519 公钥验签（服务端私钥签）</td></tr>
+<tr><td>Info.plist</td><td>未注入</td><td><code>SkinTabs</code> / <code>SkinHeadline</code>、ATS、隐私清单</td></tr>
+</table>
+<div class="hl"><b>只缺一个外部输入</b>：支付宝手机网站支付是否已用现有主体签约、回调域名准备挂哪个子域。这项定了，⑦ 的 <code>notify_url</code> 与对账脚本就能直接落地；其余都能用上面的默认值先跑通。</div>
+
+<h2>六、代码与证据索引</h2>
+<table>
+<tr><th>文件</th><th>关键位置</th><th>内容</th></tr>
+<tr><td><code>server/profiles/wanneng_rebrand.json</code></td><td>:13 :48 :87 :94 :100 :114 :126 :136 :204</td><td>新皮肤主题、四大玩法映射、gate / 开屏 / 试看 / 套餐 / 收银台 / 登录、证据分级</td></tr>
+<tr><td><code>server/app.py</code></td><td>:149 :248 :281 :328 :438 :519 :559 :584 :615 :641</td><td>皮肤加载、指纹门槛、守卫引擎、签名配置、自建订单页、归因、下单、登录、支付回调</td></tr>
+<tr><td><code>server/test_wanneng.py</code></td><td>:81</td><td>42 条端到端断言</td></tr>
+<tr><td><code>ios/ChannelModels.swift</code></td><td>:70 :165 :204 :224 :297 :349 :366</td><td>主题 / 合规皮肤 / gate / 付费墙 / 登录 / 订单 / 登录响应数据模型</td></tr>
+<tr><td><code>ios/NormalHomeView.swift</code></td><td>:5 :51 :117 :199 :260 :322</td><td>配置驱动的四 Tab 全新界面</td></tr>
+<tr><td><code>ios/PaywallFlow.swift</code></td><td>:14 :82 :107 :124 :142 :190 :263 :369</td><td>三段状态机 + 登录 + 回首页出口</td></tr>
+<tr><td><code>ios/AppEntry.swift</code></td><td>:19 :23 :31</td><td>冷启动拦截一次 / 账户页重新唤起</td></tr>
+<tr><td><code>ios/RemoteConfig.swift</code></td><td>:71 :89</td><td>验签与合规态回落</td></tr>
+<tr><td><code>design/米帧盒播放器-界面原型.html</code></td><td>—</td><td>9 屏高保真预览 + 照抄/换皮对照表</td></tr>
+<tr><td><code>evidence/wanneng_test.json</code></td><td>—</td><td>42 条断言与全部真实响应</td></tr>
+<tr><td><code>evidence/wanneng_console.txt</code></td><td>—</td><td>控制台实录</td></tr>
+</table>
+
+<div class="foot">证据来源：<code>research/录屏取证-推广引流与支付链路分析.html</code>、<code>research/video/exact/</code>（68.26s 按帧号解码）、<code>research/assets/</code>（4 张官方截图）、<code>research/appstore_lookup.json</code>、<code>research/agreement.html</code> / <code>privacy.html</code> / <code>support.html</code>。<br>
+未执行：Swift 客户端编译与真机联调（本机 Windows 无 Xcode），IPA 静态分析（未取到包）。这两项都需要 macOS 构建环境 + Apple 开发者账号。</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>没有 Mac 怎么办 · 云 Mac 选型与开通操作 · 米帧盒播放器</title>
+<style>
+:root{--bg:#0B1020;--card:#151C30;--card2:#1B2440;--line:rgba(255,255,255,.09);
+--primary:#35E0C8;--accent:#FF9F5A;--text:#F2F6FF;--muted:#8A96B4;--red:#FF6B6B;--green:#4BD6A0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+ font:15px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:1080px;margin:0 auto;padding:44px 28px 90px}
+h1{font-size:30px;margin:0 0 8px;font-weight:800;letter-spacing:-.01em}
+h1 em{color:var(--primary);font-style:normal}
+.sub{color:var(--muted);font-size:13px;margin-bottom:30px}
+h2{font-size:19px;margin:38px 0 12px;padding-left:12px;border-left:3px solid var(--primary)}
+h3{font-size:15px;margin:22px 0 8px;color:var(--primary)}
+p{margin:10px 0}
+a{color:var(--primary);text-decoration:none}
+code{background:#080D1C;border:1px solid var(--line);border-radius:5px;padding:2px 6px;
+ font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;color:#BFE9FF;word-break:break-all}
+pre{background:#080D1C;border:1px solid var(--line);border-radius:12px;padding:15px;
+ font:12px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace;color:#C3D6FF;overflow:auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin:16px 0}
+.hero{background:radial-gradient(110% 100% at 15% 0%,rgba(53,224,200,.16),transparent 60%),
+ radial-gradient(90% 90% at 100% 20%,rgba(255,159,90,.10),transparent 60%),var(--card)}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px}
+th{text-align:left;color:var(--muted);font-size:11px;font-weight:600;letter-spacing:.05em;
+ padding:10px 9px;border-bottom:1px solid var(--line)}
+td{padding:10px 9px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:top}
+tr:last-child td{border-bottom:0}
+.tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}
+.tag.g{background:rgba(75,214,160,.14);color:var(--green)}
+.tag.o{background:rgba(255,159,90,.15);color:var(--accent)}
+.tag.r{background:rgba(255,107,107,.14);color:var(--red)}
+.step{display:flex;gap:14px;align-items:flex-start;margin:14px 0}
+.step .n{width:28px;height:28px;flex:0 0 28px;border-radius:50%;background:rgba(53,224,200,.14);
+ color:var(--primary);font-weight:800;display:flex;align-items:center;justify-content:center;font-size:13px}
+.note{background:rgba(255,159,90,.08);border:1px solid rgba(255,159,90,.28);border-radius:12px;
+ padding:13px 16px;font-size:13px;color:#FFD9B8;margin:16px 0}
+.ok{background:rgba(75,214,160,.08);border:1px solid rgba(75,214,160,.28);border-radius:12px;
+ padding:13px 16px;font-size:13px;color:#B8F2D8;margin:16px 0}
+ul,ol{padding-left:22px;margin:10px 0}li{margin:6px 0}
+.foot{margin-top:50px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:11px}
+@media(max-width:700px){.wrap{padding:24px 14px 60px}h1{font-size:24px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>没有 Mac 怎么办 · <em>云 Mac 选型与开通</em></h1>
+<div class="sub">米帧盒播放器 · 2026-11-25 · 价格与政策为今日公开检索结果，下单以官网结算页为准</div>
+
+<div class="card hero">
+<p style="margin-top:0"><b>直接给结论：租，但不用 SSH，也不用整机月付。</b>你现在只是要「编译 → 签名 → 上传 TestFlight」，选 <b>MacinCloud 按小时（PAYG by Hours）</b> 最省：$1.25/小时，25 小时额度约 <b>$31.25（≈¥225）</b>，用完就停；镜像选 <b>macOS Tahoe 26.6+ / Xcode 26.6</b>，直接满足 2026-04-28 起的上传要求。</p>
+<div class="ok"><b>三个误区先纠正：</b>（后端公网化已单独展开 → <a href="后端部署到app.kqi.ink-操作手册.html">后端部署到 app.kqi.ink</a>）① <b>SSH 不是必须的</b>——云 Mac 给的是 RDP 图形桌面，在里面开「终端」就能跑全部命令，MacinCloud 加购 SSH 还要额外加钱；② <b>真 iPhone 不用插线</b>——云 Mac 在机房，USB 连不到你的手机，上传 TestFlight 后手机无线安装测试；③ <b>云 Mac 编译成功 ≠ 手机能拉到配置</b>——后端必须公网 HTTPS，见第 5 节，这是最容易踩的坑。</div>
+</div>
+
+<h2>1. 六个方案横评（2026-11-25 检索）</h2>
+<table>
+<tr><th style="width:20%">方案 / 官网</th><th style="width:17%">价格</th><th style="width:22%">Xcode 26 / root</th><th>结论</th></tr>
+<tr>
+<td><b>MacinCloud PAYG 按小时</b><br><a href="https://checkout.macincloud.com/select/payg?tab=3,4&payg_period=h">下单页</a></td>
+<td><b>$1.25/小时</b><br>25 小时起充 $31.25；最短 1 小时；额度 60 天有效</td>
+<td>macOS Tahoe 26.6+ 镜像带 <b>Xcode 26.6</b>；<b>无 root</b></td>
+<td><span class="tag g">首选</span> 预装 Xcode 直接达标、按小时停、有图形桌面能登 Apple ID 看报错。无 root 的问题已由 <code>cloud_mac_setup.sh</code> 绕开（xcodegen 装到用户目录）。</td>
+</tr>
+<tr>
+<td>MacinCloud Managed 月付<br><a href="https://www.macincloud.com/">macincloud.com</a></td>
+<td>约 $25–39/月；首次 Managed 有 $0.99 / 24h 试用（第三方评测，需官网确认）</td>
+<td>同上，无 root，按「登录天数」计费，7 天档约 $35</td>
+<td><span class="tag o">备选</span> 想先花几块钱试一次可以用试用；PAYG 按小时更灵活。</td>
+</tr>
+<tr>
+<td><b>MacStadium（整机）</b><br><a href="https://www.macstadium.com/pricing">pricing</a></td>
+<td>M2 Mac mini $109/月<br>M4 16GB $149/月<br>无试用</td>
+<td>整机 <b>root + SSH/VNC</b>，自己选 Xcode 版本、装 Simulator</td>
+<td><span class="tag g">长期首选</span> 老牌（2012 起）、稳定、可反复折腾。要天天改代码 / 反复编译再换这个；首次只打一个包不必花这个钱。</td>
+</tr>
+<tr>
+<td>亚太整机 / 中文渠道</td>
+<td>VmMac ≈$103.9/月（港日韩新美东）<br>NodeMac ≈$96.9/月<br>ZovCloud $99.1/月 或 $19.8/天<br>MacDate 香港 M4 ≈$5.5/天<br>有中文渠道称 HostMyApple 支持支付宝/银联</td>
+<td>需逐家确认 <b>真实 Apple 硬件 + Tahoe 26 + Xcode 26.6</b></td>
+<td><span class="tag o">可考虑</span> 国内延迟低、部分支持人民币付款；但都是第三方汇总价、小厂镜像版本参差，下单前必须问清 Xcode 版本（问「能否 <code>xcodebuild -version</code> 显示 26.x」）。</td>
+</tr>
+<tr>
+<td><b>GitHub Actions macos-26</b><br><a href="https://github.com/features/actions">GitHub Actions</a></td>
+<td>公开仓库标准 runner <b>免费</b>；私有仓库 macOS $0.062/分钟，且按 <b>10×</b> 消耗免费额度</td>
+<td>镜像自 2026-07 起默认 <b>Xcode 26.6 / iOS 26 SDK</b>；无需自己管机器</td>
+<td><span class="tag g">零租金备选</span> 完全不用租 Mac。代价：要 push 到 GitHub 仓库、手动导入签名证书到临时钥匙串。workflow 已写好：<code>.github/workflows/ios-testflight.yml</code>。</td>
+</tr>
+<tr>
+<td>AWS EC2 Mac / Xcode Cloud / 超低价白牌</td>
+<td>AWS：mac2.metal $0.65/h、M4 $1.23/h，<b>24 小时最低</b>（一次最少 $15.60–$29.52）<br>Xcode Cloud：ADP 含 25 小时/月</td>
+<td>AWS 镜像<b>不预装 Xcode</b>，几十 GB 下载吃掉付费时间<br>Xcode Cloud <b>首次配置 workflow 必须在 Mac 上的 Xcode 里做</b></td>
+<td><span class="tag r">别选</span> AWS 对个人最贵最折腾；Xcode Cloud 你没 Mac 就配置不了；$24.99/月那类常是 Monterey/Sonoma 老镜像（最多 Xcode 16.2），<b>包传上去直接被拒</b>。</td>
+</tr>
+</table>
+<p class="sub">另：Codemagic 个人账号每月 500 分钟免费 macOS M2；Expo EAS 免费层每月 15 次 iOS 构建——都是零租金 CI 的同类备选，按需再换。Apple Developer Program 99 USD/年（中国区以官网人民币价为准）是以上所有路线都绕不开的固定成本。</p>
+
+<h2>2. 首选下单：MacinCloud 按小时，逐项怎么勾</h2>
+<div class="card">
+<table>
+<tr><th style="width:28%">页面选项</th><th>选这个</th></tr>
+<tr><td>Preset</td><td><b>Xcode/iOS Dev</b>（预装 Xcode 与常用工具）</td></tr>
+<tr><td>Operating System</td><td><b>macOS Tahoe 26.6+（Supports Xcode 26.6）</b> ← 最关键的一行。<b>别选</b> Sonoma 14.7.8（最多 Xcode 16.2）；Sequoia 15.7.3 只能到 Xcode 26.3，能用但不如 Tahoe 稳</td></tr>
+<tr><td>Platform</td><td>Mac mini M2 16GB 够用；M4 更快，价格以结算页为准</td></tr>
+<tr><td>Payment Cycle / Login Time</td><td><b>PAYG by Hours → 25-Hours of Credit</b>（$1.25/h，一次性 $31.25）。别选 by Days（按连续 24 小时计，最低 $5.60/天）</td></tr>
+<tr><td>Enable Remote Build Port (SSH)</td><td><b>No SSH</b>。图形桌面里的终端足够；要我从你的 Windows 直接连过去时才加购（约 +$4.20/天）</td></tr>
+<tr><td>Location</td><td>Asia East (Singapore) 或美西都行，编译上传不挑延迟；RDP 手感差别更明显</td></tr>
+<tr><td>付款</td><td>准备<b>双币 Visa / Mastercard 或 PayPal</b>（以结算页实际支持为准）。没有外币卡就走第 1 节里支持支付宝/银联的中文渠道，但务必先问清 Xcode 版本</td></tr>
+</table>
+</div>
+<div class="note"><b>两个计费坑：</b>PAYG 超额会<b>自动充值</b>（按所选额度续扣），不用了要在后台关掉自动续费；连续 60 天不登录，剩余额度作废。用完主动断开 RDP 并确认后台状态，关掉远程桌面窗口不等于停机。</div>
+
+<h2>3. 连上之后，7 步走完</h2>
+<div class="step"><div class="n">1</div><div><b>收开通邮件</b>，拿到 RDP 主机 / 用户名 / 密码。Windows 用「远程桌面连接」(<code>mstsc</code>) 或 Microsoft Remote Desktop 连上，首次改临时密码。</div></div>
+<div class="step"><div class="n">2</div><div><b>传工程</b>：把整个 <code>channel-switch/</code> 打成 zip，用 MacinCloud 上传工具 / OneDrive / 网盘 / Git 传到云 Mac 并解压。别用剪贴板拖大目录。</div></div>
+<div class="step"><div class="n">3</div><div><b>跑初始化</b>（无 root 也能装 xcodegen）：<br><code>cd channel-switch/xcode &amp;&amp; ./scripts/cloud_mac_setup.sh</code><br>它会查 Xcode≥26 / iOS 26 SDK、把 XcodeGen 装到 <code>~/.local/bin</code>、检查工程与凭据、提示后端公网化。</div></div>
+<div class="step"><div class="n">4</div><div><b>登录开发者账号</b>：打开 Xcode → Settings → Accounts，登录已付费的 Apple Developer 账号（自动签名需要；Agent/Admin 权限才能自动建 Distribution 证书）。</div></div>
+<div class="step"><div class="n">5</div><div><b>填 3 个值</b>：两份 xcconfig 的 <code>MZH_TEAM_ID</code>、<code>Config-Release.xcconfig</code> 的 HTTPS 配置域名（见第 5 节）；<code>.p8</code> 放到 <code>~/.appstoreconnect/private_keys/AuthKey_&lt;KeyID&gt;.p8</code>。</div></div>
+<div class="step"><div class="n">6</div><div><b>编译上传</b>：<code>./scripts/preflight.sh</code> → <code>xcodegen generate --spec project.yml</code> → <code>./scripts/build.sh</code> → <code>./scripts/upload.sh</code>。首次 Swift 编译报错把完整日志贴回来，我按行修。</div></div>
+<div class="step"><div class="n">7</div><div><b>真机测试</b>：iPhone 装 TestFlight，等构建 Processing 完（几分钟），安装后用后台「⑦ 百度推广 API 归因对接」模拟 <code>bbdd1</code> 点击，验开屏 → 试看 → 充值闭环、退出保留进度、登录后 1s 弹充值、账号注销。<b>不需要把手机插到任何电脑上。</b></div></div>
+
+<h2>4. 凭据在共享 Mac 上的处置</h2>
+<p>MacinCloud 的 PAYG / Managed 是<b>共享物理 Mac 上的用户账号</b>，没有 root，也不由你独占系统。做构建没问题，但凭据要按可撤销的方式用：</p>
+<ul>
+<li>上传只用 <b>App Store Connect API Key</b>（Issuer ID / Key ID / .p8），不要拿主账号密码去脚本里跑；</li>
+<li>签名优先用「Xcode 登录 + 自动签名」，或导入一份单独的 Distribution 证书；</li>
+<li>收工前：Xcode → Accounts <b>退出登录</b>、删掉机器上的 <code>.p8</code>、在 App Store Connect <b>撤销这次用的 Key</b>（随时可再建）；</li>
+<li>不要在托管镜像的钥匙串里长期保存密码；要长期用就换第 1 节的整机方案（root + 独占钥匙串）。</li>
+</ul>
+
+<h2>5. 最容易踩的坑：云 Mac 编译好了，手机却一直合规态</h2>
+<p>Archive 只是把代码编成 IPA，<b>编译期不请求配置服务</b>；App 在手机上运行才去拉 <code>/v1/config</code>。你现在的后端跑在 Windows 的 <code>192.168.11.14:8790</code>，云 Mac 和手机都访问不到这个局域网地址，于是客户端按设计回落 <code>normal</code>，看不到渠道闭环。<b>正式方案已定：</b>复用你已有的 <code>https://app.kqi.ink</code> 挂 <code>/mzh/</code> 子路径，部署包与一键脚本已备好，见 <a href="后端部署到app.kqi.ink-操作手册.html">后端部署到 app.kqi.ink 操作手册</a>。三种可选状态：</p>
+<table>
+<tr><th style="width:18%">方式</th><th>怎么做</th></tr>
+<tr><td><b>① 正式：上公网</b><br><span class="tag g">提审必须</span></td><td><b>已于 2026-11-25 17:21 部署完成并线上验证 15/15 PASS：</b>复用现有域名与证书，后端挂在 <code>https://app.kqi.ink/mzh</code>，systemd 常驻 + nginx 反代 + 后台 Basic Auth；<code>/mzh/health</code> 与 <code>/mzh/demo</code> 实测 200，<code>/mzh/admin</code> 401→认证后 200，原有 <code>/site</code> 不受影响。两份 xcconfig 的 <code>CONFIG_BASE_URL</code> 均为 <code>https:/$()/app.kqi.ink/mzh</code>，云 Mac / TestFlight 真机可直接连。详见 <a href="后端部署到app.kqi.ink-操作手册.html">部署手册</a> 与 <a href="服务器授权-一步开通.html">上线信息页</a>。</td></tr>
+<tr><td><b>② 临时：穿透本机</b><br><span class="tag o">联调最快</span></td><td>在 Windows 上跑 <code>cloudflared tunnel --url http://localhost:8790</code>，会得到一个免费的 <code>https://xxx.trycloudflare.com</code>，填进 xcconfig 即可让手机拉到配置。同类还有 ngrok / frp。域名每次变，只用于测试。</td></tr>
+<tr><td><b>③ 不改也能测</b></td><td>H5 Demo <code>http://192.168.11.14:8790/demo</code> 与后台 <code>/admin</code> 仍在同一局域网，手机连家里 Wi-Fi 就能验全部交互逻辑；只有原生 IPA 才需要公网地址。</td></tr>
+</table>
+<div class="note"><b>xcconfig 写法提醒：</b><code>//</code> 在 xcconfig 里是注释，URL 必须写成 <code>https:/$()/config.example.com</code>（Xcode 把 <code>$()</code> 展开为空，得到 <code>https://config.example.com</code>）。<code>cloud_mac_setup.sh</code> 与 <code>preflight.sh</code> 会检查这一项并对局域网地址告警。</div>
+
+<h2>6. 零租金备选：GitHub Actions（不租任何 Mac）</h2>
+<p>已经写好 <code>.github/workflows/ios-testflight.yml</code>，用 <code>runs-on: macos-26</code>（该镜像默认 Xcode 26.6 / iOS 26 SDK）。把工程 push 到 GitHub，在仓库 Settings → Secrets 里配好下列变量，手动触发即可 Archive + 导出 IPA + 上传 TestFlight：</p>
+<pre>MZH_TEAM_ID          Team ID（10 位）
+MZH_BUNDLE_ID        com.mizhenhe.player
+CONFIG_HOST          配置域名，不带 https://，如 config.example.com
+ASC_KEY_ID           App Store Connect API Key ID
+ASC_ISSUER_ID        Issuer ID
+ASC_P8_BASE64        .p8 文件的 base64
+CERT_P12_BASE64      Apple Distribution 证书 .p12 的 base64
+CERT_PASSWORD        .p12 密码
+PROFILE_BASE64       App Store 描述文件 .mobileprovision 的 base64
+PROFILE_UUID         描述文件 UUID</pre>
+<p>CI 上没有 Xcode 账号交互登录，所以 workflow 走<b>手动签名</b>（<code>import_signing.sh</code> 建临时钥匙串 → 导入证书和描述文件 → <code>CODE_SIGN_STYLE=Manual</code>）。公开仓库标准 runner 免费；私有仓库 macOS 分钟按 10× 消耗免费额度，GitHub Free 每月约 194 分钟 macOS，够 25–35 次构建。这条路线省掉租金，代价是每次改动要 push 一次、反馈比 RDP 里直接改慢一点。</p>
+
+<h2>7. 常见坑速查</h2>
+<table>
+<tr><th style="width:32%">现象</th><th>处理</th></tr>
+<tr><td>上传被拒「SDK 版本过低」</td><td>镜像必须是 Xcode 26+ / iOS 26 SDK；<code>cloud_mac_setup.sh</code> 第一步就查，Monterey / Sonoma 老镜像直接换套餐</td></tr>
+<tr><td>装不了 Homebrew / 提示要管理员密码</td><td>PAYG / Managed 无 root；脚本已改为用户级安装 XcodeGen。要装系统级工具就提工单让服务商装，或换 Dedicated / MacStadium</td></tr>
+<tr><td>RDP 卡、键盘布局乱</td><td>Windows 插网线、降远程分辨率；共享机型慢是常态，整机方案才根治</td></tr>
+<tr><td>首次 Archive 报 <code>No signing certificate</code></td><td>Xcode → Accounts 登录付费账号，Team ID 填对，账号需有创建证书权限；或走第 6 节手动签名</td></tr>
+<tr><td>手机装了 TestFlight 却一直 normal</td><td>第 5 节：后端没公网化。看 <code>preflight.sh</code> 的 WARN</td></tr>
+<tr><td>账单比预期高</td><td>PAYG 自动续充、by Days 按连续 24h 计、AWS 24h 最低；用完关自动续费</td></tr>
+<tr><td>提审前 Info.plist 被问 ATS</td><td>Release 版已无明文 HTTP 例外，确认 Release xcconfig 是 HTTPS 域名即可</td></tr>
+</table>
+
+<h2>8. 本轮已备文件与实测</h2>
+<ul>
+<li><code>xcode/scripts/cloud_mac_setup.sh</code> —— 云 Mac 初始化，无 root 也能装 XcodeGen，含 Xcode 26 / 域名 / 凭据检查</li>
+<li><code>xcode/scripts/import_signing.sh</code> —— CI / 手动签名：临时钥匙串 + 证书 + 描述文件导入</li>
+<li><code>.github/workflows/ios-testflight.yml</code> —— macOS 26 runner 一键 Archive → IPA → TestFlight</li>
+<li><code>xcode/scripts/preflight.sh</code> —— 本轮调整：后端不可达改为 WARN（云 Mac 属正常），新增 Release 域名占位与局域网地址告警</li>
+</ul>
+<div class="ok"><b>静态自检真实回归：PASS 48 / FAIL 0 / TODO 1</b>（TODO 仍是 Team ID 待你填）。7 个 shell 脚本 <code>bash -n</code> 全通过，含真实 <code>POST 127.0.0.1:8790/v1/config → 200</code>；证据 <code>evidence/xcode_bundle_preflight.json</code>。</div>
+<p class="sub">未执行项如实标注：本机是 Windows，<b>cloud_mac_setup.sh 未在真实 macOS 上跑过</b>；workflow YAML 本机无 PyYAML，未做解析校验；Swift 编译 / Archive / TestFlight 上传同样尚未执行。下一条可复现命令是云 Mac 终端里的 <code>./scripts/cloud_mac_setup.sh</code>。</p>
+
+<div class="foot">价格与政策检索于 2026-11-25，来源：<a href="https://checkout.macincloud.com/select/payg?tab=3,4&payg_period=h">MacinCloud PAYG 结算页</a>、<a href="https://www.macstadium.com/pricing">MacStadium Pricing</a>、<a href="https://developer.apple.com/cn/xcode-cloud/get-started/">Apple Xcode Cloud</a>、<a href="https://developer.apple.com/news/upcoming-requirements/?id=04282026a">Apple SDK 最低要求</a>，以及第三方 2026 年云 Mac 价格汇总（厂商自报，未审计）。相关文档：<a href="设备与构建环境-接下去怎么弄.html">设备与构建环境-接下去怎么弄</a> · <a href="真机测试与渠道展示操作手册.html">真机测试与渠道展示操作手册</a>。</div>
+
+</div>
+</body>
+</html>

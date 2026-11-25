@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>百度推广 API 归因对接方案 · 渠道号 bbdd1</title>
+<style>
+  :root{--bg:#0B1020;--panel:#151C30;--line:#26314C;--text:#F2F6FF;--muted:#8A96B4;
+        --primary:#35E0C8;--orange:#FF9F5A;--red:#FF6B6B;--purple:#A24BE8}
+  *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.85 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:980px;margin:0 auto;padding:38px 26px 70px}
+  h1{font-size:29px;margin:0 0 8px;letter-spacing:.5px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:26px}
+  h2{font-size:19px;margin:34px 0 12px;padding-left:11px;border-left:3px solid var(--primary)}
+  h3{font-size:15px;margin:22px 0 8px;color:var(--primary)}
+  p{margin:9px 0}code{background:#1B2540;color:var(--primary);padding:2px 6px;border-radius:5px;font-size:12px}
+  pre{background:#080D1B;border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+      overflow:auto;font:12px/1.7 Consolas,Monaco,monospace;color:#C9D6F2;white-space:pre-wrap}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:12.5px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:#1B2540;color:var(--primary);font-weight:700}
+  td b{color:var(--orange)}
+  .note{background:linear-gradient(100deg,rgba(53,224,200,.10),rgba(162,75,232,.08));
+        border:1px solid rgba(53,224,200,.35);border-radius:12px;padding:15px 18px;margin:18px 0}
+  .warn{background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.4);
+        border-radius:12px;padding:15px 18px;margin:18px 0}
+  .flow{display:flex;flex-wrap:wrap;gap:9px;align-items:stretch;margin:16px 0}
+  .step{flex:1 1 175px;min-width:175px;background:var(--panel);border:1px solid var(--line);
+        border-radius:12px;padding:12px 13px}
+  .step .n{font-size:10px;letter-spacing:1px;color:var(--primary);font-weight:800}
+  .step .t{font-size:13px;font-weight:700;margin:5px 0 4px}
+  .step .d{font-size:11px;color:var(--muted);line-height:1.6}
+  .arrow{align-self:center;color:var(--primary);font-size:17px}
+  .tag{display:inline-block;font-size:10px;padding:2px 8px;border-radius:9px;
+       background:rgba(53,224,200,.14);color:var(--primary);margin-right:6px}
+  .tag.o{background:rgba(255,159,90,.14);color:var(--orange)}
+  .tag.r{background:rgba(255,107,107,.14);color:var(--red)}
+  ul{margin:8px 0 8px 20px;padding:0}li{margin:5px 0}
+  .foot{margin-top:40px;color:var(--muted);font-size:11px;border-top:1px solid var(--line);padding-top:14px}
+</style>
+</head>
+<body><div class="wrap">
+
+<h1>百度推广 API 归因对接方案</h1>
+<div class="sub">渠道号不是剪贴板给的：百度回传「点击 IP / 设备号」→ 我方后台定义渠道号 <code>bbdd1</code> → 安装首启按 IP / 设备号绑定 → 按该渠道展示配置下发。<br>
+本页是补齐的研究与对接说明，配套代码已落地并跑通端到端自检。</div>
+
+<div class="note"><b>纠正上一版的理解偏差：</b>之前把主链路做成了「落地页写剪贴板 token → App 首启读剪贴板 → 换渠道号」。
+你实际要的是<b>服务端侧归因</b>：包投在百度推广，你们与百度后台已有 API 归因对接，百度把「哪些 IP / 设备号是从广告点击进来的」给到我方后台；
+安装后我方后台一看这个 IP 就知道来自百度，于是按<b>我们自定义的渠道号</b>（例如 <code>bbdd1</code>）给这台设备下发该渠道自己配置的展示。
+现在剪贴板已从判定链路中移除，只保留调试打点，不再是渠道号来源。</div>
+
+<h2>1. 完整时序</h2>
+<div class="flow">
+  <div class="step"><div class="n">STEP 1</div><div class="t">百度广告点击</div>
+    <div class="d">用户在百度推广点广告。百度侧记录 click_id、点击出口 IP、设备标识、计划 ID、点击时间。</div></div>
+  <div class="arrow">→</div>
+  <div class="step"><div class="n">STEP 2</div><div class="t">API 归因回传</div>
+    <div class="d">百度后台通过你们已对接的 API，把点击明细回传到我方
+      <code>POST /v1/attribution/baidu/callback</code>（也可由我方定时拉取后批量灌入 <code>clicks[]</code>）。</div></div>
+  <div class="arrow">→</div>
+  <div class="step"><div class="n">STEP 3</div><div class="t">定义渠道号</div>
+    <div class="d">后台按「百度计划ID → 我方渠道号」映射，例如 <code>baidu_plan_a → bbdd1</code>；
+      渠道号完全由我方命名，可随时加 <code>bbdd2</code>、按投放计划拆多套展示。</div></div>
+  <div class="arrow">→</div>
+  <div class="step"><div class="n">STEP 4</div><div class="t">安装首启</div>
+    <div class="d">App 装上后第一次启动，只上报设备上下文（idfv / idfa / CAID、机型、时区语言等），
+      <b>不带渠道号</b>；服务端记录这次请求的出口 IP。</div></div>
+  <div class="arrow">→</div>
+  <div class="step"><div class="n">STEP 5</div><div class="t">服务端匹配 + 绑定</div>
+    <div class="d"><code>/v1/attribution/resolve</code> 用「设备号精确 &gt; 出口 IP + 多特征 &gt; 纯 IP」匹配点击库，
+      命中则把 <code>bbdd1</code> 写进设备绑定表并落盘。</div></div>
+  <div class="arrow">→</div>
+  <div class="step"><div class="n">STEP 6</div><div class="t">按渠道展示</div>
+    <div class="d"><code>/v1/config</code> 自动按绑定渠道下发；<b>bbdd1 自己那套</b>栏目 / 模块 / 套餐 / 倒计时生效。
+      未命中一律 <code>organic</code> 合规态。</div></div>
+</div>
+
+<h2>2. 回传字段（我方接收端点）</h2>
+<p>百度侧具体字段名以你们已有的对接文档为准；我方接收端点做了兼容，设备号字段任选其一即可，
+<b>渠道号优先取回传里的 <code>channel</code>，没带就按 <code>plan_id</code> 查映射表</b>。</p>
+<table>
+<tr><th>字段</th><th>含义</th><th>是否必需</th><th>我方处理</th></tr>
+<tr><td><code>click_id</code></td><td>百度侧点击唯一 ID</td><td><b>必需</b></td><td>幂等去重键，重复回传只累计 duplicates，不新增记录</td></tr>
+<tr><td><code>ip</code></td><td>点击时的出口 IP</td><td><b>必需</b>（缺省取请求 IP）</td><td>首启时与 App 请求出口 IP 比对；支持 /24 同段弱匹配</td></tr>
+<tr><td><code>idfa / caid / device_id / oaid / idfv</code></td><td>设备号（任一）</td><td>强烈建议</td><td>只以加盐 SHA-256 前 24 位落盘，<b>不存明文</b>；精确匹配优先级最高</td></tr>
+<tr><td><code>plan_id</code></td><td>百度投放计划/单元 ID</td><td>二选一</td><td>查 <code>channel_map</code> 得到我方渠道号</td></tr>
+<tr><td><code>channel</code></td><td>直接指定我方渠道号</td><td>二选一</td><td>例如 <code>bbdd1</code>，优先级高于 plan_id 映射</td></tr>
+<tr><td><code>ts</code></td><td>点击时间戳（秒）</td><td>可选</td><td>缺省用服务器时间；超出 <code>window_seconds</code> 的点击不再参与匹配</td></tr>
+<tr><td><code>ua / model / tz / lang / screen</code></td><td>辅助指纹</td><td>可选</td><td>纯 IP 不够时用于加权；严格模式要求至少 2 项命中</td></tr>
+<tr><td><code>_sig</code></td><td>HMAC-SHA256 签名</td><td>生产必需</td><td>设置环境变量 <code>BAIDU_API_SECRET</code> 后强制校验，防止伪造回传</td></tr>
+</table>
+
+<h3>可运行示例</h3>
+<pre># 单条回传（本机 8790 服务）
+curl -X POST http://127.0.0.1:8790/v1/attribution/baidu/callback \
+  -H "Content-Type: application/json" \
+  -d '{"click_id":"BAIDU-CLK-001","plan_id":"baidu_plan_a",
+       "ip":"203.0.113.77","device_id":"DEVICE-BAIDU-001",
+       "ua":"iPhone","model":"iPhone","tz":"Asia/Shanghai",
+       "lang":"zh-CN","screen":"1170x2532@3"}'
+
+# 批量（拉取模式：把百度给的一批点击一次性灌入）
+curl -X POST http://127.0.0.1:8790/v1/attribution/baidu/callback \
+  -H "Content-Type: application/json" \
+  -d '{"clicks":[{"click_id":"A1","plan_id":"baidu_plan_a","ip":"203.0.113.77"},
+                  {"click_id":"A2","channel":"bbdd1","ip":"203.0.113.78","idfa":"XXXX"}]}'
+
+# App 首启（客户端不传渠道号）
+curl -X POST http://127.0.0.1:8790/v1/attribution/resolve \
+  -H "Content-Type: application/json" \
+  -d '{"idfv":"IDFV-XXX","device_id":"DEVICE-BAIDU-001","ip":"203.0.113.77","country":"cn"}'
+# → {"channel":"bbdd1","confidence":1.0,"method":"device_exact","bound":true,...}
+
+# 配置下发（服务端自动按绑定解析渠道）
+curl -X POST http://127.0.0.1:8790/v1/config \
+  -H "Content-Type: application/json" \
+  -d '{"idfv":"IDFV-XXX","auto_attribution":true,"country":"cn"}'</pre>
+
+<h2>3. 匹配算法与防误判</h2>
+<table>
+<tr><th>优先级</th><th>条件</th><th>置信度</th><th>方法名</th><th>结果</th></tr>
+<tr><td>1</td><td>设备号哈希精确相等（IDFA / CAID / device_id / OAID / idfv）</td><td>1.00</td><td><code>device_exact</code></td><td>直接绑定渠道</td></tr>
+<tr><td>2</td><td>出口 IP 精确相等 + 机型 / 时区 / 语言 / 屏幕 / UA 中命中 ≥1 项 + 时间窗内</td><td>≥0.65</td><td><code>ip_plus_fingerprint</code></td><td>达到 <code>min_confidence</code> 即绑定</td></tr>
+<tr><td>3</td><td>只有「后台知道这个 IP 来自百度」</td><td>0.65（可配）</td><td><code>ip_from_partner_api</code></td><td>默认允许命中（就是你说的那种情况）</td></tr>
+<tr><td>4</td><td>IP 只同 /24、无任何非 IP 特征，且开启严格模式</td><td>≤0.30</td><td><code>low_confidence</code></td><td>回落 <code>organic</code></td></tr>
+<tr><td>5</td><td>时间窗外 / 渠道不存在 / 全局熔断</td><td>0</td><td><code>no_match</code></td><td>回落合规态</td></tr>
+</table>
+<p><b>为什么默认允许纯 IP 命中、又保留严格模式开关：</b>运营商 NAT / 公司 WiFi 下，同一个出口 IP 会有大量无关用户。
+如果百度回传的 IP 粒度很粗，纯 IP 命中会把自然量误判成投放量。所以后台提供三档可调：
+<code>allow_ip_only</code>（默认开，贴合你的描述）、<code>strict_mode</code>（要求设备号或 ≥2 项非 IP 特征）、
+<code>window_seconds</code>（默认 24h，点击久远就失效）。三者都在后台「⑦ 百度推广 API 归因对接」面板里即时生效。</p>
+<div class="warn"><b>审核与工程边界：</b>未命中一律 <code>organic</code>；<code>/admin/killswitch</code> 一键全量回落；
+绑定表可手动解绑、可一键清空；设备号只存哈希。命中后走付费墙这件事本身仍受 <code>2.5.19</code>（隐藏/休眠功能）、
+<code>3.1.1</code>（数字内容必须走 IAP）约束 —— 归因方式换成 API 不改变这一层风险，详见
+<code>审核条款对照与检出面评估.html</code>。</div>
+
+<h2>4. 渠道号 = 一套展示配置</h2>
+<p>渠道号不是一段字符串开关，而是后台里可编辑的一整套展示：该渠道启用 / 守卫、栏目、开屏试看支付模块、套餐显隐与价格、倒计时与素材。
+本次新增 <code>bbdd1</code> 并故意配得和 <code>wn_douyin_a</code> 不一样，用来验证「按这个渠道设置的展示来」：</p>
+<table>
+<tr><th>项目</th><th>bbdd1（百度计划A）</th><th>wn_douyin_a（对照）</th></tr>
+<tr><td>开屏倒计时</td><td><b>5s</b></td><td>6s</td></tr>
+<tr><td>视频试看</td><td><b>20s</b></td><td>15s</td></tr>
+<tr><td>会员套餐</td><td><b>2 档</b>（3年198 / 月度98）</td><td>3 档（198 / 158 / 98）</td></tr>
+<tr><td>首页分区</td><td><b>2 个</b></td><td>3 个</td></tr>
+<tr><td>四大玩法卡</td><td><b>2 张</b></td><td>4 张</td></tr>
+<tr><td>云字幕工坊</td><td><b>关闭</b></td><td>开启</td></tr>
+<tr><td>形态</td><td>paywall（倒计时 + 视频 + VIP）</td><td>paywall</td></tr>
+</table>
+<p>后台左侧选 <code>bbdd1</code> 即可改它的栏目 / 模块 / 套餐 / 秒数，保存后下一台设备请求 <code>/v1/config</code> 立即生效，不需要发版。</p>
+
+<h2>5. 隐私与设备标识</h2>
+<ul>
+<li><b>IDFA</b>：iOS 14+ 必须经 AppTrackingTransparency 授权才能拿到有效值；未授权返回全零，代码里直接按 <code>nil</code> 处理，服务端退回 IP 匹配。</li>
+<li><b>CAID</b>：国内常用匿名标识，由第三方 SDK 提供；<code>ChannelAttribution.caidIdentifier()</code> 留了接入位，未接入返回 nil。</li>
+<li><b>idfv</b>：同一开发者账号下稳定，卸载重装会变。所以绑定表额外按出口 IP 哈希做兜底，设备号变了也能找回渠道。</li>
+<li><b>落盘</b>：<code>server/state/attribution.json</code> 里只有加盐哈希、IP、渠道号、匹配方式、时间；不写明文设备号、手机号。</li>
+<li><b>生产鉴权</b>：设置 <code>BAIDU_API_SECRET</code> 后，回传体必须带 <code>_sig</code>（对规范化 JSON 的 HMAC-SHA256），否则 403。</li>
+</ul>
+
+<h2>6. 真机验收（同 WiFi）</h2>
+<ol>
+<li>电脑打开 <code>http://127.0.0.1:8790/admin</code> → 拉到「⑦ 百度推广 API 归因对接」。</li>
+<li>填「点击 IP / 设备号 / 百度计划ID」，渠道选 <code>bbdd1</code>，点「回传一条点击」→ 点击库出现一条记录。</li>
+<li>复制面板里「② 手机首次启动验证」的链接（形如
+  <code>http://192.168.11.14:8790/demo?auto=1&amp;ip=...&amp;dev=...</code>），手机同 WiFi 打开。</li>
+<li>手机 Demo 顶部调试栏显示 <code>归因 bbdd1 · device_exact · conf 1</code>，并进入 <b>bbdd1 专属</b>的 5s 开屏 / 20s 试看 / 2 档套餐。</li>
+<li>点「解绑」再刷新验证链接，可重看「回传 → 首启匹配 → 绑定 → 下发」全过程；点「清空测试数据」回到全量合规态。</li>
+</ol>
+
+<h2>7. 已跑通的实测</h2>
+<table>
+<tr><th>自检</th><th>覆盖</th><th>结果</th></tr>
+<tr><td><code>server/test_baidu_attribution.py</code></td><td>回传幂等、计划映射、设备号精确、纯 IP、严格模式、剪贴板失效、绑定/解绑、展示差异、落盘</td><td><b>23/23 PASS</b></td></tr>
+<tr><td><code>server/test_demo_auto.js</code></td><td>手机 Demo <code>?auto=1</code> 首次启动分支真实跑服务，拿到 bbdd1 及其展示配置</td><td><b>6/6 PASS</b></td></tr>
+<tr><td><code>server/test_admin.py</code></td><td>渠道展示后台原有能力回归</td><td><b>43/43 PASS</b></td></tr>
+<tr><td><code>server/test_exit_behavior.js</code></td><td>退出静默回片段、保留试看进度、无提示</td><td><b>24/24 PASS</b></td></tr>
+</table>
+
+<h2>8. 代码索引</h2>
+<table>
+<tr><th>文件</th><th>职责</th></tr>
+<tr><td><code>server/app.py</code></td><td><code>AD_CLICKS / DEVICE_BINDINGS / ATTRIB_CONF</code>、<code>match_ad_click()</code>、
+  <code>bind_device()</code>、<code>resolve_bound_channel()</code>、回传 / resolve / 后台管理路由、<code>/v1/config</code> 自动解析</td></tr>
+<tr><td><code>server/profiles/wanneng_rebrand.json</code></td><td>新增 <code>bbdd1</code> 渠道（自己的秒数、套餐、素材）</td></tr>
+<tr><td><code>server/state/display.json</code></td><td><code>bbdd1</code> 的栏目 / 模块 / 套餐显隐</td></tr>
+<tr><td><code>server/state/attribution.json</code></td><td>点击库 + 设备绑定 + 参数，原子写盘，重启不丢</td></tr>
+<tr><td><code>admin/index.html</code></td><td>「⑦ 归因对接」面板：参数、模拟回传、点击库、绑定表、解绑、验证链接</td></tr>
+<tr><td><code>demo/index.html</code></td><td><code>?auto=1</code> 首次启动归因；调试栏显示渠道号 / 匹配方式 / 置信度</td></tr>
+<tr><td><code>ios/ChannelAttribution.swift</code></td><td>首启调 <code>/v1/attribution/resolve</code>，上报 idfv / idfa / CAID；剪贴板链路已删</td></tr>
+<tr><td><code>ios/RemoteConfig.swift</code></td><td><code>/v1/config</code> 带 <code>auto_attribution=true</code>，以服务端绑定为准</td></tr>
+<tr><td><code>landing/index.html</code></td><td>只做调试打点，不再写剪贴板</td></tr>
+</table>
+
+<div class="foot">本页为工程对接说明，接口字段以你们与百度后台实际对接的文档为准；我方接收端点对字段名做了兼容。
+所有自检数据均为本机 8790 服务真实请求结果，存于 <code>evidence/</code>。Swift 侧因本机无 Xcode 未编译。</div>
+</div></body></html>

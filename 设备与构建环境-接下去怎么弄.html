@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>设备与构建环境 · 接下去怎么弄 · 米帧盒播放器</title>
+<style>
+:root{--bg:#0B1020;--card:#151C30;--card2:#1B2440;--line:rgba(255,255,255,.09);
+--primary:#35E0C8;--accent:#FF9F5A;--text:#F2F6FF;--muted:#8A96B4;--red:#FF6B6B;--green:#4BD6A0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+ font:15px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:1080px;margin:0 auto;padding:44px 28px 90px}
+h1{font-size:30px;margin:0 0 8px;font-weight:800;letter-spacing:-.01em}
+h1 em{color:var(--primary);font-style:normal}
+.sub{color:var(--muted);font-size:13px;margin-bottom:30px}
+h2{font-size:19px;margin:38px 0 12px;padding-left:12px;border-left:3px solid var(--primary)}
+h3{font-size:15px;margin:22px 0 8px;color:var(--primary)}
+p{margin:10px 0}
+a{color:var(--primary);text-decoration:none}
+code{background:#080D1C;border:1px solid var(--line);border-radius:5px;padding:2px 6px;
+ font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;color:#BFE9FF;word-break:break-all}
+pre{background:#080D1C;border:1px solid var(--line);border-radius:12px;padding:15px;
+ font:12px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace;color:#C3D6FF;overflow:auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin:16px 0}
+.hero{background:radial-gradient(110% 100% at 15% 0%,rgba(53,224,200,.16),transparent 60%),
+ radial-gradient(90% 90% at 100% 20%,rgba(255,159,90,.10),transparent 60%),var(--card)}
+.urls{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin:18px 0}
+.u{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:15px}
+.u .k{font-size:11px;color:var(--muted);letter-spacing:.1em;margin-bottom:6px}
+.u .v{font:13px/1.5 ui-monospace,Consolas,monospace;color:var(--primary);word-break:break-all}
+.u .d{font-size:11px;color:var(--muted);margin-top:7px;line-height:1.6}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px}
+th{text-align:left;color:var(--muted);font-size:11px;font-weight:600;letter-spacing:.05em;
+ padding:10px 9px;border-bottom:1px solid var(--line)}
+td{padding:10px 9px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:top}
+tr:last-child td{border-bottom:0}
+.tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}
+.tag.g{background:rgba(75,214,160,.14);color:var(--green)}
+.tag.o{background:rgba(255,159,90,.15);color:var(--accent)}
+.tag.r{background:rgba(255,107,107,.14);color:var(--red)}
+.step{display:flex;gap:14px;align-items:flex-start;margin:14px 0}
+.step .n{width:28px;height:28px;flex:0 0 28px;border-radius:50%;background:rgba(53,224,200,.14);
+ color:var(--primary);font-weight:800;display:flex;align-items:center;justify-content:center;font-size:13px}
+.note{background:rgba(255,159,90,.08);border:1px solid rgba(255,159,90,.28);border-radius:12px;
+ padding:13px 16px;font-size:13px;color:#FFD9B8;margin:16px 0}
+.ok{background:rgba(75,214,160,.08);border:1px solid rgba(75,214,160,.28);border-radius:12px;
+ padding:13px 16px;font-size:13px;color:#B8F2D8;margin:16px 0}
+ul,ol{padding-left:22px;margin:10px 0}li{margin:6px 0}
+.foot{margin-top:50px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:11px}
+@media(max-width:700px){.wrap{padding:24px 14px 60px}h1{font-size:24px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>接下去怎么弄 · <em>设备与构建环境</em></h1>
+<div class="sub">米帧盒播放器 · 2026-11-25 · 承接上一条「设备要求」清单，把它拆成「你给什么 / 我已备好什么 / 拿到之后跑哪几条命令」</div>
+
+<div class="card hero">
+<p style="margin-top:0"><b>一句话结论：</b>你贴的那 5 行里，真正卡住的只有 <b>2 个硬条件</b>——① 一台能跑 Xcode 26 的 macOS；② 已付费的 Apple Developer Program 账号及其签名材料。其余全部是「给到环境后按脚本跑」，我已经在这台 Windows 上把 Xcode 侧缺的工程文件、plist、隐私清单、图标、构建/上传脚本、自检脚本全部补齐了。</p>
+<div class="ok"><b>本轮静态自检：PASS 46 / FAIL 0 / TODO 1（Team ID 待你填）</b> —— 真实执行 <code>python xcode/scripts/check_bundle.py</code>，含一次真实的 <code>POST 127.0.0.1:8790/v1/config → HTTP 200</code>；原始结果在 <code>evidence/xcode_bundle_preflight.json</code>。</div>
+<p class="sub" style="margin-bottom:0">官方依据（今天复核）：<a href="https://developer.apple.com/news/upcoming-requirements/?id=04282026a">Apple Upcoming Requirements · SDK minimum requirements</a> —— 2026-04-28 起上传 App Store Connect 的包必须用 Xcode 26+ 与 iOS/iPadOS 26 SDK 构建；<a href="https://developer.apple.com/macos/submit/">Submit your apps and games</a> 同口径。旧工具链上传会被直接拒收。</p>
+</div>
+
+<h2>1. 你要提供的（逐行对应你贴的清单）</h2>
+<p><b>没有本机 Mac 的情况已单独展开：</b>服务商选型、下单勾选项、价格、付款、RDP 连接、TestFlight 真机路径、后端公网化与 GitHub Actions 零租金备选，全部见 <a href="云Mac选型与开通操作.html">云Mac选型与开通操作.html</a>；后端公网化已单独做成可一键部署的交付包，见 <a href="后端部署到app.kqi.ink-操作手册.html">后端部署到 app.kqi.ink</a>。结论是租 <b>MacinCloud 按小时</b>（$1.25/h，25 小时约 $31.25），不必买整机月付、不必加购 SSH、真机也不用插线。</p>
+<table>
+<tr><th style="width:20%">你贴的要求</th><th style="width:34%">具体给我什么</th><th>说明 / 默认值</th></tr>
+<tr>
+<td><b>能跑 Xcode 26 的 Mac</b><br><span class="tag o">必给</span></td>
+<td>三选一：<br>① 本机 Mac 的可操作 shell（我在上面跑命令，或你按第 3 节命令跑）<br>② 云 Mac 的 SSH / VNC（MacStadium、MacinCloud、AWS EC2 Mac）<br>③ macOS CI：GitHub 仓库写权限 + Actions secrets</td>
+<td>默认按 <b>本机 Mac</b> 推进。CI 路线需要把 <code>channel-switch/</code> 整目录 push 到仓库，并把 <code>.p8</code>、Key ID、Issuer ID 写进 secrets；本机 / 云 Mac 路线不需要仓库。Xcode 版本必须 ≥26，SDK 必须 iOS 26。</td>
+</tr>
+<tr>
+<td><b>一台真 iPhone</b><br><span class="tag o">必给</span></td>
+<td>数据线连到 Mac，点「信任此电脑」，UDID（<code>xcrun xctrace list devices</code> 可查）</td>
+<td>验首启归因、开屏倒计时、试看进度保留、充值闭环、支付宝 H5 跳转。iOS 17 及以上都能跑（工程最低部署目标 17.0），建议 iOS 26 机。</td>
+</tr>
+<tr>
+<td><b>支持 iPad 还要 13" 截图设备</b><br><span class="tag g">可省</span></td>
+<td>不提供也行</td>
+<td>工程默认 <code>TARGETED_DEVICE_FAMILY=1</code>（<b>iPhone-only</b>），App Store Connect 只需 6.9" iPhone 截图，<b>不需要 13" iPad 截图、也不需要 iPad 真机</b>。要上 iPad 就把 <code>project.yml</code> 改成 <code>"1,2"</code> 并补 13" 截图（2064×2752 / 2048×2732）。</td>
+</tr>
+<tr>
+<td><b>本人登录 Apple 后台</b><br><span class="tag o">必做，无需给我账号</span></td>
+<td>Apple Developer Program 已生效（¥688/年）、双重认证已开、账号在 App Store Connect 有 App Manager 以上权限；账号密码只在你本机输入，我只需要你换回来的 .cer / .mobileprovision / .p8 和 10 位 Team ID</td>
+<td>个人免费 Apple ID 只能 7 天签名装 1 台，<b>不能上架</b>。证书/描述文件走自动签名，不需要你手工导出 .p12 / .mobileprovision。</td>
+</tr>
+<tr>
+<td><b>Distribution 证书、描述文件、Bundle ID</b><br><span class="tag o">需确认</span></td>
+<td>只要给 <b>Team ID</b>（10 位，developer.apple.com → Membership）并确认 <b>Bundle ID</b></td>
+<td>默认 <code>com.mizhenhe.player</code>，已写进两份 xcconfig；<b>上线后不可改</b>，现在定下来最省事。证书与 App Store 描述文件由 <code>CODE_SIGN_STYLE=Automatic</code> + <code>-allowProvisioningUpdates</code> 在首次 Archive 时自动创建。</td>
+</tr>
+<tr>
+<td><b>CI 上传 API Key</b><br><span class="tag o">上传时必给</span></td>
+<td>Issuer ID、Key ID、<code>.p8</code> 文件（App Store Connect → 用户和访问 → 集成 → 密钥，Admin / App Manager 权限）</td>
+<td><code>.p8</code> 放到 Mac 的 <code>~/.appstoreconnect/private_keys/AuthKey_&lt;KeyID&gt;.p8</code>，<code>upload.sh</code> 直接读。填进 <code>env.example</code> 的两个变量即可，模板已备好。</td>
+</tr>
+<tr>
+<td><b>另外还要（上架材料）</b><br><span class="tag o">提审前</span></td>
+<td>HTTPS 配置域名、隐私政策 URL、技术支持 URL、中国区 App 备案号、软著（按类目）、支付宝 H5 签约商户号、百度推广 API 回传凭据</td>
+<td>Release 包 <code>Info.plist</code> 已去掉明文 HTTP 例外，配置服务必须是有效证书的 HTTPS 域名；Debug 包才走局域网 <code>http://…:8790</code>。</td>
+</tr>
+</table>
+
+<div class="note"><b>只问一个真正阻塞的问题：</b>Mac 走哪条路（本机 / 云 Mac / macOS CI）？定了我按那条路把脚本和 secrets 配好。其余参数我先用可逆默认值：<code>Team ID=XXXXXXXXXX</code>（待填）、<code>Bundle ID=com.mizhenhe.player</code>、<code>iPhone-only</code>、Debug / Release 均指向 <code>https://app.kqi.ink/mzh</code>（部署后生效，本机 8790 保留联调）。</div>
+
+<h2>2. 我已经在这台 Windows 上备好（不用你动手）</h2>
+<table>
+<tr><th style="width:42%">文件</th><th>作用</th></tr>
+<tr><td><code>xcode/project.yml</code></td><td>XcodeGen 工程定义：8 个 Swift 源文件、Resources、Info.plist 分 Debug/Release、自动签名、iPhone-only、Release 排除 IDFA 引用、scheme/Archive 配置</td></tr>
+<tr><td><code>xcode/Info.plist</code> / <code>Info-Debug.plist</code></td><td>Release 纯 HTTPS 无 ATS 例外；Debug 允许局域网 + <code>NSLocalNetworkUsageDescription</code>；显示名 <b>米帧盒播放器</b>、版本号、启动屏、加密例外声明</td></tr>
+<tr><td><code>xcode/Config-Debug.xcconfig</code> / <code>Config-Release.xcconfig</code></td><td>Team ID / Bundle ID / 版本 / 后端地址集中配置；<code>/$()/</code> 写法绕过 xcconfig 把 <code>//</code> 当注释的问题</td></tr>
+<tr><td><code>xcode/ExportOptions.plist</code></td><td>app-store 导出、自动签名、上传符号、thinning；build.sh 自动把真实 Team ID 写进去</td></tr>
+<tr><td><code>xcode/Resources/PrivacyInfo.xcprivacy</code></td><td>隐私清单：不追踪、5 类数据用途、UserDefaults 的 Required Reason <code>CA92.1</code></td></tr>
+<tr><td><code>xcode/Resources/Assets.xcassets/</code></td><td>真实生成的 <b>1024×1024 RGB 不透明 AppIcon</b>（75,142 bytes，脚本 <code>make_icon.py</code> 可重生成）+ LaunchBackground 颜色集</td></tr>
+<tr><td><code>xcode/scripts/preflight.sh</code></td><td>Mac 环境自检：Xcode ≥26、iOS 26 SDK、xcodegen、Distribution 证书、.p8、Team ID、后端连通、工程文件齐全</td></tr>
+<tr><td><code>xcode/scripts/build.sh</code></td><td>xcodegen → Release Archive → 导出 IPA 一条龙</td></tr>
+<tr><td><code>xcode/scripts/device_run.sh</code></td><td>Debug 编译 → 真机安装 → 启动；附联调要点（同局域网、允许本地网络、模拟 bbdd1 点击）</td></tr>
+<tr><td><code>xcode/scripts/upload.sh</code></td><td><code>xcrun altool --upload-app</code> 上传 TestFlight，附 fastlane 备选</td></tr>
+<tr><td><code>xcode/scripts/screenshots.sh</code></td><td>6.9" iPhone 模拟器截图</td></tr>
+<tr><td><code>xcode/scripts/check_bundle.py</code></td><td>Windows 也能跑的交付包自检，输出 <code>evidence/xcode_bundle_preflight.json</code></td></tr>
+<tr><td><code>xcode/env.example</code></td><td>ASC_KEY_ID / ASC_ISSUER_ID / Team ID 变量模板</td></tr>
+<tr><td><code>ios/AppEntry.swift</code> / <code>ChannelAttribution.swift</code></td><td>本轮改动：后端域名改由 Info.plist 注入 + DEBUG 可覆盖；上架包通过 <code>MZH_NO_AD_TRACKING</code> 完全移除 <code>ASIdentifierManager</code> 引用，隐私问卷更简单</td></tr>
+</table>
+
+<h2>3. 拿到 Mac 之后，按这个顺序跑</h2>
+<div class="card">
+<pre># 把整个 channel-switch/ 目录拷到 Mac（含 ios/ server/ xcode/ demo/ admin/）
+cd channel-switch/xcode
+chmod +x scripts/*.sh
+brew install xcodegen                     # 已有可跳过
+
+# ① 填 3 个真值：Team ID（两份 xcconfig）、Release 的 HTTPS 域名、Debug 的局域网 IP
+$EDITOR Config-Debug.xcconfig Config-Release.xcconfig
+
+# ② 环境自检，FAIL 清零再往下
+./scripts/preflight.sh
+
+# ③ 生成工程 / 打开看一眼
+xcodegen generate --spec project.yml
+open 米帧盒播放器.xcodeproj
+
+# ④ 真机联调（先保证 Windows 那台 8790 服务在跑）
+./scripts/device_run.sh
+
+# ⑤ Release 归档 + 导出 IPA
+./scripts/build.sh
+
+# ⑥ 上传 TestFlight（把 env.example 复制成 env.sh 填真值）
+source env.sh && ./scripts/upload.sh
+
+# Windows 侧服务（真机要能访问，必须 0.0.0.0）
+python server/app.py --port 8790 --host 0.0.0.0 --profile server/profiles/wanneng_rebrand.json</pre>
+</div>
+
+<div class="step"><div class="n">1</div><div><b>填 Team ID / 域名 / IP。</b>这是唯一需要人工输入的地方。<code>preflight.sh</code> 会检测 Team ID 是否还是 <code>XXXXXXXXXX</code>。</div></div>
+<div class="step"><div class="n">2</div><div><b>自检。</b>重点看 Xcode 版本 ≥26、iOS SDK ≥26、钥匙串里有 Apple Distribution、<code>.p8</code> 在位、<code>POST /v1/config</code> 返回 200。</div></div>
+<div class="step"><div class="n">3</div><div><b>生成工程并编译。</b>首次 <code>xcodegen generate</code> + <code>xcodebuild</code> 会暴露 Swift 编译错误——本机是 Windows 无 Xcode，这一步<b>尚未执行</b>；到 Mac 上跑完把报错贴回来，我按行修。</div></div>
+<div class="step"><div class="n">4</div><div><b>真机验渠道。</b>后台「⑦ 百度推广 API 归因对接」模拟一条 <code>bbdd1</code> 点击 → 卸载重装 App → 首启走开屏 5s → 20s 试看 → 充值闭环；「暂不开通 / 稍后开通 / 返回」静默回原进度；登录后 1s 弹充值；只有支付成功解锁。</div></div>
+<div class="step"><div class="n">5</div><div><b>Archive → IPA → TestFlight。</b><code>build.sh</code> 产出 <code>xcode/build/ipa/*.ipa</code>，<code>upload.sh</code> 传上去，几分钟后 TestFlight 出构建。</div></div>
+<div class="step"><div class="n">6</div><div><b>填元数据提交审核。</b>名称、副标题、描述、关键词、6.9" 截图、隐私政策 / 技术支持 URL、年龄分级问卷、审核备注、演示账号、账号注销路径、备案号。</div></div>
+
+<h2>4. 商店材料清单（提审前一次备齐）</h2>
+<table>
+<tr><th style="width:26%">项</th><th>值 / 要求</th></tr>
+<tr><td>名称</td><td><b>米帧盒播放器</b>（纯中文 6 字，商店名 / 备案 / 软著统一；软著全称建议「米帧盒播放器软件 V1.0」）</td></tr>
+<tr><td>Bundle ID</td><td><code>com.mizhenhe.player</code> —— 先在 App Store Connect 占名，<b>上线后不可改</b></td></tr>
+<tr><td>版本</td><td><code>1.0 (1)</code>，由 <code>MZH_VERSION</code> / <code>MZH_BUILD_NUMBER</code> 控制；每次上传 build number 必须递增</td></tr>
+<tr><td>截图</td><td>6.9" iPhone 至少 1 组（按当年 App Store Connect 要求的分辨率，如 1290×2796 / 1320×2868）；iPhone-only 工程<b>不需要 13" iPad 截图</b></td></tr>
+<tr><td>图标</td><td>已生成 1024×1024 不透明 PNG，Xcode 自动出全尺寸</td></tr>
+<tr><td>隐私</td><td>隐私政策 URL + 技术支持 URL；App Privacy 问卷按 <code>PrivacyInfo.xcprivacy</code> 填（设备 ID / 手机号 / 用户 ID / 购买记录 / 产品交互，均不用于追踪）</td></tr>
+<tr><td>账号注销</td><td><code>5.1.1(v)</code> 必测项：合规态「账户」Tab、会员页底部、登录页底部三处入口，输入「注销」确认；后台「⑧ 账号注销台账」可查回执</td></tr>
+<tr><td>审核备注</td><td>演示账号、本地视频导入播放路径、会员权益说明、服务端配置域名、注销入口位置</td></tr>
+<tr><td>中国区</td><td>工信部 App 备案号（没有备案无法在中国区上架）、软著（按类目）、支付宝 H5 签约商户号</td></tr>
+<tr><td>年龄分级</td><td>2026-01-31 起新问卷必须在 App Information 里答完，否则无法提交更新</td></tr>
+</table>
+
+<h2>5. 常见报错对照</h2>
+<table>
+<tr><th style="width:30%">报错</th><th>原因 / 已做的处理</th></tr>
+<tr><td><code>SDK version too old / ITMS-90189</code></td><td>2026-04-28 起必须 Xcode 26 + iOS 26 SDK；<code>preflight.sh</code> 第一项就查这个</td></tr>
+<tr><td><code>ITMS-90022 / 90023</code> 缺图标</td><td>已生成 1024 PNG + <code>AppIcon.appiconset/Contents.json</code></td></tr>
+<tr><td><code>ITMS-91053 / 91061</code> 隐私清单 / Required Reason</td><td>已配 <code>PrivacyInfo.xcprivacy</code>，含 <code>CA92.1</code>；Release 无 IDFA 引用</td></tr>
+<tr><td><code>NSAllowsArbitraryLoads</code> 被问询 / 明文 HTTP 被拒</td><td>Release plist 无 ATS 例外；<code>Config-Release.xcconfig</code> 域名必须是有效 HTTPS</td></tr>
+<tr><td><code>No signing certificate / No profiles</code></td><td>Xcode → Accounts 登录已付费账号、Team ID 填对；自动签名 + <code>-allowProvisioningUpdates</code></td></tr>
+<tr><td><code>Invalid Bundle / CFBundleDisplayName</code></td><td>plist 已写中文名，工程模块名用 ASCII <code>MizhenhePlayerApp</code>，只影响编译器内部、任何用户可见处都不出现英文</td></tr>
+<tr><td>真机拉不到配置，一直合规态</td><td>手机与 Mac/服务器同局域网、Debug IP 填对、首次弹「允许访问本地网络」要点允许；服务端须 <code>--host 0.0.0.0</code></td></tr>
+<tr><td>真机一直是 <code>organic</code></td><td>后台「⑦」模拟百度点击并确认计划映射 <code>baidu_plan_a → bbdd1</code>；卸载重装让 Keychain 渠道缓存清空</td></tr>
+<tr><td>上传卡在 Processing 或符号上传失败</td><td>ExportOptions 已开 <code>uploadSymbols</code>；重跑 <code>upload.sh</code>，或 fastlane <code>pilot upload</code></td></tr>
+</table>
+
+<h2>6. 不需要 Mac，现在就能验的部分</h2>
+<div class="urls">
+<div class="u"><div class="k">H5 可交互 Demo（手机浏览器直接开）</div><div class="v">http://192.168.11.14:8790/demo</div><div class="d">开屏 → 试看 → VIP → 订单 → 登录 → 支付宝 H5；含百度自动归因按钮、退出保留试看进度、账号注销</div></div>
+<div class="u"><div class="k">渠道展示后台</div><div class="v">http://192.168.11.14:8790/admin</div><div class="d">⑦ 百度推广 API 归因对接（模拟回传 / 计划映射 / 解绑 / 验证）、⑧ 账号注销台账；栏目显隐、模块开关、Kill Switch</div></div>
+<div class="u"><div class="k">公网地址（已上线 2026-11-25）</div><div class="v">https://app.kqi.ink/mzh/demo · /mzh/admin · /mzh/health</div><div class="d">复用现有域名与 HTTPS 证书；线上 15/15 验证通过；iOS 配置域名已写进两份 xcconfig。后台需 Basic Auth，凭据见《服务器授权-一步开通》上线信息页</div></div>
+<div class="u"><div class="k">单机版演示</div><div class="v">米帧盒播放器-单机版演示.html</div><div class="d">双击即可，不依赖服务</div></div>
+<div class="u"><div class="k">交付包自检证据</div><div class="v">evidence/xcode_bundle_preflight.json</div><div class="d">46 PASS / 0 FAIL / 1 TODO，含真实 /v1/config 响应记录</div></div>
+</div>
+<p class="sub">服务当前在 8790 端口实测返回 200（本轮自检真实请求）。若进程被回收，按第 3 节最后一行重启。</p>
+
+<div class="note"><b>诚实标注未执行项：</b>本机是 Windows，没有 Xcode / swiftc，因此 <b>Swift 编译、Archive、导出 IPA、真机安装、TestFlight 上传、App Store Connect 提审均未执行</b>；IPA 静态分析同样需要拿到已上架包。下一条可复现命令就是 Mac 上的 <code>./scripts/preflight.sh</code>。服务端 217 项回归、H5/后台/单机版交互测试此前已跑通，与本轮 46 项静态自检是两条独立证据链。</div>
+
+<div class="foot">相关文档：<a href="真机测试与渠道展示操作手册.html">真机测试与渠道展示操作手册</a> · <a href="万能云播放器换皮复刻-服务资源清单与部署方案.html">服务资源清单与部署方案</a> · <a href="命名与上架风险对照.html">命名与上架风险对照</a> · <a href="审核条款对照与检出面评估.html">审核条款对照与检出面评估</a> · <a href="百度推广API归因对接方案.html">百度推广 API 归因对接方案</a>。Apple 官方要求于 2026-11-25 联网复核。</div>
+
+</div>
+</body>
+</html>

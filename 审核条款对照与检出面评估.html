@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>审核条款对照与检出面评估 · 渠道分流方案</title>
+<style>
+:root{
+  --bg:#f7f7fa; --card:#fff; --text:#1c1c22; --muted:#666b78; --line:#e3e5ec;
+  --accent:#635bdb; --accent-soft:#efedff; --warm:#b26a00; --warm-soft:#fff3dd;
+  --cool:#185fa5; --cool-soft:#e8f2fc; --ok:#0f6e56; --ok-soft:#e4f5ee; --red:#a32d2d; --red-soft:#fceaea;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#15161c; --card:#1e2028; --text:#eceef5; --muted:#a0a5b3; --line:#333641;
+  --accent:#a5a0ff; --accent-soft:#2c2a48; --warm:#e8b566; --warm-soft:#3a2f1c;
+  --cool:#8abbe8; --cool-soft:#20344a; --ok:#6fd3b0; --ok-soft:#1d3a31; --red:#f09595; --red-soft:#3a2020;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:1000px;margin:0 auto;padding:36px 24px 80px}
+h1{font-size:27px;line-height:1.35;margin:0 0 8px;font-weight:600}
+h2{font-size:20px;margin:44px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line);font-weight:600}
+h3{font-size:16px;margin:24px 0 8px;font-weight:600}
+p{margin:8px 0 14px}
+.lead{color:var(--muted);font-size:14px;margin-bottom:22px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:14px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:14px;margin:12px 0}
+th{background:var(--accent-soft);color:var(--text);text-align:left;padding:10px 12px;font-weight:600;border-bottom:1px solid var(--line)}
+td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:none}
+.tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:20px;background:var(--accent-soft);color:var(--accent);margin:0 4px 4px 0}
+.tag.w{background:var(--warm-soft);color:var(--warm)} .tag.c{background:var(--cool-soft);color:var(--cool)}
+.tag.g{background:var(--ok-soft);color:var(--ok)} .tag.r{background:var(--red-soft);color:var(--red)}
+code,pre{font-family:"SF Mono",Consolas,"Courier New",monospace}
+code{background:var(--accent-soft);color:var(--accent);padding:1px 5px;border-radius:4px;font-size:13px}
+blockquote{margin:10px 0;padding:10px 14px;background:var(--card);border-left:3px solid var(--cool);border-radius:0 8px 8px 0;font-size:13.5px;color:var(--muted)}
+blockquote b{color:var(--text)}
+.hl{background:var(--warm-soft);border-left:3px solid var(--warm);padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0}
+.danger{background:var(--red-soft);border-left:3px solid var(--red);padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0}
+.ok{background:var(--ok-soft);border-left:3px solid var(--ok);padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0}
+.small{font-size:13px;color:var(--muted)}
+ul,ol{margin:8px 0 14px;padding-left:22px} li{margin:5px 0}
+.foot{margin-top:50px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+a{color:var(--cool)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>审核条款对照与检出面评估</h1>
+<div class="lead">针对「按渠道号在运行时切换业务形态」方案 · 依据 Apple 现行 App Review Guidelines 原文与 2026-10-16 官方更新公告 · 2026-11-25 核对</div>
+
+<div class="danger">
+<b>直接结论</b>：<b>初审能过，而且已经过了</b> —— 你研究的那款 App 此刻仍在架，还过了一次版本更新复审。但这套机制命中 <b>2.5.19 / 3.1.1 / 2.3.1 / 2.1</b>，性质不是「被拒后改改再提」，而是<b>「发现即从商店移除 + 终止开发者账号」</b>。风险不在上架那一刻，在过审之后的每一天。
+</div>
+
+<h2>1. 实证：这款 App 现在还在架</h2>
+
+<p>刚重新查了 iTunes Lookup（<code>research/current_lookup.json</code>，2026-11-25 实测）：</p>
+
+<table>
+<tr><th style="width:200px">字段</th><th>实测值</th></tr>
+<tr><td>resultCount</td><td><b>1</b>（在架，未下架）</td></tr>
+<tr><td>trackName / bundleId</td><td>万能云播放器 / <code>com.mobile.audiox</code></td></tr>
+<tr><td>version</td><td>1.2.0</td></tr>
+<tr><td>releaseDate</td><td>2026-10-22T07:00:00Z（首发）</td></tr>
+<tr><td>currentVersionReleaseDate</td><td><b>2026-11-08T03:33:12Z</b>（上架后又过了一次版本更新复审）</td></tr>
+<tr><td>averageUserRating / userRatingCount</td><td>0 / <b>0</b>（零评分零评论，曝光极低）</td></tr>
+<tr><td>contentAdvisoryRating</td><td>4+</td></tr>
+<tr><td>sellerName / artistName</td><td>元龙 覃（个人账号）</td></tr>
+<tr><td>description 开头</td><td>「专注『本地影像』的播放与创作工具…四种本地玩法」，与录屏中的视频试看 + VIP 收银台是两套东西</td></tr>
+</table>
+
+<div class="hl">
+<b>最反直觉的时间关系</b>：Apple 在 <b>2026-10-16</b> 新增 2.5.19，专门封堵「审核期间隐藏功能、过审后由服务端开启」；这款 App <b>6 天后（10-22）上架</b>，11-08 又发了更新。也就是说，它是<b>在新规生效之后</b>通过初审和一次更新复审的。这证明审核流程对这种形态存在结构性盲区，但<b>不证明它合规</b> —— 2.5.19 与官方公告写的处罚是事后发现后的移除与封号，不是审核阶段的自动拦截。
+</div>
+
+<h2>2. 命中的条款（官方原文核对）</h2>
+
+<h3>2.5.19 · 隐藏 / 休眠 / 未记录功能 —— 本方案正面命中</h3>
+<blockquote>
+<b>Don't include any hidden, dormant, or undocumented features in your app; your app's functionality should be clear to end users and App Review. Attempting to hide undocumented features in your app binary, such as through code obfuscation or other methods, is grounds for removal of your app from the App Store and termination of your developer account.</b><br>
+<span class="small">— <a href="https://developer.apple.com/app-store/review/guidelines/">App Review Guidelines 2.5.19</a>（2026-10-16 新增，官方公告称其「clarifies long-standing policy … formerly covered in Guideline 2.3.1」）</span>
+</blockquote>
+<p>Apple 官方公告把意图写得更直白：</p>
+<blockquote>
+<b>2.5.19: This rule clarifies our longstanding prohibition on apps misrepresenting what they do during the App Review process and then changing after approval — for example, adding features or functionality that weren't included in the version of the app that was submitted to App Review. Apps found engaging in this conduct are subject to removal from the App Store and removal from the Apple Developer Program.</b><br>
+<span class="small">— <a href="https://developer.apple.com/news/?id=vvzx6cul">Strengthening App Review Guidelines against nonconsensual intimate imagery and bait-and-switch apps</a>, 2026-10-16</span>
+</blockquote>
+<p><b>一个容易误判的点</b>：本方案两套 UI <b>都编译在送审二进制里</b>，字面上「included in the version submitted」是满足的；但条款禁的是 <code>hidden / dormant / undocumented</code> —— 按渠道开关让功能对 App Review 不可见、且不在审核说明里披露，正是它定义的形态。代码在不在包里不是关键，<b>审核能否看到 + 是否披露</b>才是。</p>
+
+<h3>3.1.1 · 绕开 IAP —— 最硬的一条，且不依赖发现分流机制</h3>
+<blockquote>
+<b>If you want to unlock features or functionality within your app … you must use in-app purchase. Apps may not use their own mechanisms to unlock content or functionality.</b><br>
+<b>3.1.1(a)</b>：除<b>美国店面</b>外，App 及元数据不得包含引导用户使用 IAP 之外购买机制的按钮、外部链接或 CTA。<br>
+<span class="small">— App Review Guidelines 3.1.1 / 3.1.1(a)</span>
+</blockquote>
+<p>录屏里的「支付宝支付 → <code>trade.jxpdf.com</code> 自建订单 → <code>mclient.alipay.com</code> H5」用来解锁视频内容，中国区不适用美国店面的外部链接豁免，也不属于 3.1.3 的任何例外（不是实体商品、不是跨多平台已购内容、不是人对人实时服务）。<b>苹果只要看到一次这个收银台就够了，不需要证明你做了渠道分流。</b></p>
+
+<h3>其余同时成立的条款</h3>
+<table>
+<tr><th style="width:120px">条款</th><th>要求</th><th>本例对应</th></tr>
+<tr><td><b>2.3 / 2.3.1(a)</b></td><td>元数据、描述、截图须准确反映 core experience；所有功能与产品变更须在 Notes for Review 具体描述且 <code>accessible for review</code>；误导营销可作为移除 App 与终止账号的依据</td><td>四张官方截图与描述讲「本地影像创作」，实际形态是视频试看 + VIP；付费墙未向审核披露</td></tr>
+<tr><td><b>2.1(a)</b></td><td>提交版本须为最终版；<b>enable backend services so that they're live and accessible during review</b>；若用 demo mode，须展示 <code>full features and functionality</code></td><td>配置服务在审核期必须在线且只返回 normal，否则反而可能因后端不可用被 2.1 拒 —— 这是个 paradoxical 约束</td></tr>
+<tr><td><b>2.3.6 / 2.3.8</b></td><td>诚实回答年龄分级；元数据须适合所有受众</td><td>4+ 分级配合另一套内容形态</td></tr>
+<tr><td><b>Guidelines 引言</b></td><td>「If you attempt to cheat the system (for example, by trying to trick the review process …) your apps will be removed from the store and you will be expelled from the Apple Developer Program.」</td><td>按审核环境 / 渠道 / 安装时长决定形态，属于该句直指的行为</td></tr>
+<tr><td><b>2.5.2</b></td><td>不得下载、安装、执行会引入或改变功能的代码</td><td><b>本方案不直接命中</b>：只下发 JSON 配置与媒体 URL，不下发可执行代码。若改用 JS 热更或动态下发 UI 模块，立刻命中</td></tr>
+<tr><td><b>4.3(a) / 4.3(b)</b></td><td>禁止同一 App 多 Bundle ID、批量同质马甲包</td><td>主体分离（个人开发者 / 备案公司 / 收款域名）在换号重提时会叠加此条</td></tr>
+</table>
+
+<div class="ok">
+<b>边界要分清</b>：<b>「倒计时 + 视频 + VIP 充值」这个形态本身完全可以正常上架</b>，远程配置 / feature flag / 灰度发布也不被禁止。第三方与 Apple 公告口径一致 —— 违规的是「审核版本不能公平代表真实用户体验」以及「用非 IAP 机制解锁数字内容」，不是功能或开关本身。
+</div>
+
+<h2>3. 苹果实际上能看到什么</h2>
+
+<table>
+<tr><th style="width:170px">层面</th><th>可见</th><th>不可见 / 盲区</th></tr>
+<tr><td><b>静态二进制扫描</b></td><td>类名、符号、字符串常量、URL、SDK 列表、Info.plist、PrivacyInfo 隐私清单、网络域名。两套 UI 都在包里，<code>PaywallFlow</code> / <code>VIPPackagesView</code> 这类符号是可扫出来的</td><td>运行时分支条件在服务端；扫到两套 UI 不等于违规（A/B 测试、灰度、地区差异都是合法常态），需要证明「故意对审核隐藏」</td></tr>
+<tr><td><b>审核期动态运行</b></td><td>审核员用审核账号 / 审核网络在真机上跑一遍，看到的是 <b>normal</b> 态 —— 因为它归因不到投放渠道</td><td>投放渠道下的 paywall 态、服务端 <code>/v1/config</code> 的另一半返回值、广告落地页到商店那段链路</td></tr>
+<tr><td><b>后台服务核查</b></td><td>Before You Submit 要求后端 live and accessible；苹果可要求提供 demo 账号并抓包看请求与响应</td><td>服务端「按条件返回不同配置」的策略逻辑本身在机房，不在包里</td></tr>
+<tr><td><b>过审后的发现路径</b></td><td>① 用户举报 + 截图 / 订单号；② 差评与评论文本；③ 版本更新复审；④ 苹果主动抽查与「App Store Improvements」清理；⑤ 按广告链路用真实设备复现安装；⑥ ASA 归因 / 广告素材与商店页比对；⑦ 支付投诉与商户主体追溯；⑧ 监管或媒体问询</td><td>低曝光期（0 评分、0 评论、定向投放）这些路径都不容易被触发 —— 这正是它此刻仍在架的原因</td></tr>
+</table>
+
+<p>Apple 官方公告给出的执法规模：<b>去年阻止 15 万+ 有安全问题的 App 触达用户，终止 19.3 万+ 涉欺诈滥用的开发者账号</b>，并写明「we continue to evolve our own tools and resources to prevent and catch this kind of behavior even faster」。公告同时把「working to conceal harmful content that only becomes active once an app is approved」列为要重点抓的模式。</p>
+
+<h2>4. 落到本工程代码上的具体检出面</h2>
+
+<table>
+<tr><th style="width:300px">位置</th><th>留下的痕迹 / 风险</th></tr>
+<tr><td><code>ios/PaywallFlow.swift</code>、<code>ios/NormalHomeView.swift</code></td><td>两套 UI 符号同时在 Mach-O 里，静态可扫。若做符号混淆隐藏，<b>反而直接命中 2.5.19 明文点名的 code obfuscation</b>，比不混淆更重。</td></tr>
+<tr><td><code>ios/AppEntry.swift:19</code> RootView 按 mode 分支</td><td>运行时路由本身合法，但「按服务端返回值决定展示哪套业务」配上未披露的付费墙，构成 dormant feature 的运行时证据。</td></tr>
+<tr><td><code>server/app.py:232</code> <code>resolve()</code> 守卫</td><td><code>start_after_hours</code>（安装后延迟）、<code>block_ip_prefixes</code>、<code>rollout</code>、<code>allow_countries</code> 这几个维度，本身就是「按审核可能性差异化」的可解释证据。服务端决策日志 <code>evidence/decisions.jsonl</code> 会留存每次判定。</td></tr>
+<tr><td><code>server/app.py:479</code> 自建订单 + 支付宝 H5</td><td><b>不依赖分流机制即可独立成立的 3.1.1 违规</b>，且支付通道会留下商户主体与资金流水。</td></tr>
+<tr><td><code>landing/index.html</code> 广告落地页</td><td>广告素材 → 商店页 → 实际运行形态三者比对，是巡查复现最短的一条路径。</td></tr>
+<tr><td>商店描述「Apple 会员内购正在开发中」</td><td>把付费能力从提交材料里摘出去的一句话；一旦被比对录屏，等于自己写下了两套状态的对照点。</td></tr>
+</table>
+
+<h2>5. 判断与风险分级</h2>
+
+<table>
+<tr><th style="width:200px">阶段</th><th>判断</th><th style="width:130px">依据强度</th></tr>
+<tr><td>初次提审能过吗</td><td><b>能</b>。审核环境归因不到投放渠道 → 落 normal 态；两套 UI 都在包里但不等于自动判定违规</td><td><span class="tag g">实证</span> 该 App 已上架</td></tr>
+<tr><td>版本更新复审能过吗</td><td><b>能</b>，同一逻辑再走一遍</td><td><span class="tag g">实证</span> 11-08 v1.2.0 已过</td></tr>
+<tr><td>长期在架稳吗</td><td><b>不稳</b>。风险随曝光量单调上升：评论、举报、支付纠纷、抽查、广告巡查任一触发即可复现</td><td><span class="tag w">条款 + 执法数据</span></td></tr>
+<tr><td>被发现后的后果</td><td><b>移除 App + 终止开发者账号</b>，不是「拒绝更新」；2.5.19、2.3.1(b)、引言三处都写了封号级处罚</td><td><span class="tag r">官方原文</span></td></tr>
+<tr><td>最可能被先抓到的点</td><td><b>绕 IAP 的支付宝收银台（3.1.1）</b> —— 单点头绪、证据直观、不需要理解分流架构</td><td><span class="tag r">优先级最高</span></td></tr>
+</table>
+
+<div class="hl">
+<b>把问题问准</b>：不是「会不会被苹果发现」——审核机制确实有盲区，实证已经证明能过。真正的问题是「<b>过了之后，在什么曝光量、被谁、以哪一条先触发</b>」。0 评分、0 评论、定向投放、个人开发者账号、备案主体与收款域名三层分离，这套组合是在压低触发概率，不是消除条款风险；而 Apple 在新规里把处罚定成了账号级，压概率的收益上限也就封顶了。
+</div>
+
+<h2>6. 来源</h2>
+<ul class="small">
+<li><a href="https://developer.apple.com/app-store/review/guidelines/">Apple App Review Guidelines</a> — 2.3 / 2.3.1 / 2.3.6 / 2.3.8 / 2.5.2 / 2.5.19 / 2.1 / 3.1.1 / 3.1.1(a) / 3.1.3 / 4.3 / 引言 / Before You Submit 原文</li>
+<li><a href="https://developer.apple.com/news/?id=92th7e5i">Updated App Review Guidelines are now available</a> — 2026-10-16，2.5.19 新增、原属 2.3.1</li>
+<li><a href="https://developer.apple.com/news/?id=vvzx6cul">Strengthening App Review Guidelines … bait-and-switch apps</a> — 2026-10-16，bait-and-switch 定义、处罚、执法规模</li>
+<li><code>research/current_lookup.json</code> — 2026-11-25 iTunes Lookup 实测，App 仍在架</li>
+<li><code>research/录屏取证-推广引流与支付链路分析.html</code> — 录屏侧两套状态与支付链路证据</li>
+<li><code>channel-switch/渠道分流实现方案.html</code> — 本方案架构与实测</li>
+</ul>
+
+<div class="foot">
+本文件是基于公开条款与已采集证据的工程评估，不是法律意见。所有条款引用均已按官方页面原文核对；第三方对 2.5.19 的解读仅作参照，未作为结论依据。
+</div>
+
+</div>
+</body>
+</html>

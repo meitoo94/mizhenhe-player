@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0B1020">
+<link rel="apple-touch-icon" href="data:image/png;base64,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">
+<title>米帧盒播放器 · 下载安装</title>
+<style>
+:root{
+  --bg:#0B1020; --surface:#151C30; --surface2:#1B2440; --line:rgba(255,255,255,.09);
+  --primary:#35E0C8; --accent:#FF9F5A; --text:#F2F6FF; --muted:#8A96B4; --green:#4BD6A0;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:radial-gradient(120% 70% at 50% 0%,#1B2A4E 0%,var(--bg) 62%);
+     color:var(--text);font:14px/1.7 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+     min-height:100vh;padding:26px 18px 42px}
+.wrap{max-width:440px;margin:0 auto}
+.hero{text-align:center;padding:12px 0 22px}
+.hero img{width:78px;height:78px;border-radius:20px;box-shadow:0 12px 34px rgba(53,224,200,.22)}
+.hero h1{font-size:25px;margin:14px 0 4px;letter-spacing:.5px}
+.hero .ver{color:var(--muted);font-size:12px;letter-spacing:1px}
+.hero .badge{display:inline-block;margin-top:12px;padding:4px 12px;border:1px solid rgba(75,214,160,.45);
+  color:var(--green);border-radius:20px;font-size:11px;letter-spacing:.5px;background:rgba(75,214,160,.08)}
+.card{background:linear-gradient(160deg,rgba(27,36,64,.95),rgba(21,28,48,.95));
+  border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:14px;
+  box-shadow:0 10px 30px rgba(0,0,0,.22)}
+.card h2{font-size:15px;margin:0 0 4px;display:flex;align-items:center;gap:8px}
+.card .desc{color:var(--muted);font-size:12px;margin:0 0 14px;line-height:1.7}
+.tag{font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(53,224,200,.12);
+  color:var(--primary);border:1px solid rgba(53,224,200,.35);font-weight:600;letter-spacing:.5px}
+.tag.wait{background:rgba(255,159,90,.1);color:var(--accent);border-color:rgba(255,159,90,.38)}
+.btn{display:block;width:100%;height:52px;line-height:52px;text-align:center;border:0;border-radius:26px;
+  font-size:16px;font-weight:700;text-decoration:none;cursor:pointer;margin-top:10px;
+  background:linear-gradient(90deg,#35E0C8,#55C7F0);color:#08131F;
+  box-shadow:0 10px 26px rgba(53,224,200,.22)}
+.btn.ghost{background:transparent;border:1px solid rgba(255,255,255,.2);color:var(--text);
+  box-shadow:none;font-weight:600}
+.btn:disabled,.btn.off{opacity:.42;cursor:not-allowed;box-shadow:none}
+.steps{margin:12px 0 0;padding:0;list-style:none;counter-reset:s}
+.steps li{counter-increment:s;position:relative;padding:6px 0 6px 30px;color:#C8D2EC;font-size:13px}
+.steps li:before{content:counter(s);position:absolute;left:0;top:7px;width:20px;height:20px;
+  border-radius:50%;background:rgba(53,224,200,.14);color:var(--primary);
+  font-size:11px;font-weight:700;text-align:center;line-height:20px}
+.feat{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.feat span{font-size:11px;color:#B9C6E6;background:rgba(255,255,255,.05);
+  border:1px solid var(--line);border-radius:8px;padding:4px 9px}
+.qr{display:flex;gap:14px;align-items:center}
+.qr img{width:118px;height:118px;background:#fff;border-radius:10px;padding:5px;flex:none}
+.qr .txt{flex:1;min-width:0}
+.qr .url{font:11px/1.5 ui-monospace,Consolas,monospace;color:var(--primary);word-break:break-all;margin:7px 0}
+.mini{display:inline-block;font-size:11px;padding:5px 12px;border-radius:14px;cursor:pointer;
+  border:1px solid rgba(53,224,200,.4);color:var(--primary);background:rgba(53,224,200,.08)}
+.row{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:12px}
+.row:last-child{border-bottom:0}
+.row b{font-weight:600;text-align:right;word-break:break-all}
+.row span{color:var(--muted);flex:none}
+.note{color:var(--muted);font-size:11px;line-height:1.75;margin-top:12px}
+.foot{text-align:center;color:#5E6C90;font-size:11px;margin-top:22px;line-height:1.9}
+.foot a{color:#7E8FB8;text-decoration:none}
+.toast{position:fixed;left:50%;bottom:34px;transform:translate(-50%,20px);opacity:0;
+  background:#222E4E;border:1px solid var(--line);color:var(--text);padding:9px 18px;
+  border-radius:20px;font-size:12px;transition:.25s;pointer-events:none;z-index:9}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <img src="data:image/png;base64,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" alt="米帧盒播放器">
+    <h1>米帧盒播放器</h1>
+    <div class="ver" id="ver">版本加载中</div>
+    <div class="badge" id="badge">当前可安装 · 免安装版已上线</div>
+  </div>
+
+  <div class="card">
+    <h2>立即打开 <span class="tag">现在可用</span></h2>
+    <p class="desc">手机浏览器直接运行完整流程，不需要 App Store、不需要签名、不需要审核。点击后按提示「添加到主屏幕」，即可像普通 App 一样全屏启动。</p>
+    <a class="btn" id="openBtn" href="__MZH_BASE__/demo">立即打开应用</a>
+    <ol class="steps">
+      <li>用 iPhone 的 Safari（或安卓 Chrome）打开本页</li>
+      <li>点底部「分享」→「添加到主屏幕」</li>
+      <li>回到桌面点图标，全屏无地址栏运行</li>
+    </ol>
+    <div class="feat" id="feat"></div>
+  </div>
+
+  <div class="card">
+    <h2>扫码在手机打开</h2>
+    <p class="desc">把这个地址发给别人、贴到推广落地页，或直接用另一台手机扫码。</p>
+    <div class="qr">
+      <img src="data:image/png;base64,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" alt="下载页二维码">
+      <div class="txt">
+        <div class="url" id="pageUrl">https://app.kqi.ink/mzh/download</div>
+        <span class="mini" id="copyBtn">复制下载链接</span>
+        <div class="note">链接带 <code>?ch=渠道号</code> 时，打开的应用会自动按该渠道展示配置运行。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>原生安装包 <span class="tag wait" id="nativeTag">待出包</span></h2>
+    <p class="desc" id="nativeDesc">正在加载安装包状态…</p>
+    <div id="nativeBtns"></div>
+    <div class="note" id="nativeHint"></div>
+    <div id="installQrWrap" style="display:none;margin-top:16px;text-align:center">
+      <img id="installQr" alt="扫码安装" style="width:170px;height:170px;background:#fff;border-radius:12px;padding:6px">
+      <div class="note" style="margin-top:8px">用 iPhone 相机扫这个码 → 点「安装」<br>首次安装需在 设置 → 通用 → VPN与设备管理 里信任一次</div>
+      <a class="btn ghost" id="otaBtn" href="#">在 iPhone 上直接安装</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>出包进度 <span class="tag wait" id="progTag">查看中</span></h2>
+    <p class="desc" id="progDesc">正在读取签名材料进度…</p>
+    <div id="progBar" style="height:6px;border-radius:6px;background:rgba(255,255,255,.08);overflow:hidden;margin:10px 0 12px">
+      <div id="progFill" style="height:100%;width:0;background:linear-gradient(90deg,#35E0C8,#55C7F0);transition:width .4s"></div>
+    </div>
+    <div class="note" id="progNext"></div>
+    <a class="btn ghost" href="__MZH_BASE__/signing">查看我要准备哪些材料 →</a>
+  </div>
+
+  <div class="card">
+    <h2>管理后台</h2>
+    <p class="desc">渠道展示、套餐、归因、用户、充值记录都在原后台里，一次登录即可。</p>
+    <div class="row"><span>后台地址</span><b id="adminUrl">https://app.kqi.ink/site</b></div>
+    <div class="row"><span>入口</span><b id="adminHint">登录后左侧「米帧盒播放器」</b></div>
+    <div class="row"><span>后端状态</span><b id="health">检测中</b></div>
+    <a class="btn ghost" id="adminBtn" href="https://app.kqi.ink/site">打开管理后台</a>
+  </div>
+
+  <div class="foot">
+    <div id="meta"></div>
+    <div>本页面由自有服务器 app.kqi.ink 提供 · 无需第三方分发平台</div>
+  </div>
+</div>
+<div class="toast" id="toast">已复制</div>
+
+<script>
+(function () {
+  var BASE = window.MZH_BASE || "";
+  var API = function (p) { return /^https?:\/\//i.test(p) ? p : BASE + (p.charAt(0) === "/" ? p : "/" + p); };
+  var REL = window.MZH_RELEASE || {};
+  var $ = function (id) { return document.getElementById(id); };
+  var qs = new URLSearchParams(location.search);
+  var ch = qs.get("ch") || "";
+
+  $("ver").textContent = "版本 " + (REL.version || "1.0") + " · 构建 " + (REL.build || "1") + " · " + (REL.bundle_id || "com.mizhenhe.player");
+  $("feat").innerHTML = (REL.h5_features || []).map(function (x) {
+    return "<span>" + String(x).replace(/[<>&]/g, "") + "</span>";
+  }).join("");
+
+  // 免安装版入口：透传渠道号，打开即按该渠道下发配置
+  var demo = API("/demo") + (ch ? "?ch=" + encodeURIComponent(ch) : "");
+  $("openBtn").href = demo;
+
+  var page = (REL.download_url || location.href.split("?")[0]);
+  $("pageUrl").textContent = page + (ch ? "?ch=" + ch : "");
+  $("copyBtn").onclick = function () {
+    var t = $("pageUrl").textContent;
+    if (navigator.clipboard) navigator.clipboard.writeText(t).catch(function () {});
+    var el = document.createElement("textarea");
+    el.value = t; document.body.appendChild(el); el.select();
+    try { document.execCommand("copy"); } catch (e) {}
+    document.body.removeChild(el);
+    var tt = $("toast"); tt.className = "toast on";
+    setTimeout(function () { tt.className = "toast"; }, 1600);
+  };
+
+  // 原生包：有 TestFlight / App Store / IPA 直链才显示对应按钮，否则显示当前进度
+  var defs = [
+    { url: REL.testflight_url, text: "通过 TestFlight 安装", primary: true },
+    { url: REL.appstore_url, text: "前往 App Store 下载", primary: true },
+    { url: REL.ipa_url, text: "下载安装包 (.ipa)", primary: false }
+  ];
+  var usable = defs.filter(function (d) { return d.url; });
+  var box = $("nativeBtns");
+  if (usable.length) {
+    box.innerHTML = usable.map(function (d) {
+      return '<a class="btn' + (d.primary ? "" : " ghost") + '" href="' + d.url + '">' + d.text + '</a>';
+    }).join("");
+    $("nativeTag").textContent = "可安装";
+    $("nativeTag").className = "tag";
+    $("nativeDesc").textContent = REL.native_status_text || "原生安装包已就绪";
+  } else {
+    box.innerHTML = '<div class="btn off" style="pointer-events:none">等待开发者账号开通后出包</div>';
+    $("nativeTag").textContent = "待出包";
+    $("nativeDesc").textContent = REL.native_status_text || "原生安装包待出包";
+  }
+  $("nativeHint").textContent = REL.native_hint || "";
+
+  // Ad Hoc 包才有扫码直装二维码；App Store 签名包走 TestFlight
+  if (REL.install_qr && REL.install_ota_url) {
+    $("installQr").src = REL.install_qr;
+    $("otaBtn").href = REL.install_ota_url;
+    $("installQrWrap").style.display = "block";
+  }
+
+  // 出包进度：读服务端注入的 window.MZH_PROGRESS（由 deploy/signing/next.py 生成）
+  var PR = window.MZH_PROGRESS || {};
+  var line = PR.mainline || {};
+  var done = line.done || 0, total = line.total || 8;
+  $("progFill").style.width = Math.round(done / total * 100) + "%";
+  $("progTag").textContent = done + "/" + total + " 已完成";
+  if (done >= total) {
+    $("progTag").className = "tag";
+    $("progDesc").textContent = "材料齐了，手机可以直接安装。";
+  } else {
+    $("progDesc").textContent = line.name || "TestFlight 出包链路";
+    var nx = line.next || {};
+    $("progNext").textContent = "下一步（你做）：第 " + (nx.n || 1) + " 步 · " + (nx.title || "准备签名材料")
+      + "\n怎么做：" + (nx.action || "见材料清单")
+      + "\n放这里：" + (nx.target || "deploy/signing/in/");
+    $("progNext").style.whiteSpace = "pre-line";
+  }
+
+  $("adminUrl").textContent = REL.admin_url || "https://app.kqi.ink/site";
+  $("adminHint").textContent = REL.admin_hint || "登录后左侧「米帧盒播放器」";
+  $("adminBtn").href = REL.admin_url || "https://app.kqi.ink/site";
+  $("meta").textContent = "更新于 " + (REL.updated_at || "-") + " · " + (REL.app_name || "米帧盒播放器");
+
+  fetch(API("/health"), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) {
+    $("health").textContent = j.ok ? "正常 · 已连接" : "异常";
+  }).catch(function () { $("health").textContent = "未连接"; });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>下载 - 高清视频播放</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;
+         background:linear-gradient(160deg,#10162b,#1d2a52 55%,#0d1224); color:#fff; min-height:100vh;
+         display:flex; flex-direction:column; align-items:center; padding:38px 24px 30px; }
+  .badge { font-size:12px; letter-spacing:2px; color:#8fa5d8; border:1px solid #3b4c7d;
+           padding:5px 12px; border-radius:20px; }
+  h1 { font-size:30px; margin:26px 0 8px; text-align:center; line-height:1.3; }
+  .sub { color:#a9b8df; font-size:14px; text-align:center; line-height:1.8; margin-bottom:26px; }
+  .card { width:100%; max-width:380px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12);
+          border-radius:18px; padding:18px 18px 14px; margin-bottom:18px; }
+  .row { display:flex; justify-content:space-between; font-size:13px; padding:7px 0; color:#c8d4f2; }
+  .row b { color:#fff; font-weight:600; }
+  .btn { width:100%; max-width:380px; height:54px; border:0; border-radius:27px; font-size:17px;
+         font-weight:700; color:#101a33; background:linear-gradient(90deg,#6fd1ff,#a6b4ff);
+         box-shadow:0 10px 28px rgba(110,170,255,.35); }
+  .btn:disabled { opacity:.6; }
+  .tip { font-size:11px; color:#7386b5; margin-top:16px; text-align:center; line-height:1.7; }
+  .debug { width:100%; max-width:380px; margin-top:18px; font:11px/1.6 monospace; color:#7d93c9;
+           background:rgba(0,0,0,.25); padding:10px 12px; border-radius:10px; word-break:break-all; }
+</style>
+</head>
+<body>
+  <div class="badge">OFFICIAL · APP STORE</div>
+  <h1>高清视频播放<br>精彩内容尽情观看</h1>
+  <div class="sub">本地影像动感玩法 · 多种创作工具<br>立即下载体验</div>
+
+  <div class="card">
+    <div class="row"><span>推广渠道</span><b id="chText">__CHANNEL__</b></div>
+    <div class="row"><span>跳转目标</span><b>App Store</b></div>
+    <div class="row"><span>设备指纹</span><b id="fpText">采集中</b></div>
+  </div>
+
+  <button id="go" class="btn">前往 App Store 下载</button>
+  <div class="tip">点击后将跳转到苹果应用商店<br>渠道由百度推广 API 回传归因，无需剪贴板</div>
+  <div id="debug" class="debug">ready</div>
+
+<script>
+(function () {
+  const SERVER   = "__SERVER__";
+  const CHANNEL  = "__CHANNEL__";
+  const APPSTORE = "__APPSTORE__";
+
+  // 本页只做「调试打点」，不写剪贴板、不生成任何渠道凭据。
+  // 生产链路：百度推广后台通过 API 把 click_id / 点击 IP / 设备号 回传到我方
+  // POST /v1/attribution/baidu/callback，后台按「计划ID → 我方渠道号」建点击库
+  // （例如 baidu_plan_a → bbdd1）；App 安装首启再调 /v1/attribution/resolve，
+  // 服务端用出口 IP / 设备号匹配点击库并绑定渠道号，之后按该渠道展示配置下发。
+  function clickContext() {
+    return {
+      channel: CHANNEL,
+      ua:      navigator.userAgent,
+      tz:      String(Intl.DateTimeFormat().resolvedOptions().timeZone || ""),
+      lang:    String(navigator.language || ""),
+      screen:  screen.width + "x" + screen.height + "@" + window.devicePixelRatio,
+      model:   /iPad/.test(navigator.userAgent) ? "iPad"
+             : /iPhone/.test(navigator.userAgent) ? "iPhone" : "unknown",
+      ref:     document.referrer,
+      source:  "lp_debug"          // 仅供调试的点击，不参与正式归因判定
+    };
+  }
+
+  const fp = clickContext();
+  document.getElementById("fpText").textContent = fp.screen + " / " + fp.tz;
+  const dbg = document.getElementById("debug");
+  const btn = document.getElementById("go");
+
+  btn.addEventListener("click", async function () {
+    btn.disabled = true;
+    btn.textContent = "正在跳转…";
+    try {
+      const r = await fetch(SERVER + "/v1/click", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(fp)
+      });
+      const d = await r.json();
+      dbg.textContent = "调试打点 click_id=" + d.click_id + "\n" +
+        "归因由百度推广 API 回传决定（本页不写剪贴板）\n" +
+        "回传入口: POST /v1/attribution/baidu/callback";
+    } catch (e) {
+      dbg.textContent = "click log failed: " + e.message;
+    }
+    window.location.href = APPSTORE;
+    setTimeout(function () { window.location.href = APPSTORE; }, 600);
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1020">
+<title>米帧盒播放器 · 出包材料清单</title>
+<style>
+:root{--bg:#0B1020;--surface:#151C30;--line:rgba(255,255,255,.09);--primary:#35E0C8;
+ --accent:#FF9F5A;--text:#F2F6FF;--muted:#8A96B4;--green:#4BD6A0;--red:#FF7B7B}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:radial-gradient(120% 60% at 50% 0%,#1B2A4E 0%,var(--bg) 60%);
+ color:var(--text);font:14px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+ min-height:100vh;padding:24px 16px 48px}
+.wrap{max-width:660px;margin:0 auto}
+.hero{text-align:center;padding:8px 0 20px}
+.hero h1{font-size:23px;margin:0 0 6px}
+.hero p{color:var(--muted);font-size:12px;margin:0}
+.card{background:linear-gradient(160deg,rgba(27,36,64,.95),rgba(21,28,48,.95));
+ border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px}
+.card h2{font-size:15px;margin:0 0 10px}
+.warn{border-color:rgba(255,159,90,.4);background:rgba(255,159,90,.07)}
+.warn h2{color:var(--accent)}
+.gate{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px dashed var(--line)}
+.gate:last-child{border:0}
+.gate .num{flex:none;width:26px;height:26px;border-radius:50%;background:rgba(255,159,90,.15);
+ color:var(--accent);font-weight:700;text-align:center;line-height:26px;font-size:12px}
+.gate b{color:var(--accent)}
+.tabs{display:flex;gap:8px;margin-bottom:14px}
+.tabs button{flex:1;padding:12px 8px;border-radius:12px;border:1px solid var(--line);
+ background:rgba(255,255,255,.04);color:var(--muted);font-size:13px;font-weight:600;cursor:pointer}
+.tabs button.on{background:rgba(53,224,200,.12);border-color:rgba(53,224,200,.5);color:var(--primary)}
+.bar{height:7px;border-radius:7px;background:rgba(255,255,255,.08);overflow:hidden;margin:12px 0}
+.bar>i{display:block;height:100%;background:linear-gradient(90deg,#35E0C8,#55C7F0);transition:width .35s}
+.step{border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:10px;background:rgba(255,255,255,.025)}
+.step.done{border-color:rgba(75,214,160,.35);background:rgba(75,214,160,.05)}
+.step.next{border-color:rgba(53,224,200,.55);box-shadow:0 0 0 1px rgba(53,224,200,.12)}
+.step .top{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+.step .n{flex:none;width:22px;height:22px;border-radius:50%;background:rgba(53,224,200,.14);
+ color:var(--primary);font-size:11px;font-weight:700;text-align:center;line-height:22px}
+.step.done .n{background:rgba(75,214,160,.18);color:var(--green)}
+.step .t{font-weight:600;font-size:14px}
+.who{font-size:10px;padding:2px 8px;border-radius:10px;border:1px solid rgba(255,255,255,.18);color:var(--muted)}
+.who.me{color:var(--primary);border-color:rgba(53,224,200,.4);background:rgba(53,224,200,.08)}
+.kv{margin-top:9px;font-size:12px;color:#C3CEEA}
+.kv div{padding:4px 0;border-top:1px dashed rgba(255,255,255,.07)}
+.kv span{display:inline-block;min-width:62px;color:var(--muted)}
+code{font:11px/1.6 ui-monospace,Consolas,monospace;background:rgba(0,0,0,.28);
+ padding:2px 6px;border-radius:5px;color:var(--primary);word-break:break-all}
+.hint{color:var(--accent);font-size:11px;margin-top:7px;line-height:1.7}
+table{width:100%;border-collapse:collapse;font-size:12px}
+td,th{padding:8px 6px;border-bottom:1px dashed var(--line);text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:500}
+td b{color:var(--green);font-weight:600}
+td i{color:var(--muted);font-style:normal}
+.btn{display:block;width:100%;padding:13px;text-align:center;border-radius:24px;text-decoration:none;
+ background:linear-gradient(90deg,#35E0C8,#55C7F0);color:#08131F;font-weight:700;margin-top:12px}
+.btn.ghost{background:transparent;border:1px solid rgba(255,255,255,.2);color:var(--text)}
+.foot{text-align:center;color:#5E6C90;font-size:11px;margin-top:22px;line-height:2}
+.muted{color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <h1>出包材料清单</h1>
+    <p>从「现在还没有安装包」到「每次改完手机都能装」· 自动读取当前进度</p>
+  </div>
+
+  <div class="card warn">
+    <h2>先说结论：卡住的不是代码，是这两道门槛</h2>
+    <div class="gate"><div class="num">1</div><div>
+      <b>Apple Developer Program 付费会员（¥688/年）</b> — 有 Apple ID ≠ 有开发者资格。
+      没有付费会员，苹果不发放 Distribution 证书，世界上任何机器都签不出能装到你手机上的 ipa。
+      个人身份一般几小时到 2 天生效；这是<b>唯一必须等时间</b>的一步。
+    </div></div>
+    <div class="gate"><div class="num">2</div><div>
+      <b>一台 macOS 编译器</b> — Windows 编译不了 iOS。用 GitHub Actions 的 <code>macos-26</code> runner
+      （带 Xcode 26，公开仓库免费）最省事；也可以租云 Mac 给我 SSH。两者选一个即可。
+    </div></div>
+    <div class="gate"><div class="num">3</div><div>
+      <b>Apple 后台的双重认证</b> — 验证码只发你自己的设备，所以「登录后台点几下」必须你本人做。
+      我能做的是：把所有不需要登录的准备工作做完，把你要点的地方压缩到最少，然后接管出包、上传、生成安装链接的全部工作。
+    </div></div>
+  </div>
+
+  <div class="card">
+    <h2>选一条路线</h2>
+    <div class="tabs">
+      <button id="tabMain" class="on">TestFlight（推荐）</button>
+      <button id="tabFast">Ad Hoc 扫码直装（最快）</button>
+    </div>
+    <div id="lineName" style="font-weight:600;font-size:14px"></div>
+    <div class="muted" id="lineDesc" style="margin-top:4px"></div>
+    <div class="bar"><i id="barFill" style="width:0"></i></div>
+    <div class="muted" id="lineCount"></div>
+    <div id="steps" style="margin-top:14px"></div>
+  </div>
+
+  <div class="card">
+    <h2>材料放哪里 / 我这边已经识别到什么</h2>
+    <p class="muted">所有文件统一丢进 <code>deploy/signing/in/</code>，脚本自动识别，不用改代码。
+       账号密码不需要写进任何文件。</p>
+    <table id="matTable"><thead><tr><th>材料</th><th>当前状态</th></tr></thead><tbody></tbody></table>
+    <p class="muted" style="margin-top:12px">随时运行 <code>python deploy/signing/next.py</code> 重新体检，本页会同步更新。</p>
+  </div>
+
+  <div class="card">
+    <h2>现在就能测，不用等这些</h2>
+    <p class="muted">H5 免安装版已经上线：手机打开后「添加到主屏幕」，桌面就是一个全屏、无地址栏的图标，
+       开屏倒计时 → 试看 → VIP 充值 → 渠道归因全流程都在。改界面、改文案、改逻辑、改支付流程，
+       现在就能改完立刻在手机上看效果，不需要任何苹果材料。</p>
+    <a class="btn" href="__MZH_BASE__/demo">立即打开应用（手机）</a>
+    <a class="btn ghost" href="__MZH_BASE__/download">返回下载安装页</a>
+  </div>
+
+  <div class="card">
+    <h2>以后每次改完，怎么装到手机</h2>
+    <p class="muted">TestFlight 路线：我重跑一次出包上传，你手机 TestFlight 里点「更新」。<br>
+       Ad Hoc 路线：我跑 <code>python deploy/release_ipa.py --deploy</code>，几秒后下载页出现新二维码，扫一下就装。<br>
+       两条都不需要重新提交审核，也不影响你原后台正在跑量的渠道。</p>
+  </div>
+
+  <div class="foot">
+    进度数据 <span id="ts">-</span> · 本页不含任何 Apple 账号密码<br>
+    私钥 / p12 / p8 / ipa 均已加入 .gitignore
+  </div>
+</div>
+
+<script>
+(function () {
+  var P = window.MZH_PROGRESS || {};
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
+  var $ = function (id) { return document.getElementById(id); };
+
+  $("ts").textContent = P.updated_at || "-";
+
+  var cur = "mainline";
+  function render () {
+    var L = P[cur] || {};
+    var steps = L.steps || [];
+    $("lineName").textContent = L.name || "";
+    $("lineDesc").textContent = L.desc || "";
+    var done = L.done || 0, total = L.total || steps.length || 1;
+    $("barFill").style.width = Math.round(done / total * 100) + "%";
+    $("lineCount").textContent = "已完成 " + done + " / " + total + " 步"
+      + (L.next ? "　→　下一步：第 " + L.next.n + " 步「" + L.next.title + "」" : "　→　全部完成");
+    var firstTodo = L.next ? L.next.n : -1;
+    $("steps").innerHTML = steps.map(function (s) {
+      var cls = "step" + (s.status === "done" ? " done" : "") + (s.n === firstTodo ? " next" : "");
+      var badge = s.status === "done" ? "✓ 已完成" : (s.n === firstTodo ? "→ 现在做这步" : "待办");
+      return '<div class="' + cls + '">' +
+        '<div class="top"><span class="n">' + s.n + '</span><span class="t">' + esc(s.title) + '</span>' +
+        '<span class="who' + (s.owner === "我" ? " me" : "") + '">' + esc(s.owner) + ' · ' + badge + '</span></div>' +
+        '<div class="kv">' +
+          '<div><span>怎么做</span>' + esc(s.action) + '</div>' +
+          '<div><span>放哪里</span><code>' + esc(s.target) + '</code></div>' +
+          (s.hint ? '<div class="hint">注意：' + esc(s.hint) + '</div>' : '') +
+        '</div></div>';
+    }).join("");
+    $("tabMain").className = cur === "mainline" ? "on" : "";
+    $("tabFast").className = cur === "fastline" ? "on" : "";
+  }
+  $("tabMain").onclick = function () { cur = "mainline"; render(); };
+  $("tabFast").onclick = function () { cur = "fastline"; render(); };
+  render();
+
+  var m = P.materials || {};
+  var rows = [
+    ["Team ID（10 位）", m.team_id],
+    ["CSR（我生成，你上传 Apple 后台）", m.csr],
+    ["私钥（我生成，不要外传）", m.private_key],
+    ["Distribution 证书 .cer", m.cert],
+    ["描述文件 .mobileprovision", m.profile ? m.profile + " · " + m.profile_type + " · 设备 " + m.profile_devices + " 台" : ""],
+    ["描述文件内读到的 Team / Bundle", m.profile_team ? m.profile_team + " / " + m.profile_bundle : ""],
+    ["ASC API 密钥 .p8", m.p8],
+    ["Key ID / Issuer ID", m.asc_key_id || m.asc_issuer_id ? (m.asc_key_id || "-") + " / " + (m.asc_issuer_id || "-") : ""],
+    ["设备 UDID（Ad Hoc 路线）", m.udid],
+    ["GitHub 仓库 / 云 Mac", m.github_repo],
+    ["已生成的 Secrets（Ad Hoc 快线）", m.secrets_ready_adhoc || m.secrets_ready],
+    ["已生成的 Secrets（TestFlight 主线）", m.secrets_ready],
+    ["已产出的 ipa", (m.ipa || []).join(", ")]
+  ];
+  $("matTable").querySelector("tbody").innerHTML = rows.map(function (r) {
+    return "<tr><td>" + esc(r[0]) + "</td><td>" +
+      (r[1] ? "<b>" + esc(r[1]) + "</b>" : "<i>缺 · 待准备</i>") + "</td></tr>";
+  }).join("");
+})();
+</script>
+</body>
+</html>

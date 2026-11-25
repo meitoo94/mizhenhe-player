@@ -1,0 +1,959 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>米帧盒播放器 · 真机交互演示</title>
+<style>
+:root{
+  --bg:#0B1020; --surface:#151C30; --surface2:#1B2440; --line:rgba(255,255,255,.09);
+  --primary:#35E0C8; --accent:#FF9F5A; --text:#F2F6FF; --muted:#8A96B4; --green:#4BD6A0;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:#070B16;color:var(--text);
+  font:14px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+.stage{min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:18px 14px 40px}
+.debug{width:100%;max-width:430px;background:#101830;border:1px solid var(--line);border-radius:14px;
+  padding:12px 13px;margin-bottom:14px}
+.debug .t{font-size:12px;font-weight:800;letter-spacing:.05em;margin-bottom:9px;color:var(--primary)}
+.debug .t span{float:right;color:var(--muted);font-weight:500;letter-spacing:0}
+.drow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.drow:last-child{margin-bottom:0}
+select,input,button{font-family:inherit;font-size:12px}
+.sel2{flex:1;min-width:130px;background:#0A1020;border:1px solid var(--line);color:var(--text);
+  border-radius:9px;padding:8px 9px;outline:none}
+.mini{background:var(--surface2);border:1px solid var(--line);color:var(--text);
+  border-radius:9px;padding:8px 11px;cursor:pointer;white-space:nowrap}
+.mini:active{transform:translateY(1px)}
+.mini.hot{background:rgba(53,224,200,.14);border-color:rgba(53,224,200,.4);color:var(--primary)}
+.stat{font-size:11px;color:var(--muted);line-height:1.5}
+.stat b{color:var(--primary)}
+.phone{width:390px;max-width:100%;height:844px;max-height:82vh;background:#000;border-radius:42px;
+  border:9px solid #232B42;box-shadow:0 24px 70px rgba(0,0,0,.6);overflow:hidden;position:relative}
+.screen{position:absolute;inset:0;background:var(--bg);overflow:hidden;display:flex;flex-direction:column}
+.statusbar{height:44px;flex:0 0 44px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 22px;font-size:12px;font-weight:700;z-index:20;color:var(--text)}
+.statusbar .dots{letter-spacing:2px;opacity:.75}
+.view{flex:1;min-height:0;position:relative;overflow:auto;-webkit-overflow-scrolling:touch}
+.tabbar{height:74px;flex:0 0 74px;background:rgba(14,21,40,.96);border-top:1px solid var(--line);
+  display:flex;padding-bottom:env(safe-area-inset-bottom);z-index:15}
+.tabbar .tb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:4px;font-size:10px;color:var(--muted);cursor:pointer}
+.tabbar .tb.on{color:var(--primary)}
+.tabbar .ic{font-size:19px;line-height:1}
+.h1{font-size:26px;font-weight:800;line-height:1.25;letter-spacing:-.01em}
+.h2{font-size:17px;font-weight:700}
+.mut{color:var(--muted);font-size:12px}
+.pad{padding:0 20px}
+.btn{display:block;width:100%;border:0;border-radius:28px;padding:15px;font-size:15px;font-weight:700;
+  cursor:pointer;text-align:center;background:var(--primary);color:#06121A}
+.btn.sec{background:transparent;border:1px solid var(--line);color:var(--text)}
+.btn:active{transform:translateY(1px)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px}
+.card2{background:var(--surface2);border:1px solid var(--line);border-radius:14px;padding:13px}
+.hero{background:radial-gradient(120% 90% at 20% 0%,rgba(53,224,200,.28),transparent 60%),
+  radial-gradient(90% 80% at 100% 20%,rgba(255,159,90,.18),transparent 60%),var(--bg);
+  padding:22px 20px 26px}
+.chip{display:inline-block;padding:5px 11px;border-radius:20px;background:rgba(53,224,200,.12);
+  color:var(--primary);font-size:11px;font-weight:600;margin-right:6px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.feat{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;min-height:112px;
+  display:flex;flex-direction:column;justify-content:space-between;cursor:pointer}
+.feat .ico{font-size:23px}
+.feat .nm{font-size:13px;font-weight:700;margin-top:10px}
+.feat .ds{font-size:10px;color:var(--muted);margin-top:3px;line-height:1.45}
+.sec{margin-top:22px}
+.sec .st{font-size:14px;font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.sec .st small{font-weight:400;color:var(--muted);font-size:11px}
+.empty{border:1px dashed rgba(255,255,255,.14);border-radius:16px;padding:22px;text-align:center;
+  color:var(--muted);font-size:12px}
+.stats{display:flex;gap:10px;margin-top:14px}
+.stats div{flex:1;background:var(--surface2);border-radius:13px;padding:11px;text-align:center}
+.stats b{display:block;font-size:19px;color:var(--primary)}
+.stats span{font-size:10px;color:var(--muted)}
+/* splash */
+.splash{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;
+  align-items:center;text-align:center;padding:34px;
+  background:radial-gradient(100% 70% at 50% 18%,rgba(53,224,200,.22),transparent 65%),
+  radial-gradient(80% 60% at 80% 90%,rgba(255,159,90,.16),transparent 60%),#080D1C}
+.splash .ring{width:96px;height:96px;border-radius:30px;background:linear-gradient(140deg,var(--primary),#1C8E9E);
+  display:flex;align-items:center;justify-content:center;font-size:44px;margin-bottom:28px;
+  box-shadow:0 16px 44px rgba(53,224,200,.28)}
+.splash .cd{position:absolute;top:52px;right:20px;background:rgba(255,255,255,.1);border-radius:20px;
+  padding:6px 12px;font-size:12px;color:var(--muted)}
+.splash .enter{position:absolute;bottom:44px;left:34px;right:34px}
+/* trial */
+.trial{position:absolute;inset:0;background:#05070D;overflow:hidden}
+.trial video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.trial .ph{position:absolute;inset:0;
+  background:linear-gradient(160deg,#241B3A 0%,#123043 38%,#2A1B2E 70%,#0A0D18 100%)}
+.trial .ph:after{content:"";position:absolute;inset:0;background:
+  radial-gradient(60% 40% at 30% 35%,rgba(255,190,140,.24),transparent 70%),
+  radial-gradient(50% 40% at 75% 70%,rgba(53,224,200,.18),transparent 70%)}
+.trial .glow{position:absolute;left:12%;top:28%;width:76%;height:48%;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(255,214,180,.22),transparent);filter:blur(18px);
+  animation:float 5s ease-in-out infinite alternate}
+@keyframes float{from{transform:translateY(-8px) scale(.96)}to{transform:translateY(12px) scale(1.05)}}
+.trial .top{position:absolute;top:52px;left:16px;right:16px;display:flex;justify-content:space-between;
+  align-items:center;z-index:5}
+.trial .vipbtn{background:rgba(255,159,90,.94);color:#241203;border:0;border-radius:20px;
+  padding:8px 14px;font-size:12px;font-weight:800}
+.trial .sub{position:absolute;bottom:110px;left:0;right:0;text-align:center;z-index:5;
+  font-size:16px;font-weight:600;text-shadow:0 2px 12px #000;color:#fff}
+.trial .bot{position:absolute;bottom:0;left:0;right:0;padding:14px 18px 26px;z-index:5;
+  background:linear-gradient(transparent,rgba(0,0,0,.88) 40%)}
+.trial .rem{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:5px}
+.trial .hint2{font-size:10px;color:#A9B4CC;line-height:1.5}
+.trial .bar{height:3px;background:rgba(255,255,255,.16);border-radius:3px;margin-top:10px;overflow:hidden}
+.trial .bar i{display:block;height:100%;background:var(--primary);transition:width 1s linear}
+/* modal */
+.mask{position:absolute;inset:0;background:rgba(3,6,14,.72);display:flex;align-items:center;
+  justify-content:center;padding:26px;z-index:30}
+.modal{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:24px;width:100%;
+  text-align:center}
+.modal .em{font-size:34px;margin-bottom:10px}
+/* vip */
+.vipwrap{padding:18px 18px 26px}
+.pkg{border:1px solid var(--line);background:var(--surface);border-radius:16px;padding:15px;
+  margin-bottom:11px;display:flex;align-items:center;gap:12px;cursor:pointer;position:relative}
+.pkg.on{border-color:var(--primary);background:rgba(53,224,200,.09)}
+.pkg .radio{width:19px;height:19px;border-radius:50%;border:2px solid #536080;flex:0 0 auto}
+.pkg.on .radio{border-color:var(--primary);background:radial-gradient(circle,var(--primary) 0 45%,transparent 48%)}
+.pkg .info{flex:1}
+.pkg .nm{font-size:14px;font-weight:700}
+.pkg .perk{font-size:10px;color:var(--muted);margin-top:3px}
+.pkg .pr{text-align:right}
+.pkg .pr b{font-size:20px;color:var(--primary)}
+.pkg .pr s{display:block;font-size:10px;color:var(--muted)}
+.pkg .tag{position:absolute;top:-9px;right:12px;background:var(--accent);color:#2A1405;
+  font-size:10px;font-weight:800;padding:3px 9px;border-radius:9px}
+.perks{display:flex;flex-wrap:wrap;gap:7px;margin:16px 0}
+.perks span{background:rgba(255,255,255,.06);border-radius:8px;padding:6px 9px;font-size:10px;color:#C6D0E6}
+/* order / cashier */
+.ord{padding:24px 20px}
+.ord .card{padding:20px}
+.orow{display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px dashed rgba(255,255,255,.08);font-size:12px}
+.orow:last-of-type{border:0}
+.orow .k{color:var(--muted)}
+.amt{font-size:34px;color:var(--primary);font-weight:800;margin:14px 0 4px}
+.ali{background:#1677FF;color:#fff}
+.ali .hd{background:#0F5FD6;padding:15px 18px;font-size:15px;font-weight:700}
+.ali .amtbig{font-size:38px;font-weight:800;text-align:center;padding:28px 0 6px}
+.ali .li{background:#fff;color:#222;margin:14px;border-radius:12px;padding:14px;font-size:12px}
+.ali .li div{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #EEE}
+.ali .li div:last-child{border:0}
+.ali .alibtn{margin:0 14px;width:calc(100% - 28px);background:#1677FF;color:#fff;border:0;
+  border-radius:24px;padding:14px;font-size:15px;font-weight:700}
+/* login */
+.login{padding:28px 22px}
+.fld{background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:13px;
+  margin-bottom:11px;font-size:14px;color:var(--text);width:100%;outline:none}
+.agree{display:flex;gap:8px;align-items:flex-start;font-size:11px;color:var(--muted);margin:14px 0 18px}
+.agree input{accent-color:var(--primary);margin-top:2px}
+.mbanner{position:sticky;bottom:0;margin:18px 12px 12px;border-radius:16px;padding:13px 15px;
+  display:flex;align-items:center;gap:11px;cursor:pointer;color:#fff;
+  background:linear-gradient(100deg,#7B3FE4,#A24BE8);box-shadow:0 10px 26px rgba(123,63,228,.35)}
+.mbanner .c{font-size:21px}.mbanner .tx{flex:1;font-size:12px;font-weight:700;line-height:1.35}
+.mbanner .tx small{display:block;font-weight:400;font-size:10px;opacity:.85;margin-top:2px}
+.mbanner .go{font-size:12px;font-weight:800}
+.toast{position:absolute;left:50%;top:45%;transform:translateX(-50%);background:rgba(10,16,32,.94);
+  border:1px solid var(--line);border-radius:14px;padding:14px 22px;font-size:13px;z-index:50;
+  box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.legend{width:100%;max-width:430px;margin-top:16px;color:var(--muted);font-size:11px;line-height:1.75}
+.legend b{color:var(--text)}
+.legend code{color:var(--primary)}
+@media(max-width:480px){
+  .stage{padding:0 0 20px}.debug{border-radius:0;border-left:0;border-right:0;border-top:0;margin:0}
+  .phone{width:100%;height:calc(100vh - 150px);max-height:none;border:0;border-radius:0;box-shadow:none}
+  .legend{padding:0 14px}
+}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="debug">
+    <div class="t">真机交互演示 <span id="srv">连接中…</span></div>
+    <div class="drow">
+      <select class="sel2" id="chSel" title="切换渠道" autocomplete="off"></select>
+      <button class="mini hot" id="restart">重启 App</button>
+      <button class="mini" id="autoAttr">按 IP/设备号 自动归因</button>
+      <button class="mini" id="skip">跳过倒计时</button>
+    </div>
+    <div class="stat" id="stat">—</div>
+    <div class="drow" style="margin-top:8px">
+      <select class="sel2" id="stepSel" title="直接跳到某一步">
+        <option value="">跳到步骤…</option>
+        <option value="splash">开屏倒计时</option>
+        <option value="trial">视频试看</option>
+        <option value="trialEnd">试看结束弹窗</option>
+        <option value="vip">会员套餐页</option>
+        <option value="order">自建订单页</option>
+        <option value="cashier">支付宝收银台</option>
+        <option value="login">手机号登录</option>
+        <option value="home">合规工具首页</option>
+      </select>
+      <button class="mini" id="setVideo">应用视频</button>
+    </div>
+    <div class="drow">
+      <input class="sel2" id="videoUrl" placeholder="可选：填入试看视频 mp4 地址">
+    </div>
+  </div>
+
+  <div class="phone"><div class="screen" id="screen"></div></div>
+
+  <div class="legend">
+    <b>怎么玩：</b>切换渠道 → 点「重启 App」。命中投放渠道会走 <b>开屏倒计时 → 视频试看 → 会员套餐 → 订单页 → 收银台 → 手机号登录</b>；
+    自然量 / 关闭模块后只显示合规工具首页。倒计时可以按「跳过倒计时」快进。<br>
+    <b>后台改动即时生效：</b>在 <span id="adminLink"><a href="/admin">渠道展示后台</a></span> 里勾掉栏目或模块，
+    回来点「重启 App」就能看到差异。所有配置都来自服务端 <code>/demo/config</code>，不是写死在页面里。<br>
+    <b>百度推广 API 归因：</b>点「按 IP/设备号 自动归因」或打开后台给的验证链接，
+    服务端会用百度回传的点击 IP / 设备号匹配出渠道号（例如 <code>bbdd1</code>），再按该渠道自己的展示配置下发；
+    不再依赖剪贴板。
+  </div>
+</div>
+
+<script>
+"use strict";
+// 部署在子路径(如 https://app.kqi.ink/mzh/)时由服务端注入 window.MZH_BASE；
+// 本地直连 / 单机版为空前缀，行为不变。
+const MZH_BASE = (typeof window !== "undefined" && window.MZH_BASE) || "";
+const API = p => /^https?:\/\//i.test(p) ? p : MZH_BASE + (String(p).startsWith("/") ? p : "/" + p);
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+
+// 离线兜底：把文件直接发给别人、不连服务端时也能演示
+const OFFLINE = {
+  organic: {mode:"normal", channel:"organic", decision:["offline_fallback"],
+    normal:{brand:"米帧盒播放器", tagline:"本地影像 · 归档 · 调色 · 拼帧",
+      tabs:["今映","片仓","造片","账户"],
+      home:{sections:["精选频道","今日放映","连看影单"], channels:["人物","风景","宠物","美食"],
+            stats:["影片","合集","创作"], empty_library:{"影片":0,"合集":0,"创作":0}},
+      craft:{headline:"四种玩法", features:[
+        {id:"frame_classify",name:"帧类归档",desc:"端侧 AI 按人物 / 风景 / 宠物 / 美食归类",maps_to:"视界识档"},
+        {id:"grade_studio",name:"色阶工坊",desc:"胶片 / 赛博 / 暮色预设，导出渲染",maps_to:"光谱调色台"},
+        {id:"tempo_curve",name:"节律曲线",desc:"0.25x–4x 分段变速",maps_to:"动能曲线"},
+        {id:"frame_strip",name:"拼帧长卷",desc:"2–12 帧合成带片名时间码长图",maps_to:"帧廊胶片"}],
+        cloud:{name:"云字幕工坊",items:["云字幕","我的云作品"]}},
+      mine:{account:"未登录",membership:{name:"会员中心",placeholder:"Apple 会员内购正在开发中"},links:["设置","用户协议","隐私政策"]}}},
+  wn_douyin_a: {mode:"paywall", channel:"wn_douyin_a", decision:["offline_fallback"],
+    normal:{brand:"米帧盒播放器", tagline:"本地影像 · 归档 · 调色 · 拼帧", tabs:["今映","片仓","造片","账户"],
+      home:{sections:["精选频道","今日放映","连看影单"],channels:["人物","风景","宠物","美食"],
+            stats:["影片","合集","创作"],empty_library:{"影片":0,"合集":0,"创作":0}},
+      craft:{features:[],cloud:{name:"云字幕工坊",items:[]}},mine:{account:"未登录",membership:{name:"会员中心"}}},
+    paywall:{modules:{splash:true,trial:true,vip:true,checkout:true,login:true},
+      gate:{once_per_install:false,allow_skip:false,skip_button:"稍后再说",
+            skip_action:"back_to_trial",home_after_skip:false,force_paywall_until_vip:true,
+            login_to_vip_delay_seconds:1,reopen_interval_seconds:2,
+            persistent_banner:true,banner_text:"开通会员 解锁完整内容",
+            reopen_from:"账户-会员中心"},
+      splash:{title:"专业视频播放",subtitle:"精彩视频尽情观看",button:"进入",countdown_seconds:6},
+      trial:{video_url:"",countdown_seconds:15,vip_button:"开通会员",
+             hint:"试看视频为演示资源，开通 VIP 解锁全部功能",end_title:"试看结束",
+             end_body:"开通会员即可解锁完整内容",end_primary:"开通会员",end_secondary:"稍后再说"},
+      vip:{title:"棱镜会员",subtitle:"开通会员，解锁完整内容",button:"支付宝支付",
+        packages:[{id:"vip_3y",name:"3年",price:198,origin_price:598,perk:"网络资源 20000 集 / 私密播放 / 一键字幕 100 次",tag:"超值推荐"},
+                  {id:"vip_1y",name:"年度",price:158,origin_price:398,perk:"网络资源 15000 集 / 私密播放 / 一键字幕 80 次",tag:""},
+                  {id:"vip_1m",name:"月度",price:98,origin_price:128,perk:"网络资源 10000 集 / 私密播放 / 一键字幕 50 次",tag:""}],
+        agreements:["《用户协议》","《隐私政策》"]},
+      checkout:{order_endpoint:"",order_page_title:"交易进行中",repay_button:"重新支付",
+                support_url:"",support_prefix:"售后联系"},
+      login:{placeholder:"请输入手机号",confirm_placeholder:"请再次输入手机号",submit:"登录",
+             success_toast:"登录成功",agreements:["《用户协议》","《隐私政策》"]}}}
+};
+
+let CFG = null, CH = "", ONLINE = false, CHANNELS = ["organic","wn_douyin_a","wn_gdt_b"];
+let step = "home", tab = 0, cd = 0, timer = null, costomVideo = "", order = null,
+    chosenPkg = 0, logged = false, vip = false, toastT = null;
+let loginTicket = "", loginPhoneMasked = "";   // 登录票据（注销时用于身份校验）
+let reopenTimer = null, reopenLeft = 0;
+let ATTR = null;          // 百度推广 API 归因结果(渠道号 / 匹配方式 / 置信度)
+// 离开试看页前的现场: 剩余秒数 / 是否已看完 / 视频播放位置。
+// 回来时原样恢复, 不重播、不重置倒计时。
+let trialSave = null, resumeVideoAt = 0;
+
+// ---- 付费墙闭环: 退出静默回片段, 保留原进度, 不给任何提示 ----
+// 「暂不开通 / 稍后再说 / 返回」点击后回到试看片段页, 原来看到第几秒就还是第几秒,
+// 已经看完就还是「试看结束」; 不重播、不重置倒计时、不弹 toast、不进完整功能首页。
+function gateCfg(){ return (CFG && CFG.paywall && CFG.paywall.gate) || {}; }
+function forced(){
+  return !!(CFG && CFG.mode === "paywall" && !vip &&
+            gateCfg().force_paywall_until_vip !== false);
+}
+function trialSeconds(){
+  return Math.max(1, Math.round(Number(CFG?.paywall?.trial?.countdown_seconds ?? 15)));
+}
+function cancelReopen(){
+  clearInterval(reopenTimer); reopenTimer = null; reopenLeft = 0;
+}
+/// 回片段后按「还剩多少秒」计时; 片段看完(或本来已看完)后静默回充值页, 全程无提示。
+function scheduleReopen(){
+  cancelReopen();
+  if(!forced() || step === "vip" || !isOn("vip")) return;
+  const grace = Math.max(1, Math.round(Number(gateCfg().reopen_interval_seconds ?? 2)));
+  const remaining = step === "trial" ? Math.max(0, cd) : 0;
+  reopenLeft = Math.max(1, remaining + grace);
+  updateStat();
+  reopenTimer = setInterval(() => {
+    reopenLeft -= 1;
+    if(reopenLeft <= 0){
+      cancelReopen();
+      if(forced() && step !== "vip") setStep("vip");   // 静默, 不提示
+    } else updateStat();
+  }, 1000);
+}
+/// 用户主动离开试看页时保存现场(倒计时自动推进到 trialEnd 不算离开)。
+function snapshotTrial(next){
+  if((step === "trial" || step === "trialEnd") &&
+     ["vip","order","cashier","login","home"].includes(next)){
+    const vd = document.querySelector("#vd");
+    trialSave = {step:step, cd: step === "trialEnd" ? 0 : Math.max(0, cd),
+                 videoTime: vd ? (Number(vd.currentTime) || 0) : 0};
+  }
+}
+/// 所有「退出 / 返回 / 稍后再说」统一走这里: 静默回到原试看现场。
+function requestExit(){
+  if(!forced()){ setStep("home"); tab = 0; return; }
+  if(trialSave){
+    cd = trialSave.cd;                       // 剩 5s 就还是 5s
+    resumeVideoAt = trialSave.videoTime || 0;  // 视频回到原来那一帧
+    setStep(trialSave.step, true);           // 已看完则仍是「试看结束」
+  } else {
+    setStep("trial");                        // 从未看过片段: 首次从头
+  }
+  scheduleReopen();
+}
+
+const params = new URLSearchParams(location.search);
+// ?cd=60 可覆盖倒计时秒数, 方便逐帧验收；不传则用后台配置值
+const CD_OVERRIDE = Number(params.get("cd") || 0) > 0 ? Number(params.get("cd")) : 0;
+// ?auto=1 / ?ch=auto 走「首次启动归因」: 由服务端按百度回传的 IP / 设备号判定渠道号。
+// ?ip= 可模拟出口 IP, ?dev= 指定设备号(与后台「模拟百度回传」里填的一致)。
+const AUTO = params.get("auto") === "1" || params.get("ch") === "auto";
+if(params.get("ch") && params.get("ch") !== "auto")
+  CHANNELS = [...new Set([params.get("ch"), ...CHANNELS])];
+
+async function post(url, body){
+  const r = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(body || {})});
+  return await r.json().catch(() => ({}));
+}
+
+async function loadConfig(ch){
+  ATTR = null;
+  // 首次启动: 不传渠道号, 只上报设备上下文; 服务端用百度推广 API 回传的
+  // click_id / 点击 IP / 设备号 匹配点击库, 返回我方定义的渠道号(例如 bbdd1)。
+  if(ch === "auto"){
+    const dev = params.get("dev") || "DEMO-BAIDU-001";
+    const ratio = (typeof window !== "undefined" && window.devicePixelRatio) || 1;
+    const scr = typeof screen !== "undefined" ? screen.width + "x" + screen.height : "";
+    ATTR = await post(API("/v1/attribution/resolve"), {
+      idfv: "DEMO-" + dev, device_id: dev,
+      ip: params.get("ip") || "", country: "cn",
+      model: "iPhone", ua: navigator.userAgent,
+      tz: typeof Intl !== "undefined"
+          ? String(Intl.DateTimeFormat().resolvedOptions().timeZone || "") : "",
+      lang: navigator.language || "", screen: scr + "@" + ratio
+    }).catch(() => null);
+    ch = (ATTR && ATTR.channel) || "organic";
+  }
+  CH = ch;
+  try{
+    const r = await fetch(API("/demo/config?ch=" + encodeURIComponent(ch)), {cache:"no-store"});
+    const d = await r.json();
+    if(!d || !d.config) throw new Error("bad response");
+    CFG = d.config; CFG.decision = d.decision || [];
+    ONLINE = true;
+    $("#srv").textContent = "● 已连服务端";
+    $("#srv").style.color = "var(--green)";
+    const st = await fetch(API("/admin/state"), {cache:"no-store"}).then(x => x.json()).catch(() => null);
+    if(st && st.channels_order) CHANNELS = st.channels_order;
+  }catch(e){
+    ONLINE = false;
+    CFG = JSON.parse(JSON.stringify(OFFLINE[ch] || OFFLINE.wn_douyin_a));
+    CFG.channel = ch;
+    $("#srv").textContent = "○ 离线内置配置";
+    $("#srv").style.color = "var(--accent)";
+  }
+  if(!CHANNELS.includes(CH)) CHANNELS = [CH, ...CHANNELS];
+  renderChSelect();
+  restart();
+}
+
+function renderChSelect(){
+  const sel = $("#chSel");
+  sel.innerHTML = CHANNELS.map(c =>
+    `<option value="${esc(c)}" ${c===CH?"selected":""}>${esc(c)}</option>`).join("");
+  sel.value = CH;              // 明确指定, 不依赖浏览器表单状态恢复
+  $("#adminLink").innerHTML = ONLINE
+    ? `<a href="${API("/admin")}" target="_blank">渠道展示后台</a>` : `渠道展示后台(需连服务端)`;
+}
+
+function restart(){
+  clearInterval(timer); timer = null;
+  cancelReopen(); vip = false; trialSave = null; resumeVideoAt = 0;
+  step = "home"; tab = 0; order = null; chosenPkg = 0; logged = false;
+  if(CFG.mode === "paywall" && CFG.paywall){
+    const m = CFG.paywall.modules || {};
+    step = m.splash !== false ? "splash" : (m.trial !== false ? "trial" : (m.vip !== false ? "vip" : "home"));
+  }
+  render();
+}
+
+function setStep(s, keepProgress){
+  snapshotTrial(s);                 // 离开试看前保存剩余秒数 / 播放位置
+  clearInterval(timer); timer = null;
+  if(s === "vip") cancelReopen();
+  step = s; render(!!keepProgress);
+  // 回到内页后, 强制闭环会按间隔重新弹出充值页
+  if(forced() && s === "home") scheduleReopen();
+}
+
+function isOn(m){ return !CFG.paywall || !CFG.paywall.modules || CFG.paywall.modules[m] !== false; }
+
+function updateStat(){
+  const m = (CFG && CFG.paywall && CFG.paywall.modules) || {};
+  const saved = trialSave
+    ? (trialSave.step === "trialEnd" ? "已看完" : `剩 ${trialSave.cd}s`)
+    : "未开始";
+  const closed = forced()
+    ? ` · 闭环 <b>ON · 退出静默回片段</b>` +
+      (reopenLeft > 0 ? ` · ${reopenLeft}s 后静默回充值` : "") +
+      ` · 试看进度 <b>${saved}</b>`
+    : ` · 闭环 <b>OFF</b>`;
+  const el = $("#stat");
+  if(!el || !CFG) return;
+  const attr = ATTR
+    ? `归因 <b>${esc(ATTR.channel)}</b> · ${esc(ATTR.method)} · conf ${esc(ATTR.confidence)}`
+    : `归因 <b>手动指定渠道</b>`;
+  el.innerHTML =
+    `渠道 <b>${esc(CFG.channel)}</b> · 形态 <b>${esc(CFG.mode)}</b> · 当前步骤 <b>${esc(step)}</b>${closed}` +
+    ` · 账号 <b>${loginTicket ? "已登录" : "未登录"}</b><br>` +
+    `${attr} ｜ 模块 ${Object.entries(m).map(([k,v]) => k + (v ? "✓" : "✕")).join(" ") || "—"} ｜ ` +
+    `栏目 ${(CFG.normal?.tabs || []).join("/") || "无"}`;
+}
+
+function memberBanner(){
+  if(!forced() || gateCfg().persistent_banner === false) return "";
+  return `<div class="mbanner" data-act="banner">
+    <span class="c">♛</span>
+    <span class="tx">${esc(gateCfg().banner_text || "开通会员 解锁完整内容")}
+      <small>解锁完整内容与专属权益</small></span>
+    <span class="go">开通 ›</span></div>`;
+}
+
+function showToast(msg){
+  const t = document.createElement("div");
+  t.className = "toast"; t.textContent = msg;
+  $("#screen").appendChild(t);
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.remove(), 1600);
+}
+
+function statusBar(dark){
+  return `<div class="statusbar"><span>9:41</span>
+    <span class="dots">●●● ▮▮▮</span></div>`;
+}
+
+function tabbar(tabs){
+  const icons = ["✦","▦","✧","◉"];
+  return `<div class="tabbar">${tabs.map((t,i) =>
+    `<div class="tb ${i===tab?"on":""}" data-act="tab" data-v="${i}">
+      <span class="ic">${icons[i%4]}</span><span>${esc(t)}</span></div>`).join("")}</div>`;
+}
+
+function homeView(){
+  const n = CFG.normal || {};
+  const tabs = n.tabs || [];
+  const sections = n.home?.sections || [];
+  const feats = n.craft?.features || [];
+  const stats = n.home?.stats || ["影片","合集","创作"];
+  let body = "";
+  if(tab === 0){
+    body = `<div class="hero">
+      <div style="font-size:11px;letter-spacing:.22em;color:var(--primary)">${esc(n.brand||"")}</div>
+      <div class="h1" style="margin-top:10px">${esc(n.tagline||"本地影像 · 归档 · 调色 · 节奏 · 拼帧")}</div>
+      <div class="mut" style="margin-top:7px">${esc(n.headline||"")}</div>
+      <div class="stats">${stats.map(s =>
+        `<div><b>${esc(n.home?.empty_library?.[s] ?? 0)}</b><span>${esc(s)}</span></div>`).join("")}</div>
+    </div>
+    <div class="pad">
+      ${sections.map((s,i) => `<div class="sec"><div class="st">${esc(s)}<small>${i===0?"按内容整理":""}</small></div>
+        ${i===0 ? `<div style="display:flex;gap:7px;flex-wrap:wrap">${(n.home?.channels||[]).map(c =>
+          `<span class="chip">${esc(c)}</span>`).join("")}</div>`
+        : `<div class="empty">${i===1?"导入本地视频后，这里会生成今日片单":"暂无影单，可在片仓中创建"}</div>`}
+      </div>`).join("")}
+      ${!sections.length ? `<div class="sec"><div class="empty">首页分区已在后台关闭</div></div>` : ""}
+    </div>`;
+  } else if(tab === 1){
+    body = `<div class="pad" style="padding-top:18px"><div class="h2">片仓</div>
+      <div class="mut" style="margin:4px 0 14px">搜索影片 / 合集 · 网格 ⇄ 时间线</div>
+      <div class="card2" style="color:var(--muted);font-size:12px">🔍 搜索影片 / 合集</div>
+      <div class="empty" style="margin-top:18px">片仓为空<br><span style="font-size:10px">导入只建立索引，不复制、不上传文件</span></div>
+      ${(n.local_player?.enabled !== false)
+        ? `<div class="btn sec" style="margin-top:16px" data-act="localplay">${esc(n.local_player?.button || "导入本地视频并播放")}</div>
+           <div class="mut" style="font-size:10px;margin-top:8px">${esc(n.local_player?.hint || "仅在本地播放，不上传")}</div>`
+        : ""}</div>`;
+  } else if(tab === 2){
+    body = `<div class="pad" style="padding-top:18px"><div class="h2">${esc(n.craft?.headline||"四种玩法")}</div>
+      <div class="mut" style="margin:4px 0 16px">功能参数与原型一致，界面已换皮</div>
+      <div class="grid2">${feats.map(f =>
+        `<div class="feat" data-act="feat" data-v="${esc(f.name)}">
+          <div><div class="ico">✧</div><div class="nm">${esc(f.name)}</div>
+          <div class="ds">${esc(f.desc||"")}</div></div>
+          <div class="ds" style="color:var(--primary)">↔ ${esc(f.maps_to||"")}</div></div>`).join("")}</div>
+      ${!feats.length ? `<div class="empty" style="margin-top:12px">玩法卡片已在后台关闭</div>` : ""}
+      ${n.craft?.cloud ? `<div class="sec"><div class="st">${esc(n.craft.cloud.name||"云字幕工坊")}</div>
+        <div class="card"><div class="mut">上传 → 临时存储 → 语音识别 → 烧录成片 → 推送，72 小时自动删除</div></div></div>` : ""}
+    </div>`;
+  } else {
+    body = `<div class="pad" style="padding-top:18px"><div class="h2">账户</div>
+      <div class="card" style="margin-top:14px;display:flex;align-items:center;gap:12px">
+        <div style="width:44px;height:44px;border-radius:50%;background:var(--surface2);
+          display:flex;align-items:center;justify-content:center;font-size:20px">◉</div>
+        <div><div style="font-weight:700">${logged?"已登录":esc(n.mine?.account||"未登录")}</div>
+          <div class="mut">${vip?"棱镜会员 · 已开通":esc(n.mine?.account_hint||"登录后同步云端作品")}</div></div>
+      </div>
+      ${n.mine?.membership ? `<div class="card" style="margin-top:12px;cursor:pointer" data-act="reopen">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><div style="font-weight:700">${esc(n.mine.membership.name||"会员中心")}</div>
+            <div class="mut" style="margin-top:3px">${esc(n.mine.membership.placeholder||"查看会员权益")}</div></div>
+          <span style="color:var(--primary)">›</span></div></div>` : ""}
+      <div class="card" style="margin-top:12px">${(n.mine?.links||["设置","用户协议","隐私政策"]).map(l =>
+        `<div style="padding:9px 0;border-bottom:1px dashed rgba(255,255,255,.07);font-size:12px">${esc(l)}</div>`).join("")}</div>
+      <div class="card" style="margin-top:12px;cursor:pointer" data-act="deleteAccount">
+        <div style="font-weight:700">注销账号</div>
+        <div class="mut" style="margin-top:3px">删除账号及关联个人数据，App 内即可完成</div></div>
+    </div>`;
+  }
+  return statusBar() + `<div class="view">${body}${memberBanner()}</div>` +
+    (tabs.length ? tabbar(tabs) : "");
+}
+
+function splashView(){
+  const s = CFG.paywall.splash || {};
+  return `<div class="splash">
+    <div class="cd">${cd}s 后自动进入</div>
+    <div class="ring">▶</div>
+    <div class="h1">${esc(s.title||"专业视频播放")}</div>
+    <div class="mut" style="margin-top:9px">${esc(s.subtitle||"精彩视频尽情观看")}</div>
+    <div class="enter"><button class="btn" data-act="enter">${esc(s.button||"进入")}</button></div>
+  </div>`;
+}
+
+function trialView(){
+  const t = CFG.paywall.trial || {};
+  const total = t.countdown_seconds || 15;
+  const src = costomVideo || (t.video_url && !t.video_url.includes("yourdomain") ? t.video_url : "");
+  const pct = Math.max(0, Math.round(cd / total * 100));
+  return `<div class="trial">
+    ${src ? `<video id="vd" src="${esc(src)}" autoplay muted loop playsinline></video>` : `<div class="ph"></div><div class="glow"></div>`}
+    <div class="top"><span class="mut" style="color:#C9D3E8">演示素材 · 第 01 集</span>
+      <button class="vipbtn" data-act="tovip">${esc(t.vip_button||"开通会员")}</button></div>
+    <div class="sub">${cd > 0 ? "精彩内容，正在试看" : "试看已结束"}</div>
+    <div class="bot"><div class="rem">剩余 ${cd}s</div>
+      <div class="hint2">${esc(t.hint||"试看视频为演示资源，开通 VIP 解锁全部功能")}</div>
+      <div class="bar"><i style="width:${pct}%"></i></div></div>
+  </div>`;
+}
+function trialEndView(){
+  const t = CFG.paywall.trial || {};
+  const canVip = isOn("vip") && isOn("checkout");
+  return `<div class="trial"><div class="ph"></div><div class="glow"></div>
+    <div class="top"><span class="mut" style="color:#C9D3E8">演示素材 · 第 01 集</span></div>
+    <div class="mask"><div class="modal">
+      <div class="em">⏱</div><div class="h2">${esc(t.end_title||"试看结束")}</div>
+      <div class="mut" style="margin:8px 0 20px">${esc(t.end_body||"开通会员即可解锁完整内容")}</div>
+      ${canVip ? `<button class="btn" data-act="tovip">${esc(t.end_primary||"开通会员")}</button>` : ""}
+      <button class="btn sec" style="margin-top:10px" data-act="home">${esc(t.end_secondary||"稍后再说")}</button>
+    </div></div></div>`;
+}
+
+function vipView(){
+  const v = CFG.paywall.vip || {};
+  const ps = v.packages || [];
+  if(!ps.length) return homeView();
+  return statusBar() + `<div class="view"><div class="vipwrap">
+    <div style="text-align:center;margin:8px 0 20px">
+      <div class="h1" style="color:var(--primary)">${esc(v.title||"棱镜会员")}</div>
+      <div class="mut" style="margin-top:6px">${esc(v.subtitle||"开通会员，解锁完整内容")}</div></div>
+    ${ps.map((p,i) => `<div class="pkg ${i===chosenPkg?"on":""}" data-act="pkg" data-v="${i}">
+      ${p.tag?`<span class="tag">${esc(p.tag)}</span>`:""}
+      <span class="radio"></span>
+      <div class="info"><div class="nm">${esc(p.name)}</div><div class="perk">${esc(p.perk||"")}</div></div>
+      <div class="pr"><b>¥${esc(p.price)}</b><s>¥${esc(p.origin_price)}</s></div></div>`).join("")}
+    <div class="perks"><span>✓ 高清播放</span><span>✓ 私密播放</span><span>✓ 一键字幕</span><span>✓ 去除广告</span></div>
+    <div class="mut" style="font-size:10px;text-align:center;margin-bottom:12px">
+      开通即代表同意 ${(v.agreements||["《用户协议》","《隐私政策》"]).join(" ")}</div>
+    <button class="btn" data-act="pay">${esc(v.button||"支付宝支付")}</button>
+    <button class="btn sec" style="margin-top:10px" data-act="home">暂不开通 · 看片段</button>
+    <div style="text-align:center;margin-top:12px"><span class="mut" data-act="login">登录 / 已有账号</span></div>
+    <div style="text-align:center;margin-top:10px"><span class="mut" style="font-size:11px;text-decoration:underline"
+      data-act="deleteAccount">账号与隐私 · 注销账号</span></div>
+  </div></div>`;
+}
+
+function orderView(){
+  const o = order || {};
+  const ck = CFG.paywall.checkout || {};
+  return statusBar() + `<div class="view"><div class="ord">
+    <div style="font-size:11px;letter-spacing:.2em;color:var(--primary);margin-bottom:20px">
+      ${esc(CFG.normal?.brand||"")} · 订单详情</div>
+    <div class="card"><div class="h2">${esc(ck.order_page_title||"交易进行中")}</div>
+      <div class="mut" style="margin:4px 0 14px">请完成付款以解锁会员权益</div>
+      <div class="orow"><span class="k">订单编号</span><span style="font-size:10px">${esc(o.order_no||"—")}</span></div>
+      <div class="orow"><span class="k">商品</span><span>${esc(o.package_name||"会员")}</span></div>
+      <div class="orow"><span class="k">状态</span><span>${esc(o.status||"pending")}</span></div>
+      <div class="amt">¥${Number(o.amount||0).toFixed(2)}</div>
+      <button class="btn" style="margin-top:16px" data-act="cashier">${esc(ck.repay_button||"重新支付")}</button>
+      ${o.order_page_url ? `<a href="${esc(o.order_page_url)}" target="_blank"
+        style="display:block;text-align:center;margin-top:12px;font-size:11px">打开服务端真实订单页 ↗</a>` : ""}
+    </div>
+    <div class="mut" style="text-align:center;margin-top:18px;font-size:11px">
+      ${esc(ck.support_prefix||"售后联系")} ${esc(ck.support_url||"—")}<br>付款完成后返回 App 自动同步会员状态</div>
+    <button class="btn sec" style="margin-top:20px" data-act="home">返回片段</button>
+  </div></div>`;
+}
+
+function cashierView(){
+  const o = order || {};
+  return statusBar() + `<div class="view" style="background:#F2F5FA;color:#222">
+    <div class="ali" style="min-height:100%;display:flex;flex-direction:column">
+      <div class="hd">收银台 · 支付宝</div>
+      <div class="amtbig">¥${Number(o.amount||0).toFixed(2)}</div>
+      <div style="text-align:center;font-size:12px;opacity:.85;margin-bottom:12px">${esc(o.package_name||"会员")}</div>
+      <div class="li">
+        <div><span>订单号</span><span style="font-size:10px">${esc(o.order_no||"—")}</span></div>
+        <div><span>商户</span><span>演示商户（自建订单页）</span></div>
+        <div><span>售后联系</span><span>${esc((CFG.paywall.checkout||{}).support_url||"—")}</span></div>
+      </div>
+      <button class="alibtn" data-act="paid">打开支付宝APP付款</button>
+      <div style="text-align:center;font-size:10px;opacity:.8;margin:12px 0 20px">
+        演示环境不会真实扣款 · 点按钮模拟支付成功</div>
+      <button class="btn sec" style="color:#222;border-color:#DDD;margin:0 14px;width:calc(100% - 28px)"
+        data-act="order">返回订单页</button>
+    </div></div>`;
+}
+
+function loginView(){
+  const l = CFG.paywall.login || {};
+  return statusBar() + `<div class="view"><div class="login">
+    <div class="h1" style="font-size:22px">登录</div>
+    <div class="mut" style="margin:6px 0 24px">登录后同步会员状态与云端作品</div>
+    <input class="fld" id="ph1" type="tel" inputmode="numeric" maxlength="11"
+      placeholder="${esc(l.placeholder||"请输入手机号")}">
+    ${l.confirm_phone_input !== false ? `<input class="fld" id="ph2" type="tel" inputmode="numeric"
+      maxlength="11" placeholder="${esc(l.confirm_placeholder||"请再次输入手机号")}">` : ""}
+    <label class="agree"><input type="checkbox" id="ag" checked>
+      <span>我已阅读并同意 ${(l.agreements||["《用户协议》","《隐私政策》"]).join(" ")}</span></label>
+    <button class="btn" data-act="dologin">${esc(l.submit||"登录")}</button>
+    <div class="mut" style="text-align:center;margin-top:14px;font-size:10px">
+      与录屏一致：两次手机号 + 勾选协议，无短信验证码</div>
+    <button class="btn sec" style="margin-top:18px" data-act="home">稍后再说 · 看片段</button>
+    <div style="text-align:center;margin-top:14px"><span class="mut" style="font-size:11px;text-decoration:underline"
+      data-act="deleteAccount">账号与隐私 · 注销账号</span></div>
+  </div></div>`;
+}
+
+function render(keepProgress){
+  const s = $("#screen");
+  // keepProgress=true 表示「回到原试看现场」, 不重置倒计时。
+  // 只有新开一段试看(开屏→试看 / 首次进入)才把 cd 设为总秒数。
+  if((step === "splash" || step === "trial") && !keepProgress){
+    cd = CD_OVERRIDE || (step === "splash"
+      ? (CFG.paywall?.splash?.countdown_seconds || 6)
+      : (CFG.paywall?.trial?.countdown_seconds || 15));
+  }
+  // 已经看完就直接是「试看结束」, 不重播、不再启动倒计时
+  if(step === "trial" && cd <= 0) step = "trialEnd";
+  let html = "";
+  switch(step){
+    case "splash": html = splashView(); break;
+    case "trial": html = trialView(); break;
+    case "trialEnd": html = trialEndView(); break;
+    case "vip": html = vipView(); break;
+    case "order": html = orderView(); break;
+    case "cashier": html = cashierView(); break;
+    case "login": html = loginView(); break;
+    default: html = homeView();
+  }
+  s.innerHTML = html;
+
+  updateStat();
+
+  if((step === "splash" || step === "trial") && cd > 0){
+    const total = CD_OVERRIDE || (step === "splash"
+      ? (CFG.paywall?.splash?.countdown_seconds || 6)
+      : (CFG.paywall?.trial?.countdown_seconds || 15));
+    clearInterval(timer);
+    timer = setInterval(() => {
+      cd -= 1;
+      if(cd <= 0){
+        clearInterval(timer); timer = null;
+        if(step === "splash") setStep(isOn("trial") ? "trial" : (isOn("vip") ? "vip" : "home"));
+        else setStep("trialEnd");
+        return;
+      }
+      // 只更新计时数字, 不整屏重绘(避免 video 重新加载)
+      const e = step === "splash" ? s.querySelector(".cd") : s.querySelector(".rem");
+      if(e) e.textContent = step === "splash" ? `${cd}s 后自动进入` : `剩余 ${cd}s`;
+      const bar = s.querySelector(".bar i");
+      if(bar) bar.style.width = Math.max(0, Math.round(cd / total * 100)) + "%";
+    }, 1000);
+  }
+  const vd = s.querySelector("#vd");
+  if(vd){
+    vd.addEventListener("error", () => { vd.style.display = "none"; }, {once:true});
+    if(resumeVideoAt > 0){        // 回到原来看到的那一帧, 而不是从头播
+      const seek = () => { try { vd.currentTime = resumeVideoAt; } catch(e){} };
+      if(vd.readyState >= 1) seek();
+      else vd.addEventListener("loadedmetadata", seek, {once:true});
+    }
+    resumeVideoAt = 0;
+  }
+}
+
+// ---- 合规态真实本地播放: 名字叫「播放器」, 审核员就能找到能用的播放入口 ----
+// 只在本机用 <video> 播用户自己选的文件, 不上传、不请求网络、不写服务端状态。
+function showLocalPlayer(url, name){
+  const old = document.getElementById("localPlayLayer");
+  if(old) old.remove();
+  const box = document.createElement("div");
+  box.id = "localPlayLayer";
+  box.style.cssText = "position:fixed;inset:0;z-index:9999;background:#000;" +
+    "display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px";
+  box.innerHTML =
+    `<div style="color:#fff;font-size:13px;margin-bottom:12px">本地播放 · ${esc(name)}</div>` +
+    `<video controls playsinline autoplay style="width:100%;max-width:420px;max-height:65vh;background:#111"></video>` +
+    `<button class="btn sec" style="margin-top:16px;max-width:200px" id="localClose">关闭</button>`;
+  document.body.appendChild(box);
+  const vd = box.querySelector("video");
+  vd.src = url;
+  if(vd.play) Promise.resolve(vd.play()).catch(() => {});
+  box.querySelector("#localClose").addEventListener("click", () => {
+    try { vd.pause(); URL.revokeObjectURL(url); } catch(e){}
+    box.remove();
+  });
+}
+function openLocalPlayer(){
+  const inp = document.createElement("input");
+  inp.type = "file";
+  inp.accept = (CFG?.normal?.local_player?.accept) || "video/*";
+  inp.addEventListener("change", () => {
+    const f = inp.files && inp.files[0];
+    if(!f) return;
+    const url = (window.URL || window.webkitURL).createObjectURL(f);
+    showLocalPlayer(url, f.name);
+  });
+  inp.click();
+}
+
+// ---- App 内账号注销（App Store 审核指南 5.1.1(v)） --------------------------
+// 三处入口：会员页 / 登录页 / 合规态账户 Tab。浮层挂在 body 上，不受付费墙
+// 强制闭环拦截，审核员在「未付费、进不了内页」的状态下也能点到并走完流程。
+function closeAccountDeletion(){
+  const box = document.getElementById("acctDelLayer");
+  if(box) box.remove();
+}
+function openAccountDeletion(){
+  closeAccountDeletion();
+  const signed = !!(logged || loginTicket);
+  const box = document.createElement("div");
+  box.id = "acctDelLayer";
+  box.style.cssText = "position:fixed;inset:0;z-index:10000;background:rgba(6,10,22,.96);" +
+    "display:flex;align-items:center;justify-content:center;padding:20px;color:#E9EFFB";
+  box.innerHTML =
+    `<div style="width:100%;max-width:380px;background:#121A2C;border:1px solid #26324A;` +
+    `border-radius:18px;padding:22px;font-size:13px;line-height:1.7">` +
+    `<div style="font-size:18px;font-weight:800;margin-bottom:6px">注销账号</div>` +
+    `<div style="color:#93A1BC">当前：${signed ? esc(loginPhoneMasked || "已登录") : "未登录"}</div>` +
+    `<div style="margin:14px 0;padding:12px;background:#0C1322;border-radius:10px;color:#B8C5DC">` +
+    `注销后将永久删除：<br>· 登录记录与手机号关联<br>· 会员权益与云端作品索引<br>` +
+    `· 本设备的广告渠道归因绑定<br>` +
+    `依法需保留的匿名交易流水会去标识化，不含任何账号标识。此操作不可撤销。</div>` +
+    (signed
+      ? `<input class="fld" id="delConfirm" placeholder="输入「注销」两个字确认"` +
+        ` style="width:100%;box-sizing:border-box;background:#0C1322;border:1px solid #2A3854;` +
+        `color:#E9EFFB;border-radius:10px;padding:11px;margin-bottom:12px">` +
+        `<div id="delErr" style="color:#FF8A7A;font-size:11px;min-height:16px;margin-bottom:6px"></div>`
+      : `<div style="color:#FFC98A;font-size:12px;margin:10px 0 14px">` +
+        `注销需要登录态校验，请先登录后再回来注销。</div>`) +
+    `<button class="btn" id="delSubmit" style="width:100%">${signed ? "确认注销" : "去登录"}</button>` +
+    `<button class="btn sec" id="delCancel" style="width:100%;margin-top:10px">暂不注销</button>` +
+    `</div>`;
+  document.body.appendChild(box);
+  box.querySelector("#delCancel").addEventListener("click", closeAccountDeletion);
+  box.querySelector("#delSubmit").addEventListener("click", async () => {
+    if(!signed){
+      closeAccountDeletion();
+      if(isOn("login")) setStep("login");
+      return;
+    }
+    const word = (box.querySelector("#delConfirm")?.value || "").trim();
+    const err = box.querySelector("#delErr");
+    if(word !== "注销"){ err.textContent = "请输入「注销」两个字确认"; return; }
+    const btn = box.querySelector("#delSubmit");
+    btn.disabled = true; btn.textContent = "正在注销…";
+    if(ONLINE){
+      const r = await post(API("/v1/account/delete"), {
+        ticket: loginTicket, idfv: "DEMO-DEVICE",
+        confirm: "DELETE", channel: CFG.channel
+      }).catch(() => ({error:"network_error"}));
+      if(r && r.error){
+        err.textContent = r.error === "login_required"
+          ? "登录态已失效，请重新登录后再注销" : "注销失败：" + r.error;
+        btn.disabled = false; btn.textContent = "确认注销";
+        return;
+      }
+    }
+    // 本地态一并清干净；付费墙渠道仍保持原有闭环，注销不等于解锁。
+    logged = false; vip = false; order = null;
+    loginTicket = ""; loginPhoneMasked = "";
+    cancelReopen();
+    closeAccountDeletion();
+    setStep(isOn("login") ? "login" : "home");
+    showToast("账号已注销");
+    updateStat();
+  });
+}
+
+async function act(a, v){
+  switch(a){
+    case "enter": setStep(isOn("trial") ? "trial" : (isOn("vip") ? "vip" : "home")); break;
+    case "tovip": setStep(isOn("vip") ? "vip" : "home"); break;
+    case "home": requestExit(); break;
+    case "tab":
+      if(forced()) setStep("vip");          // 静默拦截, 不提示
+      else { tab = Number(v); render(); }
+      break;
+    case "feat":
+      if(forced()) setStep("vip");          // 静默拦截, 不提示
+      else showToast(v + " · 演示环境不执行导出");
+      break;
+    case "localplay": openLocalPlayer(); break;
+    case "deleteAccount": openAccountDeletion(); break;
+    case "banner": setStep("vip"); break;
+    case "reopen": setStep(isOn("vip") ? "vip" : "home"); break;
+    case "pkg": chosenPkg = Number(v); render(); break;
+    case "login": if(isOn("login")) setStep("login"); else showToast("登录模块已在后台关闭"); break;
+    case "order": setStep("order"); break;
+    case "cashier": setStep("cashier"); break;
+    case "pay": {
+      const ps = CFG.paywall?.vip?.packages || [];
+      const p = ps[chosenPkg] || ps[0];
+      if(!p){ showToast("套餐已在后台关闭"); break; }
+      const ep = CFG.paywall?.checkout?.order_endpoint;
+      if(ONLINE && ep){
+        try{
+          order = await post(API(ep), {channel:CFG.channel, package_id:p.id, idfv:"DEMO-DEVICE"});
+          if(order.error){ showToast("下单失败: " + order.error); order = null; break; }
+        }catch(e){ order = null; }
+      }
+      if(!order) order = {order_no:"OFFLINE" + Date.now(), package_name:p.name,
+                          amount:p.price, status:"pending"};
+      setStep("order");
+      break;
+    }
+    case "paid": {
+      if(ONLINE && order?.order_no){
+        await post(API("/v1/pay/notify"),
+          {order_no:order.order_no, idfv:"DEMO-DEVICE"}).catch(() => {});
+        order.status = "paid";
+      } else if(order) order.status = "paid";
+      vip = true;
+      cancelReopen();
+      showToast("支付成功 · 会员已开通");
+      setTimeout(() => setStep(isOn("login") && !logged ? "login" : "home"), 700);
+      break;
+    }
+    case "dologin": {
+      const p1 = ($("#ph1")?.value || "").trim();
+      const p2 = ($("#ph2")?.value || "").trim() || p1;
+      const ag = $("#ag")?.checked;
+      if(!/^1\d{10}$/.test(p1)){ showToast("请输入 11 位手机号"); break; }
+      if(p2 !== p1){ showToast("两次手机号不一致"); break; }
+      if(!ag){ showToast("请先勾选协议"); break; }
+      if(ONLINE){
+        const r = await post(API("/v1/login"),
+          {phone:p1, confirm_phone:p2, agreed:true, idfv:"DEMO-DEVICE", channel:CFG.channel})
+          .catch(() => null);
+        if(r && r.ticket){ loginTicket = r.ticket; loginPhoneMasked = r.phone_masked || ""; }
+      } else {
+        loginTicket = "OFFLINE-TICKET";
+        loginPhoneMasked = p1.slice(0,3) + "****" + p1.slice(-4);
+      }
+      logged = true;
+      showToast((CFG.paywall?.login?.success_toast) || "登录成功");
+      // 注册/登录成功 1s 后弹充值页; 未付费时退出静默回片段, 看完再静默回充值
+      const delay = Math.max(0, Number(gateCfg().login_to_vip_delay_seconds ?? 1));
+      setTimeout(() => {
+        if(forced()) setStep("vip");
+        else { setStep("home"); tab = 0; }
+      }, delay * 1000);
+      break;
+    }
+  }
+}
+
+$("#screen").addEventListener("click", e => {
+  const b = e.target.closest("[data-act]");
+  if(b) act(b.dataset.act, b.dataset.v);
+});
+// 浏览器/部分 WebView 在导航后会恢复表单控件旧值并派发一次 change,
+// 那不是用户的渠道切换, 必须忽略, 否则会把 URL 指定的渠道和 step 顶掉。
+let chTouched = false;
+$("#chSel").addEventListener("pointerdown", () => { chTouched = true; });
+$("#chSel").addEventListener("focus", () => { chTouched = true; });
+$("#chSel").addEventListener("change", e => {
+  if(!chTouched){ e.target.value = CH; return; }
+  chTouched = false;
+  if(e.target.value === CH) return;
+  loadConfig(e.target.value);
+});
+$("#restart").addEventListener("click", () => loadConfig(AUTO ? "auto" : CH));
+$("#autoAttr").addEventListener("click", () => {
+  const q = new URLSearchParams({auto:"1"});
+  if(params.get("ip"))  q.set("ip",  params.get("ip"));
+  if(params.get("dev")) q.set("dev", params.get("dev"));
+  location.search = "?" + q.toString();
+});
+$("#skip").addEventListener("click", () => {
+  if(step === "splash") setStep(isOn("trial") ? "trial" : (isOn("vip") ? "vip" : "home"));
+  else if(step === "trial") setStep("trialEnd");
+  else showToast("当前步骤没有倒计时");
+});
+$("#stepSel").addEventListener("change", e => {
+  const v = e.target.value;
+  if(!v) return;
+  if((v === "order" || v === "cashier") && !order){
+    const ps = CFG.paywall?.vip?.packages || [];
+    const p = ps[0] || {name:"3年", price:198};
+    order = {order_no:"DEMO" + Date.now(), package_name:p.name,
+             amount:p.price, status:"pending"};
+  }
+  setStep(v);
+  e.target.value = "";
+});
+$("#setVideo").addEventListener("click", () => {
+  costomVideo = $("#videoUrl").value.trim();
+  showToast(costomVideo ? "已应用视频地址，重启后生效" : "已恢复渐变占位");
+  if(step === "trial") render();
+});
+
+// 也支持 ?step=vip / ?step=trial 直接跳到某一屏, 方便逐屏验收与真机演示
+loadConfig(AUTO ? "auto" : (params.get("ch") || CHANNELS.find(c => c !== "organic") || "organic")).then(() => {
+  const want = params.get("step");
+  if(want){
+    if((want === "order" || want === "cashier") && !order){
+      const ps = CFG.paywall?.vip?.packages || [];
+      const p = ps[0] || {name:"3年", price:198};
+      order = {order_no:"DEMO" + Date.now(), package_name:p.name,
+               amount:p.price, status:"pending"};
+    }
+    setStep(want);
+  }
+});
+</script>
+</body>
+</html>

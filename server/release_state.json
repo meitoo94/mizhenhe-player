@@ -1,0 +1,22 @@
+{
+  "app_name": "米帧盒播放器",
+  "version": "1.0",
+  "build": "1",
+  "bundle_id": "com.mizhenhe.player",
+  "native_status": "pending_developer_account",
+  "native_status_text": "原生安装包待出包 · 等待 Apple 开发者账号与签名材料",
+  "native_hint": "开发者账号开通后，用 GitHub Actions 的 macOS runner 无 Mac 出包，上传 TestFlight 即可分发安装。",
+  "testflight_url": "",
+  "appstore_url": "",
+  "ipa_url": "",
+  "admin_url": "https://app.kqi.ink/site",
+  "admin_hint": "登录后左侧「米帧盒播放器」栏目",
+  "updated_at": "2026-11-25",
+  "h5_features": [
+    "开屏倒计时 → 试看片段 → VIP 充值全流程",
+    "登录 / 注册后 1 秒弹出充值页，付费前常驻",
+    "「暂不开通 / 稍后再说 / 返回」回试看并保留原进度",
+    "百度推广 API 归因、渠道展示配置、账号注销",
+    "添加到主屏幕后全屏运行，无浏览器地址栏"
+  ]
+}

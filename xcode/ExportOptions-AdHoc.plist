@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>method</key>
+	<string>ad-hoc</string>
+	<key>destination</key>
+	<string>export</string>
+	<key>signingStyle</key>
+	<string>manual</string>
+	<!-- Ad Hoc 快线：描述文件必须显式指定，且里面登记了测试机 UDID -->
+	<key>teamID</key>
+	<string>25F879952L</string>
+	<key>provisioningProfiles</key>
+	<dict>
+		<key>com.mizhenhe.player</key>
+		<string>54a43c5e-3320-4f04-92e2-5ab2fefedc25</string>
+	</dict>
+	<key>uploadSymbols</key>
+	<true/>
+	<key>stripSwiftSymbols</key>
+	<true/>
+	<key>manageAppVersionAndBuildNumber</key>
+	<false/>
+</dict>
+</plist>

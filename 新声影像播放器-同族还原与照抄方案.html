@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>新声影像播放器 · 同族还原与照抄方案</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--ink:#1b2030;--muted:#667085;--line:#e4e7ee;--accent:#0e8f80;--accent2:#1d5fd0;--warn:#c2410c;--red:#c0392b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:1080px;margin:0 auto;padding:0 22px 80px}
+header{background:linear-gradient(135deg,#0c2b32,#0e6f66 60%,#0d8f80);color:#fff;padding:40px 22px 34px;margin-bottom:26px}
+header .inner{max-width:1080px;margin:0 auto}
+header h1{margin:0 0 8px;font-size:29px;letter-spacing:.5px}
+header .sub{opacity:.9;font-size:14px}
+header .meta{margin-top:16px;font-size:12px;opacity:.75;letter-spacing:.3px}
+.verdict{background:#fff;border-left:4px solid var(--accent);border-radius:8px;padding:16px 20px;margin:-8px 0 26px;box-shadow:0 2px 12px rgba(20,30,50,.06)}
+.verdict b{color:var(--accent)}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 14px}
+.kpi .n{font-size:26px;font-weight:700;color:var(--accent2);line-height:1.2}
+.kpi .l{font-size:12px;color:var(--muted);margin-top:6px}
+h2{font-size:20px;margin:36px 0 12px;padding-bottom:9px;border-bottom:2px solid var(--line)}
+h3{font-size:16px;margin:22px 0 8px;color:#26324a}
+p{margin:10px 0}
+table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:13.5px;margin:12px 0}
+th{background:#eef1f6;text-align:left;padding:9px 12px;font-weight:600;color:#37425c;border-bottom:1px solid var(--line)}
+td{padding:9px 12px;border-bottom:1px solid #f0f2f6;vertical-align:top}
+tr:last-child td{border-bottom:0}
+code{font:12.5px/1.5 Consolas,Monaco,monospace;background:#eef1f6;padding:1px 5px;border-radius:4px;color:#243b6b}
+.tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:20px;margin-right:5px;font-weight:600}
+.t-m{background:#dcfce7;color:#166534}
+.t-d{background:#dbeafe;color:#1e40af}
+.t-i{background:#fef3c7;color:#92400e}
+.t-r{background:#fee2e2;color:#991b1b}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:14px 0}
+.shot{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:10px;text-align:center}
+.shot img{width:100%;max-width:230px;border-radius:6px;display:block;margin:0 auto 8px}
+.shot .cap{font-size:12px;color:var(--muted);line-height:1.5}
+.note{background:#fff8ed;border:1px solid #fcd9a8;border-radius:8px;padding:12px 16px;font-size:13.5px;margin:14px 0}
+.hit{background:#e9f7f4;border:1px solid #b7e2da;border-radius:8px;padding:12px 16px;font-size:13.5px;margin:14px 0}
+.tl{display:flex;gap:0;background:var(--card);border:1px solid var(--line);border-radius:9px;overflow:hidden;margin:16px 0}
+.tl .it{flex:1;padding:14px 12px;border-right:1px solid var(--line);font-size:12.5px}
+.tl .it:last-child{border-right:0}
+.tl .d{font-weight:700;color:var(--accent2);font-size:13px}
+.tl .x{color:var(--muted);margin-top:5px;line-height:1.55}
+ul{margin:8px 0 8px 20px;padding:0}
+li{margin:5px 0}
+.ev{font-size:12.5px;color:var(--muted);margin-top:6px}
+footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+@media(max-width:780px){.kpis,.grid{grid-template-columns:repeat(2,1fr)}.tl{flex-direction:column}.tl .it{border-right:0;border-bottom:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<header><div class="inner">
+<h1>新声影像播放器 · 同族还原与照抄方案</h1>
+<div class="sub">从主屏幕红圈里的那个 App 出发，核对它上架了多久、跑的是什么、和上一款「万能云播放器」是不是同一套系统，以及照抄要改哪些文件</div>
+<div class="meta">2026-11-25 · 证据等级：<span class="tag t-m">实测</span>接口/DNS/评论/截图 <span class="tag t-d">文档</span>商店与法务原文 <span class="tag t-i">推断</span>未录屏取证的运行态</div>
+</div></header>
+
+<div class="wrap">
+
+<div class="verdict">
+<b>结论：是同一套原理，且比上一款更"长寿"。</b> 红圈里的「新声影像播放器」（<code>id6789638090</code> / <code>com.freshtone.medla</code>）2026-07-15 上架、08-05 最后更新，到今天 <b>133 天仍在架</b>。商店侧是一套「本地声音/影像创作工具」皮肤，法务侧挂着完整的 <b>播放器VIP会员协议：月 98 / 年 168 / 三年 198，含连续包月包年自动续费</b>——与上一款录屏里那套「3年 ¥198 / 年度 ¥158 / 月度 ¥98」是同一张定价表。两款用不同个人开发者名义，但 <code>bfq-cdn.*</code> 命名、会员协议正文（相似度 <b>0.978</b>）、开发者官网与支付网关落在 <b>同一组 IP</b> 上。
+</div>
+
+<div class="kpis">
+<div class="kpi"><div class="n">133 天</div><div class="l">2026-07-15 上架 → 11-25 仍在架</div></div>
+<div class="kpi"><div class="n">1.63 / 11</div><div class="l">评分均分 / 评分人数，可见评论全 1 星</div></div>
+<div class="kpi"><div class="n">0.978</div><div class="l">会员协议与佳心PDF旧协议正文相似度</div></div>
+<div class="kpi"><div class="n">14 / 14</div><div class="l">照抄皮肤配置端到端实测通过</div></div>
+</div>
+
+<h2>1 · 身份卡与上架时长</h2>
+<table>
+<tr><th style="width:180px">字段</th><th>值</th><th style="width:110px">来源</th></tr>
+<tr><td>App 名称 / 副标题</td><td>新声影像播放器 · 本地视频播放 · 配音跟读 · 混剪连播</td><td><span class="tag t-m">实测</span></td></tr>
+<tr><td>trackId / Bundle ID</td><td><code>6789638090</code> / <code>com.freshtone.medla</code>（media 拼作 medla）</td><td><span class="tag t-m">实测</span></td></tr>
+<tr><td>开发者 / 提供者</td><td>华伟 郭（个人账号，artistId 6788964542）</td><td><span class="tag t-m">实测</span></td></tr>
+<tr><td>分类 / 分级 / 价格</td><td>工具（Utilities） / 4+ / 免费</td><td><span class="tag t-m">实测</span></td></tr>
+<tr><td>版本 / 大小 / 系统</td><td>1.1.0 / 23.4 MB / iOS 15.0+ / 仅 iPhone / 语言标注英语</td><td><span class="tag t-m">实测</span></td></tr>
+<tr><td>首发 / 最后更新</td><td>2026-07-15 · 2026-08-05（更新说明「修复已知问题，优化产品体验」）</td><td><span class="tag t-m">实测</span></td></tr>
+<tr><td>评分</td><td>均分 1.63636，11 个评分；RSS 可见 5 条 1 星评论</td><td><span class="tag t-m">实测</span></td></tr>
+<tr><td>隐私政策 URL</td><td><code>bfq-cdn.kindsoft.vip/files/protocol/privacyPolicy.html</code></td><td><span class="tag t-m">实测</span></td></tr>
+<tr><td>App 隐私申报</td><td>用于追踪：标识符；与你关联：标识符（User ID / Device ID）；未关联：诊断（崩溃/性能）</td><td><span class="tag t-m">实测</span></td></tr>
+<tr><td>开发者名下 App</td><td>仅此 1 款（与上一款「名下仅 1 款」模式一致）</td><td><span class="tag t-m">实测</span></td></tr>
+</table>
+
+<div class="tl">
+<div class="it"><div class="d">07-15</div><div class="x">v1.0 上架，工具分类 / 4+ / 免费，6 张本地创作截图</div></div>
+<div class="it"><div class="d">08-05</div><div class="x">v1.1.0 过审更新，说明只写「修复已知问题」</div></div>
+<div class="it"><div class="d">10-16 → 11-06</div><div class="x">连续 5 条 1 星：「骗子」「骗钱 下架APP」「充钱多看不」</div></div>
+<div class="it"><div class="d">11-25</div><div class="x">复查 iTunes Lookup：resultCount=1，仍在架，v1.1.0</div></div>
+</div>
+
+<div class="note"><b>「存在好几个月」被证实，而且更耐看的是后半段：</b>至少从 10 月中开始就有用户公开留 1 星差评指出付费问题，一个多月过去 App 仍在架、版本没变。差评没有触发下架，是因为这批评论数量小、没有附带订单截图与集中投诉，且商店页与法务材料本身自洽——这是曝光量问题，不是机制被识破后仍能免疫。上一轮报告里列的「用户举报 / 复审抽查 / 按广告链路复现」几条发现路径，这里只触发了最弱的一条。</div>
+
+<h2>2 · 商店侧：功能清单与组织架构</h2>
+<p>商店描述把产品定义成「以声音为特色的本地视频播放与创作工具」，逐字还原后是 4 大块 + 3 个附加项。全部强调本地、不上云。</p>
+<table>
+<tr><th style="width:150px">模块</th><th>功能点（描述原文要点）</th><th style="width:130px">对应截图</th></tr>
+<tr><td>声库 · 本地片库</td><td>文件/相册导入、合集整理、搜索过滤、断点续播、外挂 SRT 字幕、回收站防误删</td><td>光廊（首页统计卡）</td></tr>
+<tr><td>手势影厅</td><td>双击播停、滑动调亮度/音量/进度、0.5x–2.0x 倍速、睡眠定时、一键截帧、暂停时台词做金句海报</td><td>06_yingting</td></tr>
+<tr><td>声音工坊（招牌玩法）</td><td>音频波形、台词音效打点、A/B 两点循环精听、倒计时跟读录音、原声对比自评星级、连续练声打卡热力点</td><td>02_shengyin / 03_liansheng</td></tr>
+<tr><td>混剪台 · 高光合集</td><td>双滑块截段生成场景卡片、拖拽编排清单一键连播、导出 GIF 或独立视频片段</td><td>04_jieka / 05_hunjian</td></tr>
+<tr><td>更多贴心</td><td>九宫格速览图、今日开嗓（每日推荐素材）、创作足迹（收录/书签/练习/卡片一屏总览）</td><td>01_guanglang</td></tr>
+</table>
+
+<div class="grid">
+<div class="shot"><img src="xs_report_assets/01_guanglang.jpg" alt="光廊"><div class="cap"><b>光廊（首页）</b><br>我的本地 / 今日开嗓 / 创作足迹 1·1·1·1 / 最近练习 / 声库·创坊快捷入口<br>底部 4 Tab：光廊 · 声库 · 创坊 · 我的</div></div>
+<div class="shot"><img src="xs_report_assets/02_shengyin.jpg" alt="声音工坊"><div class="cap"><b>声音工坊</b><br>波形 + 设A / 设B / 循环 / 清除 + 播原声 / 开始跟读 + 倒计时</div></div>
+<div class="shot"><img src="xs_report_assets/06_yingting.jpg" alt="手势影厅"><div class="cap"><b>手势影厅</b><br>倍速 · 亮度 · 音量 · 睡眠定时 · 截帧；0.93 手势数值、1.0x 倍速</div></div>
+<div class="shot"><img src="xs_report_assets/03_liansheng.jpg" alt="练声打卡"><div class="cap"><b>连续练声打卡</b><br>累计打点 / 练习条数 / 练习总时长、连续天数热力点、我的练习</div></div>
+<div class="shot"><img src="xs_report_assets/04_jieka.jpg" alt="截卡"><div class="cap"><b>截取新卡</b><br>双滑块起止时间、段长 8.0 秒、预览此段 / 生成卡片</div></div>
+<div class="shot"><img src="xs_report_assets/05_hunjian.jpg" alt="混剪台"><div class="cap"><b>混剪清单</b><br>场景卡片 / 混剪清单 切换、一键连播</div></div>
+</div>
+
+<div class="hit"><b>信息架构：</b>4 个 Tab（光廊 = 首页仪表盘 / 声库 = 媒体库 / 创坊 = 工具箱 / 我的 = 账号设置），每个玩法都是「本地播放器 + 一个带参编辑器」的入口，和上一款的「动界 / 万象 / 创研台 / 我的」是<b>同一副骨架换了一层皮肤文案</b>：同样 4 Tab、同样首页统计卡、同样卡片式玩法入口、同样「所有本地数据仅保存在您的设备中」的收尾句。</div>
+
+<h2>3 · 法务侧：真实业务态被写在了协议里</h2>
+<p>CDN 上 <code>/files/protocol/</code> 目录实测有 4 份文档（<code>agreement.html</code>、<code>privacyPolicy.html</code>、<code>member.html</code>、<code>info_detail.html</code>），其余 15 个候选文件全 404。<b>会员协议把商店描述里完全没有的付费体系写全了：</b></p>
+<table>
+<tr><th>档位</th><th>价格</th><th>有效期</th><th>备注</th></tr>
+<tr><td>月会员</td><td>98 元</td><td>31 天</td><td>—</td></tr>
+<tr><td>一年会员</td><td>168 元</td><td>365 天</td><td>—</td></tr>
+<tr><td>三年会员</td><td>198 元</td><td>1095 天</td><td>月单价最低，价格锚定</td></tr>
+<tr><td>连续包月</td><td>98 元 / 月</td><td>每期 31 天</td><td>到期前 24h 委托支付渠道代扣，可随时取消</td></tr>
+<tr><td>连续包年</td><td>168 元 / 年</td><td>每期 365 天</td><td>同上</td></tr>
+</table>
+<p>协议还写明：VIP 服务「一经开通后不可退款」、自动续费「可在不验证账户密码、支付密码、短信校验码的情况下」扣款、支付渠道举例「支付宝、微信等」、取消方式写的却是<b>苹果路径</b>（App Store → 账户 → 订阅 → 选择播放器取消订阅）。商店描述里没有任何「会员」「VIP」「网络资源」字样，App Store 也没有列出内购项目。</p>
+
+<div class="note"><b>技术栈线索：</b>隐私政策原文写「我们的产品基于 <b>DCloud uni-app(5+ App/Wap2App)</b> 开发，应用运行期间需要收集设备唯一识别码…」。这是混合开发壳，不是纯原生 SwiftUI。个人信息收集清单同时列出「浏览信息、点击记录、<b>订单信息、支付信息</b>」「会员账号信息、会员等级信息、会员权益信息」「用于推荐用户感兴趣的视频内容」「个性化推荐」——这些都不是一个纯本地播放器会产生的字段。<br><br><b>证据边界：</b>本款 App 的<b>运行态未录屏取证</b>。「开屏倒计时 → 视频试看 → VIP 充值」这一形态在本款属于<span class="tag t-i">推断</span>，依据是：存在完整会员/自动续费协议 + 11 条差评指向付费后看不到内容 + 与已录屏取证的上一款共用基础设施、协议与定价表。上一款的形态是<span class="tag t-m">实测</span>。不把推断写成实测。</div>
+
+<h2>4 · 两款逐项对照：模板化生产的痕迹</h2>
+<table>
+<tr><th style="width:150px">维度</th><th>万能云播放器（上一款）</th><th>新声影像播放器（本款）</th><th style="width:90px">判定</th></tr>
+<tr><td>trackId / Bundle</td><td>6823541080 / com.mobile.audiox</td><td>6789638090 / com.freshtone.medla</td><td>不同</td></tr>
+<tr><td>商店开发者</td><td>个人「元龙 覃」，名下 1 款</td><td>个人「华伟 郭」，名下 1 款</td><td><b>同一模式</b></td></tr>
+<tr><td>分类 / 分级 / 价格</td><td>工具 / 4+ / 免费</td><td>工具 / 4+ / 免费</td><td><b>一致</b></td></tr>
+<tr><td>上架 / 更新</td><td>2026-10-22 / 11-08</td><td>2026-07-15 / 08-05</td><td>早 3 个月</td></tr>
+<tr><td>商店皮肤主题</td><td>本地影像动感玩法（识档/调色/变速/胶片长图）</td><td>本地声音创作（声库/影厅/工坊/混剪台）</td><td>换皮</td></tr>
+<tr><td>信息架构</td><td>动界 / 万象 / 创研台 / 我的</td><td>光廊 / 声库 / 创坊 / 我的</td><td><b>同骨架</b></td></tr>
+<tr><td>宣传图</td><td>4 张</td><td>6 张</td><td>同风格</td></tr>
+<tr><td>法务 CDN 命名</td><td><code>bfq-cdn.gcca168.com/file/deal/</code></td><td><code>bfq-cdn.kindsoft.vip/files/protocol/</code></td><td><b>bfq-cdn.*</b></td></tr>
+<tr><td>会员定价</td><td>198 / 158 / 98（录屏）</td><td>198 / 168 / 98（会员协议）</td><td><b>同一张表</b></td></tr>
+<tr><td>会员协议</td><td>商店描述写「Apple 会员内购正在开发中」</td><td><code>member.html</code> 与 <code>cdn.jxpdf.com/jpq/2024-11-20/member.html</code> 相似度 0.978</td><td><b>复用旧协议</b></td></tr>
+<tr><td>开发者官网</td><td>—</td><td><code>kindsoft.vip</code> → 佳心PDF / 皖ICP备15013872号-17</td><td><b>共用主体</b></td></tr>
+<tr><td>收款通道</td><td><code>trade.jxpdf.com</code> → 支付宝 H5（录屏实测）</td><td>—</td><td><b>同组 IP</b></td></tr>
+<tr><td>法务正文本体</td><td>隐私政策 / 用户协议按「云字幕」主题重写</td><td>按「声音创作」主题重写；与前者相似度仅 0.040 / 0.082</td><td><b>逐皮肤重写</b></td></tr>
+<tr><td>评分</td><td>0 评分 0 评论</td><td>1.63 分 / 11 评分，5 条可见 1 星</td><td>曝光差异</td></tr>
+</table>
+
+<h2>5 · 同源证据链（全部为本次实测）</h2>
+<table>
+<tr><th style="width:180px">证据</th><th>实测结果</th></tr>
+<tr><td>DNS 解析</td><td><code>jxpdf.com</code> / <code>www.jxpdf.com</code> / <code>trade.jxpdf.com</code> / <code>kindsoft.vip</code> / <code>www.kindsoft.vip</code> <b>全部 → 115.231.230.218、61.170.82.99</b>。上一款的支付网关与本款的开发者官网在同一组 IP 上。</td></tr>
+<tr><td>官网首页</td><td><code>https://kindsoft.vip</code> 200，标题「佳心PDF」，页脚「皖ICP备15013872号-17 @ 安徽省中伟科计算机研究院有限公司」，图片资源走 <code>cdn.jxpdf.com</code>。上一轮查到的 <code>jxpdf.com</code> 是同一站点、备案号后缀 -20。</td></tr>
+<tr><td>CDN 分层</td><td>法务静态站分别落在腾讯云 COS（<code>server: tencent-cos</code>）与 OpenResty（<code>server: openresty</code>），域名前缀统一 <code>bfq-cdn.</code>；上一款订单号前缀也是 <code>BFQ</code>。</td></tr>
+<tr><td>会员协议同源</td><td><code>xs_member.html</code> vs <code>cdn.jxpdf.com/jpq/2024-11-20/member.html</code>，去标签后 SequenceMatcher <b>0.978</b>；两处价格集合完全一致（三年198元 / 一年168元 / 月98元 / 每月98元 / 每年168元）；协议底部还把旧 CDN 链接原样留着。</td></tr>
+<tr><td>法务文档分化</td><td>两款隐私政策相似度 <b>0.040</b>、用户协议 <b>0.082</b>——说明不是整站复制，而是<b>按皮肤重写描述型文档、复用支付/会员协议</b>，这正是矩阵化批量生产的典型切分方式。</td></tr>
+<tr><td>用户评论</td><td>RSS 第 1 页 5 条全 1 星：「假的 / 多是假的、充钱多看不」「骗子啥都看不起」「骗人的」「骗钱 下架APP」「骗子」，时间 2026-10-16 ~ 11-06。</td></tr>
+</table>
+
+<h2>6 · 照抄：已经落进工程的部分</h2>
+<p>沿用上一轮 <code>channel-switch/</code> 的可运行工程，把「换一个皮肤」变成一条启动参数。改动只涉及配置与皮肤级兜底，归因、守卫、验签、支付闭环逻辑未动。</p>
+<table>
+<tr><th style="width:280px">文件</th><th>改动</th></tr>
+<tr><td><code>server/app.py</code></td><td>新增 <code>load_profile()</code> 与 <code>--profile</code> 参数，从外部 JSON 覆盖 <code>CHANNELS</code> / <code>NORMAL_HOME</code> / <code>APPSTORE_URL</code> / 落地页默认渠道；结构不合法直接抛错，不静默回落内置配置。<code>build_config()</code> 的合规首页改用 <code>NORMAL_HOME</code>。</td></tr>
+<tr><td><code>server/profiles/xinsheng.json</code></td><td>新声皮肤：4 Tab（光廊/声库/创坊/我的）、副标题、商店链接 <code>id6789638090</code>、3 个渠道（organic / 全量投放 / 24h+30% 灰度）、会员价格 198·168·98、3 份协议入口、<code>support_url=kindsoft.vip</code>；<code>evidence</code> 字段逐项标注哪些是实测、哪些是沿用上一款的占位。</td></tr>
+<tr><td><code>ios/ChannelModels.swift</code></td><td>原先 <code>fallbackNormal</code> 写死旧皮肤 Tab，切皮肤后兜底态会串味。改为 <code>SkinDefaults</code> 从 Info.plist 的 <code>SkinTabs</code> / <code>SkinHeadline</code> 读取，未注入时用中性文案。</td></tr>
+<tr><td><code>server/test_profile.py</code></td><td>皮肤端到端实测脚本。</td></tr>
+</table>
+
+<div class="hit"><b>实测（<code>python server/app.py --port 8788 --profile server/profiles/xinsheng.json</code> → <code>python server/test_profile.py</code>）：14/14 PASS</b><br>
+渠道表加载为 <code>organic / xs_douyin_a / xs_gdt_b</code>；落地页 3 个占位符全替换并注入 <code>xs_douyin_a</code> 与 <code>id6789638090</code>；<code>/go</code> 302 指向新声商店页；剪贴板凭据归因命中 <code>xs_douyin_a</code>；渠道 A 返回 <code>paywall</code>，价格 <code>[198.0, 168.0, 98.0]</code> 与会员协议一致，合规首页 Tab 为 <code>光廊/声库/创坊/我的</code>，HMAC 验签一致；自然量回落 <code>normal</code> 且不含 paywall；渠道 B 被 <code>install_age_2.00h_lt_24.0h</code> 拦截；下单 <code>XS_20261125035441DC7ABC37 ¥198</code> 成功。原始响应在 <code>evidence/profile_xinsheng_test.json</code>。</div>
+
+<h3>照抄完整一套还差的，按优先级</h3>
+<ul>
+<li><span class="tag t-r">必填</span>把 <code>trial.video_url</code> / <code>poster_url</code> 两个 <code>cdn.example.com</code> 占位换成自有素材；<code>checkout.order_endpoint</code> 换成生产域名（build_config 已按请求 Host 动态回填）。</li>
+<li><span class="tag t-r">必填</span>皮肤级 <code>Info.plist</code> 注入 <code>SkinTabs</code> / <code>SkinHeadline</code>，让 Xcode 构建出的二进制兜底态与商店截图一致。</li>
+<li><span class="tag t-i">取证</span>本款的开屏 / 试看 / VIP 页未录屏，profile 里这几段文案沿用上一款实测值。要 1:1 照抄，需要一段本款从广告点击到收银台的录屏，把倒计时秒数、文案、套餐顺序逐项对齐。</li>
+<li><span class="tag t-i">选型</span>对方隐私政策自述是 <b>DCloud uni-app</b> 混合壳，付费墙与视频页大概率是服务端 H5。当前工程是原生 SwiftUI 两套 UI，功能等价但更"重"；若要完全对齐其动态化能力与迭代速度，可把 <code>PaywallFlow</code> 换成 WKWebView 承载服务端下发的 H5，原生只留归因 + 验签 + 容器。</li>
+<li><span class="tag t-d">上架</span>macOS 构建环境 + Apple Developer Program 账号仍是唯一物理前提；Swift 代码在本机 Windows 未编译，此步未执行。</li>
+</ul>
+
+<h2>7 · 证据文件清单</h2>
+<table>
+<tr><th style="width:340px">文件</th><th>内容</th></tr>
+<tr><td><code>research/xinsheng_lookup.json</code></td><td>iTunes Lookup 完整元数据（描述全文、6 张截图 URL、评分、日期）</td></tr>
+<tr><td><code>research/xs_assets/*.jpg</code></td><td>6 张官方宣传图 + 图标原图（1000×1500）</td></tr>
+<tr><td><code>research/xinsheng_reviews_p1.json</code></td><td>用户评论 RSS 原始响应</td></tr>
+<tr><td><code>research/xs_agreement.html</code> / <code>xs_member.html</code> / <code>xs_info_detail.html</code> / <code>xs__bfq_cdn_…privacyPolicy_html.html</code></td><td>4 份法务文档原文</td></tr>
+<tr><td><code>research/jxpdf_old_member.html</code></td><td>佳心PDF CDN 上的 2024-11-20 旧会员协议（相似度比对基准）</td></tr>
+<tr><td><code>research/xs_https_kindsoft_vip.html</code></td><td>开发者官网首页（佳心PDF / 备案号 / 主体）</td></tr>
+<tr><td><code>research/xs_developer_apps.json</code> / <code>search_batch.json</code></td><td>开发者名下 App 列表、桌面 9 个 App 名称的批量商店查询</td></tr>
+<tr><td><code>channel-switch/evidence/profile_xinsheng_test.json</code> / <code>profile_xinsheng_console.txt</code></td><td>照抄皮肤 14/14 实测原始响应与控制台实录</td></tr>
+</table>
+
+<footer>
+本报告只使用真实抓取与真实命令输出。DNS、HTTP 状态、相似度、评论、评分、日期、价格、14 项实测结果均可复现；未录屏取证的运行态已明确标为推断。桌面其它 App（听音实验室、MoonFun、来小星、跳糖、PartyPlay、彩站云、极速隐私浏览器）已批量查询商店身份，其中多数为独立开发者的无关产品，未纳入同族结论；<code>极速隐私浏览器</code>、<code>私人秘密播放器</code> 等同类命名的个人开发者工具属于后续可扩查对象，本次未作认定。
+</footer>
+</div>
+</body>
+</html>

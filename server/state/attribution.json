@@ -1,0 +1,142 @@
+{
+  "clicks": [
+    {
+      "click_id": "BAIDU-DEMO-1795600442",
+      "source": "baidu",
+      "plan_id": "baidu_plan_a",
+      "channel": "bbdd1",
+      "ip": "192.168.11.14",
+      "device_hash": "fdd2c4295e75278f39fd3d2b",
+      "device_kind": "device_id",
+      "ts": 1795600442,
+      "ua": "iPhone",
+      "model": "iPhone",
+      "tz": "Asia/Shanghai",
+      "lang": "zh-CN",
+      "screen": "1170x2532@3",
+      "status": "pending"
+    },
+    {
+      "click_id": "SELFTEST-DEL-1795600442749",
+      "source": "baidu",
+      "plan_id": "baidu_plan_a",
+      "channel": "bbdd1",
+      "ip": "203.0.113.149",
+      "device_hash": "aeb72cb28cacbcb24b45fd37",
+      "device_kind": "device_id",
+      "ts": 1795600442,
+      "ua": "",
+      "model": "iPhone",
+      "tz": "Asia/Shanghai",
+      "lang": "",
+      "screen": "",
+      "status": "pending"
+    },
+    {
+      "click_id": "SELFTEST-BAIDU-1795617113035",
+      "source": "baidu",
+      "plan_id": "baidu_plan_a",
+      "channel": "bbdd1",
+      "ip": "203.0.113.201",
+      "device_hash": "c5aac759b6e185d047a3e07c",
+      "device_kind": "device_id",
+      "ts": 1795617113,
+      "ua": "",
+      "model": "iPhone17,3",
+      "tz": "",
+      "lang": "",
+      "screen": "",
+      "status": "pending"
+    },
+    {
+      "click_id": "SELFTEST-BAIDU-1795617125901",
+      "source": "baidu",
+      "plan_id": "baidu_plan_a",
+      "channel": "bbdd1",
+      "ip": "203.0.113.201",
+      "device_hash": "c5aac759b6e185d047a3e07c",
+      "device_kind": "device_id",
+      "ts": 1795617125,
+      "ua": "",
+      "model": "iPhone17,3",
+      "tz": "",
+      "lang": "",
+      "screen": "",
+      "status": "pending"
+    },
+    {
+      "click_id": "SELFTEST-BAIDU-1795617230848",
+      "source": "baidu",
+      "plan_id": "baidu_plan_a",
+      "channel": "bbdd1",
+      "ip": "203.0.113.201",
+      "device_hash": "c5aac759b6e185d047a3e07c",
+      "device_kind": "device_id",
+      "ts": 1795617230,
+      "ua": "",
+      "model": "iPhone17,3",
+      "tz": "",
+      "lang": "",
+      "screen": "",
+      "status": "pending"
+    }
+  ],
+  "bindings": {
+    "fdd2c4295e75278f39fd3d2b": {
+      "channel": "bbdd1",
+      "method": "device_exact",
+      "confidence": 1.0,
+      "click_id": "BAIDU-DEMO-1795600442",
+      "ip": "192.168.11.14",
+      "ts": 1795600444,
+      "source": "baidu",
+      "device_key": "fdd2c4295e75278f39fd3d2b",
+      "device_kind": "hash"
+    },
+    "aff35c0431c2fe884596fe90": {
+      "channel": "bbdd1",
+      "method": "device_exact",
+      "confidence": 1.0,
+      "click_id": "BAIDU-DEMO-1795600442",
+      "ip": "192.168.11.14",
+      "ts": 1795600444,
+      "source": "baidu",
+      "device_key": "aff35c0431c2fe884596fe90",
+      "device_kind": "hash"
+    },
+    "c5aac759b6e185d047a3e07c": {
+      "channel": "bbdd1",
+      "method": "device_exact",
+      "confidence": 1.0,
+      "click_id": "SELFTEST-BAIDU-1795617113035",
+      "ip": "203.0.113.201",
+      "ts": 1795617113,
+      "source": "baidu",
+      "device_key": "c5aac759b6e185d047a3e07c",
+      "device_kind": "hash"
+    },
+    "44ef914075bf9b98cce41eeb": {
+      "channel": "bbdd1",
+      "method": "device_exact",
+      "confidence": 1.0,
+      "click_id": "SELFTEST-BAIDU-1795617113035",
+      "ip": "203.0.113.201",
+      "ts": 1795617113,
+      "source": "baidu",
+      "device_key": "44ef914075bf9b98cce41eeb",
+      "device_kind": "hash"
+    }
+  },
+  "config": {
+    "source": "baidu",
+    "window_seconds": 86400,
+    "min_confidence": 0.6,
+    "allow_ip_only": true,
+    "ip_only_confidence": 0.65,
+    "strict_mode": false,
+    "channel_map": {
+      "baidu_plan_a": "bbdd1"
+    },
+    "default_channel": "organic"
+  }
+}

@@ -1,0 +1,602 @@
+{
+  "meta": {
+    "name": "mizhenhe_wn_v1",
+    "display_name": "米帧盒播放器",
+    "target": "万能云播放器 / id6823541080 / com.mobile.audiox / 元龙 覃",
+    "cloned_at": "2026-11-25",
+    "policy": "功能规格逐项照抄；界面(品牌/配色/布局/命名/图标/组件)全部替换；开屏-试看-会员支付三段状态机逐项对齐录屏实测",
+    "evidence_base": "research/录屏取证-推广引流与支付链路分析.html + research/video/exact/"
+  },
+  "default_channel": "wn_douyin_a",
+  "appstore_url": "https://apps.apple.com/cn/app/id0000000000",
+  "normal": {
+    "brand": "米帧盒播放器",
+    "tagline": "本地影像 · 归档 · 调色 · 拼帧",
+    "headline": "本地影像 · 归档 · 调色 · 节奏 · 拼帧",
+    "tabs": [
+      "今映",
+      "片仓",
+      "造片",
+      "账户"
+    ],
+    "theme": {
+      "style": "dark-grid",
+      "primary": "#35E0C8",
+      "accent": "#FF9F5A",
+      "background": "#0B1020",
+      "surface": "#151C30",
+      "text": "#F2F6FF",
+      "muted": "#8A96B4",
+      "corner": 20,
+      "tab_icons": [
+        "sparkles.tv",
+        "square.grid.3x3",
+        "wand.and.rays",
+        "person.crop.circle"
+      ],
+      "card": "outlined",
+      "typography": "compact"
+    },
+    "home": {
+      "stats": [
+        "影片",
+        "合集",
+        "创作"
+      ],
+      "empty_library": {
+        "影片": 0,
+        "合集": 0,
+        "创作": 0
+      },
+      "channels": [
+        "人物",
+        "风景",
+        "宠物",
+        "美食"
+      ],
+      "sections": [
+        "精选频道",
+        "今日放映",
+        "连看影单"
+      ],
+      "empty_tips": [
+        "导入本地视频后，这里会生成今日片单",
+        "暂无影单，可在片仓中创建"
+      ]
+    },
+    "library": {
+      "search_placeholder": "搜索影片 / 合集",
+      "view_modes": [
+        "网格",
+        "时间线"
+      ],
+      "bulk_actions": [
+        "多选",
+        "改名"
+      ],
+      "empty_title": "片仓为空",
+      "import_hint": "导入只建立索引，不复制、不上传文件",
+      "import_button": "导入本地视频并播放"
+    },
+    "craft": {
+      "headline": "四种玩法",
+      "features": [
+        {
+          "id": "frame_classify",
+          "name": "帧类归档",
+          "desc": "端侧 AI 按人物 / 风景 / 宠物 / 美食归类",
+          "icon": "square.stack.3d.up",
+          "maps_to": "视界识档"
+        },
+        {
+          "id": "grade_studio",
+          "name": "色阶工坊",
+          "desc": "胶片 / 赛博 / 暮色预设，色温对比饱和颗粒，导出渲染",
+          "icon": "slider.horizontal.3",
+          "maps_to": "光谱调色台"
+        },
+        {
+          "id": "tempo_curve",
+          "name": "节律曲线",
+          "desc": "0.25x–4x 分段变速",
+          "icon": "waveform.path.ecg",
+          "maps_to": "动能曲线"
+        },
+        {
+          "id": "frame_strip",
+          "name": "拼帧长卷",
+          "desc": "2–12 帧合成带片名时间码长图",
+          "icon": "film",
+          "maps_to": "帧廊胶片"
+        }
+      ],
+      "cloud": {
+        "name": "云字幕工坊",
+        "desc": "上传 → 临时存储 → 语音识别 → 烧录成片 → 推送，72 小时自动删除",
+        "items": [
+          "云字幕",
+          "我的云作品"
+        ]
+      }
+    },
+    "mine": {
+      "account": "未登录",
+      "account_hint": "登录后同步云端作品",
+      "membership": {
+        "name": "会员中心",
+        "placeholder": "Apple 会员内购正在开发中",
+        "maps_to": "棱镜会员"
+      },
+      "links": [
+        "设置",
+        "用户协议",
+        "隐私政策"
+      ]
+    },
+    "local_player": {
+      "enabled": true,
+      "button": "导入本地视频并播放",
+      "hint": "选择本机视频文件，仅在本地播放，不上传服务器、不建立索引",
+      "accept": "video/*"
+    }
+  },
+  "channels": {
+    "organic": {
+      "enabled": false,
+      "mode": "normal",
+      "desc": "自然量 / 商店直接搜索 / 审核流量"
+    },
+    "wn_douyin_a": {
+      "enabled": true,
+      "mode": "paywall",
+      "desc": "投放渠道 A - 全量，冷启动拦截一次",
+      "guard": {
+        "allow_countries": [
+          "cn"
+        ],
+        "block_builds": [],
+        "block_ip_prefixes": [],
+        "start_after_hours": 0.0,
+        "active_window": null,
+        "rollout": 1.0
+      },
+      "paywall": {
+        "gate": {
+          "once_per_install": false,
+          "allow_skip": false,
+          "skip_button": "稍后再说",
+          "skip_action": "back_to_trial",
+          "home_after_skip": false,
+          "force_paywall_until_vip": true,
+          "login_to_vip_delay_seconds": 1,
+          "reopen_interval_seconds": 2,
+          "persistent_banner": true,
+          "banner_text": "开通会员 解锁完整内容",
+          "reopen_from": "账户-会员中心"
+        },
+        "splash": {
+          "title": "专业视频播放",
+          "subtitle": "精彩视频尽情观看",
+          "button": "进入",
+          "countdown_seconds": 6
+        },
+        "trial": {
+          "video_url": "https://cdn.yourdomain.com/v/trial_15s.mp4",
+          "poster_url": "https://cdn.yourdomain.com/img/poster.jpg",
+          "countdown_seconds": 15,
+          "vip_button": "开通会员",
+          "hint": "试看视频为演示资源，开通 VIP 解锁全部功能",
+          "end_title": "试看结束",
+          "end_body": "开通会员即可解锁完整内容",
+          "end_primary": "开通会员",
+          "end_secondary": "稍后再说"
+        },
+        "vip": {
+          "title": "棱镜会员",
+          "subtitle": "开通会员，解锁完整内容",
+          "packages": [
+            {
+              "id": "vip_3y",
+              "name": "3年",
+              "price": 198.0,
+              "origin_price": 598.0,
+              "perk": "网络资源 20000 集 / 私密播放 / 一键字幕 100 次",
+              "tag": "超值推荐"
+            },
+            {
+              "id": "vip_1y",
+              "name": "年度",
+              "price": 158.0,
+              "origin_price": 398.0,
+              "perk": "网络资源 15000 集 / 私密播放 / 一键字幕 80 次",
+              "tag": ""
+            },
+            {
+              "id": "vip_1m",
+              "name": "月度",
+              "price": 98.0,
+              "origin_price": 128.0,
+              "perk": "网络资源 10000 集 / 私密播放 / 一键字幕 50 次",
+              "tag": ""
+            }
+          ],
+          "button": "支付宝支付",
+          "agreements": [
+            "《用户协议》",
+            "《隐私政策》"
+          ],
+          "login_entry": "登录"
+        },
+        "checkout": {
+          "method": "alipay_h5",
+          "order_endpoint": "http://127.0.0.1:8787/v1/order",
+          "order_page_path": "/order/",
+          "order_page_title": "交易进行中",
+          "repay_button": "重新支付",
+          "cashier_base": "https://mclient.alipay.com",
+          "support_url": "https://www.yourdomain.com/support",
+          "support_prefix": "售后联系"
+        },
+        "login": {
+          "enabled": true,
+          "method": "phone_no_sms",
+          "confirm_phone_input": true,
+          "placeholder": "请输入手机号",
+          "confirm_placeholder": "请再次输入手机号",
+          "submit": "登录",
+          "agreements": [
+            "《用户协议》",
+            "《隐私政策》"
+          ],
+          "success_toast": "登录成功",
+          "show_after": [
+            "vip",
+            "checkout_return"
+          ],
+          "maps_to": "录屏 42.66s–54.04s：两次手机号 + 勾选协议，无短信验证码"
+        }
+      }
+    },
+    "wn_gdt_b": {
+      "enabled": true,
+      "mode": "paywall",
+      "desc": "投放渠道 B - 灰度 30% / 安装 24 小时后开启",
+      "guard": {
+        "allow_countries": [
+          "cn"
+        ],
+        "block_builds": [
+          "1.0.0"
+        ],
+        "block_ip_prefixes": [],
+        "start_after_hours": 24.0,
+        "active_window": null,
+        "rollout": 0.3
+      },
+      "paywall": {
+        "gate": {
+          "once_per_install": false,
+          "allow_skip": false,
+          "skip_button": "稍后再说",
+          "skip_action": "back_to_trial",
+          "home_after_skip": false,
+          "force_paywall_until_vip": true,
+          "login_to_vip_delay_seconds": 1,
+          "reopen_interval_seconds": 2,
+          "persistent_banner": true,
+          "banner_text": "开通会员 解锁完整内容",
+          "reopen_from": "账户-会员中心"
+        },
+        "splash": {
+          "title": "专业视频播放",
+          "subtitle": "精彩视频尽情观看",
+          "button": "进入",
+          "countdown_seconds": 5
+        },
+        "trial": {
+          "video_url": "https://cdn.yourdomain.com/v/trial_b.mp4",
+          "poster_url": "https://cdn.yourdomain.com/img/poster_b.jpg",
+          "countdown_seconds": 20,
+          "vip_button": "开通会员",
+          "hint": "试看视频为演示资源，开通 VIP 解锁全部功能",
+          "end_title": "试看结束",
+          "end_body": "开通会员即可解锁完整内容",
+          "end_primary": "开通会员",
+          "end_secondary": "稍后再说"
+        },
+        "vip": {
+          "title": "棱镜会员",
+          "subtitle": "开通会员，解锁完整内容",
+          "packages": [
+            {
+              "id": "vip_3y",
+              "name": "3年",
+              "price": 198.0,
+              "origin_price": 598.0,
+              "perk": "网络资源 20000 集",
+              "tag": "超值推荐"
+            },
+            {
+              "id": "vip_1m",
+              "name": "月度",
+              "price": 98.0,
+              "origin_price": 128.0,
+              "perk": "网络资源 10000 集",
+              "tag": ""
+            }
+          ],
+          "button": "支付宝支付",
+          "agreements": [
+            "《用户协议》",
+            "《隐私政策》"
+          ],
+          "login_entry": "登录"
+        },
+        "checkout": {
+          "method": "alipay_h5",
+          "order_endpoint": "http://127.0.0.1:8787/v1/order",
+          "order_page_path": "/order/",
+          "order_page_title": "交易进行中",
+          "repay_button": "重新支付",
+          "cashier_base": "https://mclient.alipay.com",
+          "support_url": "https://www.yourdomain.com/support",
+          "support_prefix": "售后联系"
+        },
+        "login": {
+          "enabled": true,
+          "method": "phone_no_sms",
+          "confirm_phone_input": true,
+          "placeholder": "请输入手机号",
+          "confirm_placeholder": "请再次输入手机号",
+          "submit": "登录",
+          "agreements": [
+            "《用户协议》",
+            "《隐私政策》"
+          ],
+          "success_toast": "登录成功",
+          "show_after": [
+            "vip",
+            "checkout_return"
+          ]
+        }
+      }
+    },
+    "bbdd1": {
+      "enabled": true,
+      "mode": "paywall",
+      "desc": "百度推广 · 计划A · API 归因回传（渠道号 bbdd1）",
+      "guard": {
+        "allow_countries": [
+          "cn"
+        ],
+        "block_builds": [],
+        "block_ip_prefixes": [],
+        "start_after_hours": 0.0,
+        "active_window": null,
+        "rollout": 1.0
+      },
+      "paywall": {
+        "gate": {
+          "once_per_install": false,
+          "allow_skip": false,
+          "skip_button": "稍后再说",
+          "skip_action": "back_to_trial",
+          "home_after_skip": false,
+          "force_paywall_until_vip": true,
+          "login_to_vip_delay_seconds": 1,
+          "reopen_interval_seconds": 2,
+          "persistent_banner": true,
+          "banner_text": "开通会员 解锁完整内容",
+          "reopen_from": "账户-会员中心"
+        },
+        "splash": {
+          "title": "专业视频播放",
+          "subtitle": "精彩视频尽情观看",
+          "button": "进入",
+          "countdown_seconds": 5
+        },
+        "trial": {
+          "video_url": "https://app.kqi.ink/mzhmedia/mzh_trial_15s.mp4",
+          "poster_url": "https://cdn.yourdomain.com/img/bbdd1_poster.jpg",
+          "countdown_seconds": 20,
+          "vip_button": "开通会员",
+          "hint": "试看视频为演示资源，开通 VIP 解锁全部功能",
+          "end_title": "试看结束",
+          "end_body": "开通会员即可解锁完整内容",
+          "end_primary": "开通会员",
+          "end_secondary": "稍后再说"
+        },
+        "vip": {
+          "title": "棱镜会员",
+          "subtitle": "开通会员，解锁完整内容",
+          "packages": [
+            {
+              "id": "vip_3y",
+              "name": "3年",
+              "price": 198.0,
+              "origin_price": 598.0,
+              "perk": "网络资源 20000 集 / 私密播放 / 一键字幕 100 次",
+              "tag": "超值推荐"
+            },
+            {
+              "id": "vip_1m",
+              "name": "月度",
+              "price": 98.0,
+              "origin_price": 128.0,
+              "perk": "网络资源 10000 集 / 私密播放 / 一键字幕 50 次",
+              "tag": ""
+            }
+          ],
+          "button": "支付宝支付",
+          "agreements": [
+            "《用户协议》",
+            "《隐私政策》"
+          ],
+          "login_entry": "登录"
+        },
+        "checkout": {
+          "method": "alipay_h5",
+          "order_endpoint": "http://127.0.0.1:8787/v1/order",
+          "order_page_path": "/order/",
+          "order_page_title": "交易进行中",
+          "repay_button": "重新支付",
+          "cashier_base": "https://mclient.alipay.com",
+          "support_url": "https://www.yourdomain.com/support",
+          "support_prefix": "售后联系"
+        },
+        "login": {
+          "enabled": true,
+          "method": "phone_no_sms",
+          "confirm_phone_input": true,
+          "placeholder": "请输入手机号",
+          "confirm_placeholder": "请再次输入手机号",
+          "submit": "登录",
+          "agreements": [
+            "《用户协议》",
+            "《隐私政策》"
+          ],
+          "success_toast": "登录成功",
+          "show_after": [
+            "vip",
+            "checkout_return"
+          ],
+          "maps_to": "录屏 42.66s–54.04s：两次手机号 + 勾选协议，无短信验证码"
+        }
+      }
+    },
+    "mzhtest": {
+      "enabled": true,
+      "mode": "paywall",
+      "desc": "新建测试渠道 · 仅用于验证 app.kqi.ink/site 原后台接口接入（不跑量）",
+      "guard": {
+        "allow_countries": [
+          "cn"
+        ],
+        "block_builds": [],
+        "block_ip_prefixes": [],
+        "start_after_hours": 0.0,
+        "active_window": null,
+        "rollout": 1.0
+      },
+      "paywall": {
+        "gate": {
+          "once_per_install": false,
+          "allow_skip": false,
+          "skip_button": "稍后再说",
+          "skip_action": "back_to_trial",
+          "home_after_skip": false,
+          "force_paywall_until_vip": true,
+          "login_to_vip_delay_seconds": 1,
+          "reopen_interval_seconds": 2,
+          "persistent_banner": true,
+          "banner_text": "开通会员 解锁完整内容",
+          "reopen_from": "账户-会员中心"
+        },
+        "splash": {
+          "title": "专业视频播放",
+          "subtitle": "精彩视频尽情观看",
+          "button": "进入",
+          "countdown_seconds": 5
+        },
+        "trial": {
+          "video_url": "https://app.kqi.ink/mzhmedia/mzh_trial_15s.mp4",
+          "poster_url": "https://cdn.yourdomain.com/img/bbdd1_poster.jpg",
+          "countdown_seconds": 20,
+          "vip_button": "开通会员",
+          "hint": "试看视频为演示资源，开通 VIP 解锁全部功能",
+          "end_title": "试看结束",
+          "end_body": "开通会员即可解锁完整内容",
+          "end_primary": "开通会员",
+          "end_secondary": "稍后再说"
+        },
+        "vip": {
+          "title": "棱镜会员",
+          "subtitle": "开通会员，解锁完整内容",
+          "packages": [
+            {
+              "id": "vip_3y",
+              "name": "3年",
+              "price": 198.0,
+              "origin_price": 598.0,
+              "perk": "网络资源 20000 集 / 私密播放 / 一键字幕 100 次",
+              "tag": "超值推荐"
+            },
+            {
+              "id": "vip_1m",
+              "name": "月度",
+              "price": 98.0,
+              "origin_price": 128.0,
+              "perk": "网络资源 10000 集 / 私密播放 / 一键字幕 50 次",
+              "tag": ""
+            }
+          ],
+          "button": "支付宝支付",
+          "agreements": [
+            "《用户协议》",
+            "《隐私政策》"
+          ],
+          "login_entry": "登录"
+        },
+        "checkout": {
+          "method": "alipay_h5",
+          "order_endpoint": "http://127.0.0.1:8787/v1/order",
+          "order_page_path": "/order/",
+          "order_page_title": "交易进行中",
+          "repay_button": "重新支付",
+          "cashier_base": "https://mclient.alipay.com",
+          "support_url": "https://www.yourdomain.com/support",
+          "support_prefix": "售后联系"
+        },
+        "login": {
+          "enabled": true,
+          "method": "phone_no_sms",
+          "confirm_phone_input": true,
+          "placeholder": "请输入手机号",
+          "confirm_placeholder": "请再次输入手机号",
+          "submit": "登录",
+          "agreements": [
+            "《用户协议》",
+            "《隐私政策》"
+          ],
+          "success_toast": "登录成功",
+          "show_after": [
+            "vip",
+            "checkout_return"
+          ],
+          "maps_to": "录屏 42.66s–54.04s：两次手机号 + 勾选协议，无短信验证码"
+        }
+      }
+    }
+  },
+  "evidence": {
+    "measured_from_recording": {
+      "splash": "exact/002.84.png 6s 倒计时 + 进入",
+      "trial": "exact/011.38.png 剩余 15s→0s + 右上开通会员 + 底部固定小字",
+      "trial_end": "exact/019.91.png 试看结束弹窗(开通会员 / 稍后再说)",
+      "vip": "exact/022.75.png 3年198 / 年度158 / 月度98 + 权益 + 支付宝支付",
+      "order_page": "pay026.50.png 交易进行中 / 订单编号 / 3年会员 / 198.00 / 重新支付",
+      "cashier": "exact/028.44.png 支付宝 H5 ¥198.00 / 打开支付宝APP付款 / 售后联系",
+      "login": "exact/042.66.png 两次手机号 + 协议勾选，无验证码；exact/054.04.png 登录成功",
+      "home_after": "exact/056.88.png 切回合规首页(0 影片 / 0 合集)"
+    },
+    "measured_from_appstore": {
+      "four_tabs": "research/assets/02_home.jpg / 03_craft.jpg / 04_library.jpg",
+      "four_features": "App Store 描述全文: 视界识档 / 光谱调色台 / 动能曲线 / 帧廊胶片",
+      "cloud_subtitle": "research/agreement.html + research/privacy.html: 云字幕链路 + 72 小时删除 + 腾讯云 COS / ASR / 极光推送",
+      "membership_placeholder": "App Store 描述: Apple 会员内购正在开发中"
+    },
+    "replaced_by_design": [
+      "品牌名 / 图标 / 配色 / 字号层级 / 卡片形状 / 控件样式",
+      "四个 Tab 命名与图标",
+      "四个玩法命名与图标（功能与参数不变，见 craft.features[].maps_to）",
+      "合规态首页信息架构的呈现方式（网格卡片 → 分区流）",
+      "订单页与登录页视觉（文案与状态机保持对齐录屏）"
+    ],
+    "to_replace": [
+      "appstore_url 的 id0000000000 换成自己的 App ID",
+      "trial.video_url / poster_url 换成自有素材 CDN",
+      "checkout.support_url 换成自有售后与支持页面",
+      "checkout.cashier_base 在生产接自己的支付网关子域"
+    ]
+  }
+}

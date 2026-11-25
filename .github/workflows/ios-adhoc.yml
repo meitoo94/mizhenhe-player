@@ -1,0 +1,145 @@
+# Ad Hoc 快线：macOS 26 runner 编出可扫码直装的 .ipa，不碰 App Store Connect。
+# 不需要 .p8 / Key ID / Issuer ID / ASC App 记录 / Beta 审核。
+#
+# 前置 secrets（仓库 Settings > Secrets and variables > Actions），共 6 个，
+# 全部由本地 deploy/signing/prepare_secrets.py 生成，直接复制 secrets/*.txt 的内容：
+#   MZH_TEAM_ID, MZH_BUNDLE_ID
+#   MZH_CONFIG_BASE_URL（可选；必须带 /mzh 子路径）
+#   CERT_P12_BASE64, CERT_PASSWORD
+#   PROFILE_BASE64, PROFILE_UUID
+#
+# 出包之后：下载本 run 的 ipa artifact → 放进 download/ipa/ →
+#   本地执行  python deploy/release_ipa.py --deploy
+# 即完成「ipa 上服务器 + OTA manifest + 二维码 + 下载页切换」，手机扫码即可装。
+#
+# 触发：改了 ios/ 或 xcode/ 就自动出包；也能在 Actions 页手动点 Run workflow。
+# TestFlight 主线见 ios-testflight.yml（只在手动触发或改它自身时跑，避免缺 ASC 材料时红灯）。
+
+name: iOS Archive → Ad Hoc OTA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - 'xcode/**'
+      - '.github/workflows/ios-adhoc.yml'
+
+jobs:
+  archive:
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      MZH_TEAM_ID: ${{ secrets.MZH_TEAM_ID }}
+      MZH_BUNDLE_ID: ${{ secrets.MZH_BUNDLE_ID }}
+      MZH_CONFIG_BASE_URL: ${{ secrets.MZH_CONFIG_BASE_URL }}
+      CERT_P12_BASE64: ${{ secrets.CERT_P12_BASE64 }}
+      CERT_PASSWORD: ${{ secrets.CERT_PASSWORD }}
+      PROFILE_BASE64: ${{ secrets.PROFILE_BASE64 }}
+      PROFILE_UUID: ${{ secrets.PROFILE_UUID }}
+      KEYCHAIN_PASSWORD: ${{ github.run_id }}-${{ github.run_attempt }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 校验工具链（Xcode 26+ / 6 个必需 Secrets）
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          xcodebuild -version | awk '/^Xcode/{print $2}' | cut -d. -f1 | \
+            awk '{if ($1 < 26) {print "Xcode < 26"; exit 1} else print "Xcode 版本合格"}'
+          for k in MZH_TEAM_ID MZH_BUNDLE_ID CERT_P12_BASE64 CERT_PASSWORD PROFILE_BASE64 PROFILE_UUID; do
+            eval "v=\${$k:-}"
+            if [ -z "$v" ]; then echo "缺少 secret: $k"; exit 1; fi
+          done
+          echo "6 个必需 Secrets 齐备"
+
+      - name: 安装 XcodeGen
+        run: brew install xcodegen
+
+      - name: 注入 Team ID / Bundle ID / 后端域名
+        run: |
+          set -euo pipefail
+          # xcconfig 里 "//" 会被当注释，用 /$()/ 还原双斜杠。
+          URL="${MZH_CONFIG_BASE_URL:-https:/\$()/app.kqi.ink/mzh}"
+          for f in xcode/Config-Debug.xcconfig xcode/Config-Release.xcconfig; do
+            sed -i '' "s|^MZH_TEAM_ID = .*|MZH_TEAM_ID = $MZH_TEAM_ID|" "$f"
+            sed -i '' "s|^MZH_BUNDLE_ID = .*|MZH_BUNDLE_ID = $MZH_BUNDLE_ID|" "$f"
+          done
+          sed -i '' "s|^CONFIG_BASE_URL = .*|CONFIG_BASE_URL = $URL|" xcode/Config-Release.xcconfig
+          grep -E '^(MZH_|CONFIG_BASE_URL)' xcode/Config-Release.xcconfig
+
+      - name: 导入签名材料（Ad Hoc 描述文件）
+        run: bash xcode/scripts/import_signing.sh
+
+      - name: 生成 Xcode 工程
+        run: cd xcode && xcodegen generate --spec project.yml
+
+      - name: Release Archive（手动签名）
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project "xcode/米帧盒播放器.xcodeproj" \
+            -scheme "米帧盒播放器" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/米帧盒播放器.xcarchive" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            DEVELOPMENT_TEAM="$MZH_TEAM_ID" \
+            PRODUCT_BUNDLE_IDENTIFIER="$MZH_BUNDLE_ID" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_UUID" \
+            clean archive
+
+      - name: 导出 Ad Hoc IPA
+        run: |
+          set -euo pipefail
+          cp xcode/ExportOptions-AdHoc.plist "$RUNNER_TEMP/ExportOptions-CI.plist"
+          /usr/libexec/PlistBuddy -c "Set :method ad-hoc" "$RUNNER_TEMP/ExportOptions-CI.plist"
+          /usr/libexec/PlistBuddy -c "Set :signingStyle manual" "$RUNNER_TEMP/ExportOptions-CI.plist"
+          /usr/libexec/PlistBuddy -c "Set :teamID $MZH_TEAM_ID" "$RUNNER_TEMP/ExportOptions-CI.plist"
+          /usr/libexec/PlistBuddy -c "Delete :provisioningProfiles" "$RUNNER_TEMP/ExportOptions-CI.plist" || true
+          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles dict" "$RUNNER_TEMP/ExportOptions-CI.plist"
+          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:$MZH_BUNDLE_ID string $PROFILE_UUID" \
+            "$RUNNER_TEMP/ExportOptions-CI.plist"
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/米帧盒播放器.xcarchive" \
+            -exportPath "$RUNNER_TEMP/ipa" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions-CI.plist"
+          ls -lh "$RUNNER_TEMP/ipa"
+
+      - name: 校验包内描述文件确为 Ad Hoc 且绑定测试机
+        run: |
+          set -euo pipefail
+          IPA="$(ls -1t "$RUNNER_TEMP/ipa"/*.ipa | head -1)"
+          unzip -p "$IPA" 'Payload/*.app/embedded.mobileprovision' > "$RUNNER_TEMP/embedded.mobileprovision"
+          openssl smime -verify -inform DER -in "$RUNNER_TEMP/embedded.mobileprovision" \
+            -noverify -out "$RUNNER_TEMP/embedded.plist"
+          /usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" "$RUNNER_TEMP/embedded.plist"
+          /usr/libexec/PlistBuddy -c "Print :ProvisionedDevices" "$RUNNER_TEMP/embedded.plist"
+          if ! /usr/libexec/PlistBuddy -c "Print :ProvisionedDevices" "$RUNNER_TEMP/embedded.plist" | grep -qE '[0-9A-Fa-f-]{20,}'; then
+            echo "包内描述文件没有登记设备，不是 Ad Hoc 包，无法扫码直装"; exit 1
+          fi
+          echo "Ad Hoc 包校验通过"
+
+      - name: 留存 IPA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 米帧盒播放器-AdHoc-${{ github.run_number }}
+          path: ${{ runner.temp }}/ipa/*.ipa
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: 下一步提示
+        if: success()
+        run: |
+          echo "### Ad Hoc 包已生成" >> "$GITHUB_STEP_SUMMARY"
+          echo "下载本 run 的 ipa artifact，放进本地 \`download/ipa/\`，然后执行：" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "python deploy/release_ipa.py --deploy" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "完成后打开 https://app.kqi.ink/mzh/download 用 iPhone 扫码安装。" >> "$GITHUB_STEP_SUMMARY"

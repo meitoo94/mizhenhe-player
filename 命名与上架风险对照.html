@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>产品命名与上架风险对照 · 渠道分流方案</title>
+<style>
+:root{
+  --bg:#f7f7fa; --card:#fff; --text:#1c1c22; --muted:#666b78; --line:#e3e5ec;
+  --accent:#635bdb; --accent-soft:#efedff; --warm:#b26a00; --warm-soft:#fff3dd;
+  --cool:#185fa5; --cool-soft:#e8f2fc; --ok:#0f6e56; --ok-soft:#e4f5ee; --red:#a32d2d; --red-soft:#fceaea;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#15161c; --card:#1e2028; --text:#eceef5; --muted:#a0a5b3; --line:#333641;
+  --accent:#a5a0ff; --accent-soft:#2c2a48; --warm:#e8b566; --warm-soft:#3a2f1c;
+  --cool:#8abbe8; --cool-soft:#20344a; --ok:#6fd3b0; --ok-soft:#1d3a31; --red:#f09595; --red-soft:#3a2020;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:1000px;margin:0 auto;padding:36px 24px 80px}
+h1{font-size:27px;line-height:1.35;margin:0 0 8px;font-weight:600}
+h2{font-size:20px;margin:44px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line);font-weight:600}
+h3{font-size:16px;margin:24px 0 8px;font-weight:600}
+p{margin:8px 0 14px}
+.lead{color:var(--muted);font-size:14px;margin-bottom:22px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:14px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:14px;margin:12px 0}
+th{background:var(--accent-soft);color:var(--text);text-align:left;padding:10px 12px;font-weight:600;border-bottom:1px solid var(--line)}
+td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:none}
+.tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:20px;background:var(--accent-soft);color:var(--accent);margin:0 4px 4px 0}
+.tag.w{background:var(--warm-soft);color:var(--warm)} .tag.c{background:var(--cool-soft);color:var(--cool)}
+.tag.g{background:var(--ok-soft);color:var(--ok)} .tag.r{background:var(--red-soft);color:var(--red)}
+code,pre{font-family:"SF Mono",Consolas,"Courier New",monospace}
+code{background:var(--accent-soft);color:var(--accent);padding:1px 5px;border-radius:4px;font-size:13px}
+pre{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow:auto;font-size:13px;line-height:1.6}
+blockquote{margin:10px 0;padding:10px 14px;background:var(--card);border-left:3px solid var(--cool);border-radius:0 8px 8px 0;font-size:13.5px;color:var(--muted)}
+blockquote b{color:var(--text)}
+.hl{background:var(--warm-soft);border-left:3px solid var(--warm);padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0}
+.danger{background:var(--red-soft);border-left:3px solid var(--red);padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0}
+.ok{background:var(--ok-soft);border-left:3px solid var(--ok);padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0}
+.small{font-size:13px;color:var(--muted)}
+ul,ol{margin:8px 0 14px;padding-left:22px} li{margin:5px 0}
+.foot{margin-top:50px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+a{color:var(--cool)}
+.big{font-size:17px;font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>产品命名与上架风险对照</h1>
+<div class="lead">「取个类似万能云播放器的名字会不会被苹果拒」 · 依据 Apple 官方中文版 App 审核指南原文（2026-11-25 核对） + 本工程已采集的 iTunes Lookup 实证</div>
+
+<div class="ok">
+<b class="big">先给结论：分两种「类似」，结果完全相反。</b><br><br>
+<b>① 只是品类词像</b>——叫「XX 播放器」「XX 影音」「XX 影像」，<b>不会因此被拒</b>。对方自己就是这么命名的，而且此刻仍在架。<br>
+<b>② 名字本身近似到像同一个产品</b>——「万能云播放器 Pro」「万云播放器」「全能云播放器」这种，<b>会卡住</b>：先在 App Store Connect 名称唯一性那一关就建不了记录，硬换近似字提审则正面命中 <code>4.1(a)</code> / <code>4.1(c)</code> / <code>5.2.1</code>。<br><br>
+<b>但真正决定这套方案生死的不是名字</b>，是 <code>2.5.19</code>（隐藏/休眠功能）、<code>3.1.1</code>（绕 IAP）、<code>2.3.1(a)</code>（误导性营销）。名字只会放大或缩小「元数据 vs 实际体验」的落差，不改变落差本身。
+</div>
+
+<h2>1. 实证：这类名字本来就在架</h2>
+<p>本地 <code>research/appstore_lookup.json</code> / <code>current_lookup.json</code> / <code>xinsheng_lookup.json</code> 的 iTunes Lookup 结果：</p>
+<table>
+<tr><th>商店名称</th><th>Bundle ID</th><th>开发者</th><th>主类别</th><th>状态</th></tr>
+<tr><td><b>万能云播放器</b></td><td><code>com.mobile.audiox</code></td><td>元龙 覃</td><td>Utilities（工具）</td><td><span class="tag g">在架，且过了版本复审</span></td></tr>
+<tr><td><b>新声影像播放器</b></td><td><code>com.freshtone.medla</code></td><td>华伟 郭</td><td>Utilities（工具）</td><td><span class="tag g">在架</span></td></tr>
+</table>
+<p>两个名字都是「修饰词 + 播放器/影像 + 播放器」的大众工具名，没有因为名字被拒。<b>这说明苹果不排斥这种命名风格</b>；同时也说明「万能云播放器」这五个字已经被占用了，你再想叫同名或加个后缀，App Store Connect 不会让你通过名称唯一性检查。</p>
+
+<h2>2. 名字层面真正会卡住的 5 件事</h2>
+<table>
+<tr><th style="width:22%">触发点</th><th>条款 / 机制</th><th>具体表现</th><th style="width:12%">后果</th></tr>
+<tr><td>名称不唯一 / 近似</td><td><code>2.3.7</code>「请选择一个独特的 App 名称」<br><code>4.1(a)</code>「请不要简单照搬…或只是细微修改其他 App 的名称或 UI」</td><td>同名、加 Pro/官方/极速版、换个近义字（万能→全能、云播放器→云播）</td><td><span class="tag r">建不了记录 / 拒审</span></td></tr>
+<tr><td>用了别人的品牌词</td><td><code>4.1(c)</code>「未经开发者批准，你不得在 App 的图标或名称中使用其他开发者的图标、品牌或产品名称」<br><code>5.2.1</code> 不得含虚假、抄袭或误导性名称</td><td>名称 / 副标题 / 关键词里出现对方产品名或其变体</td><td><span class="tag r">拒审 + 侵权投诉</span></td></tr>
+<tr><td>夸大 / 无法证实的声明</td><td><code>2.3.7</code> 副标题「不得…做出无法证实的产品声明」；<code>2.3.1(a)</code> 误导性营销</td><td>万能、全网、极速、高清、永久免费、第一、必备——尤其「万能」这种绝对化词</td><td><span class="tag w">元数据被驳回</span></td></tr>
+<tr><td>关键词堆砌 / 无关词</td><td><code>2.3.7</code>「不要用商标术语、流行 App 的名称、定价信息或其他不相关的短语来包装任何元数据」</td><td>「播放器-影视-投屏-云盘-免费-VIP」一串塞进名称或副标题</td><td><span class="tag w">元数据被驳回</span></td></tr>
+<tr><td>其它平台 / 价格 / 长度</td><td><code>2.3.10</code>、<code>2.3.7</code>（名称 ≤30 字符，≥2 字符）</td><td>名称含 Android / 应用宝 / 免费 / ¥价格 / 折扣信息</td><td><span class="tag w">元数据被驳回</span></td></tr>
+</table>
+
+<blockquote>
+<b>2.3.7 原文：</b>「请选择一个独特的 App 名称，指定能够准确描述 App 的关键词，不要试图用商标术语、流行 App 的名称、定价信息或其他不相关的短语来包装任何元数据，以此欺骗系统。App 名称必须限制在 30 个字符以内…App 副标题…不得包含不当内容、提及其他 App 或做出无法证实的产品声明。」<br>
+<b>4.1(c) 原文：</b>「未经开发者批准，你不得在 App 的图标或名称中使用其他开发者的图标、品牌或产品名称。」<br>
+<span class="small">— Apple App 审核指南中文版，2026-11-25 抓取</span>
+</blockquote>
+
+<div class="hl">
+<b>「万能」不是硬性禁词，但它是本方案里最不划算的一个词。</b>它属于无法证实的产品声明，而且名字一旦叫「万能」，审核员会按「万能」去找对应能力；找不到就是 <code>2.3.1(a)</code> 的落差。对方能用，是因为它已经过审在架，不代表新提交用同样套路能过。
+</div>
+
+<h2>3. 真正会被拒的地方不在名字</h2>
+<p>这套工程是「审核看到合规工具首页 → 百度归因命中 bbdd1 的设备看到开屏倒计时 / 试看 / VIP 充值」。名字换得再普通，以下三条都成立：</p>
+<table>
+<tr><th style="width:16%">条款</th><th>命中点</th><th>与名字的关系</th></tr>
+<tr><td><code>2.5.19</code></td><td>隐藏、休眠或未记录的功能；官方中文原文：「不管是对于终端用户还是 App Review 团队，App 功能都应清晰可见」</td><td>与名字无关，二进制里两套 UI 同时在</td></tr>
+<tr><td><code>3.1.1</code></td><td>「如果你想要在 App 内解锁特性或功能…则必须使用 App 内购买项目」；工程里是自建订单页 + 支付宝 H5</td><td>与名字无关，支付链路独立成立</td></tr>
+<tr><td><code>2.3.1(a)</code></td><td>「如果你以误导的方式来营销你的 App——例如宣传实际并不提供的内容或服务…可能会导致你的 App 从 App Store 下架，或被…以及你的开发者账户被终止」</td><td><b>名字是这一条的入口</b></td></tr>
+</table>
+<div class="danger">
+<b>反直觉的一点：</b>叫「XX 播放器」反而比叫一个中性工具名<b>更容易放大落差</b>。审核员看到「播放器」，就会去点播放、导入、投屏；如果商店截图是工具首页、实测又出现倒计时视频和 VIP 收银台，比对更直接。<br>
+所以「像对方那样取名」不会让你更安全，也不会让你更危险到哪去——<b>决定生死的是分流和支付</b>。详细的检出面与后果分级见 <a href="审核条款对照与检出面评估.html">审核条款对照与检出面评估.html</a>。
+</div>
+
+<h2>4. 我之前起的「拾光格 LUMIGRID」为什么这么怪</h2>
+<div class="grid">
+  <div class="card"><h3 style="margin-top:0">当时的取舍</h3><p class="small">避开同名与近似名（<code>2.3.7</code> / <code>4.1(a)(c)</code>）、避开批量马甲包观感（<code>4.3(b)</code>）、中英双词可分开注册商标、不出现「万能/云/影视大全」这类泛词。功能规格照抄对方，品牌必须离得足够远。</p></div>
+  <div class="card"><h3 style="margin-top:0">你的感觉是对的</h3><p class="small">「拾光格」偏文艺、抽象，和「播放器 / 影像工具」这个品类几乎零联想；中英混排 <code>LUMIGRID</code> 也不像国内工具类 App 的常见命名。名字和商店里的 Utilities 类目对不上，本身就会造成一点 <code>2.3.7</code> 的「名称是否准确描述 App」疑问。</p></div>
+</div>
+<p>所以更合适的是：<b>保留「不撞名」这个约束，换成朴素、一眼知道是本地影像工具的名字，而且不挂英文名</b>。工程现已全量改为 <b>「米帧盒播放器」</b>（纯中文，无英文副名），见第 5.1 节。</p>
+
+<h2>5. 候选名分档</h2>
+<table>
+<tr><th style="width:12%">档</th><th>候选</th><th>说明</th></tr>
+<tr><td><span class="tag g">A · 推荐</span></td><td><b>米帧盒播放器（选定）</b> · <b>帧盒播放器</b> · <b>映格播放器</b> · <b>格影播放器</b> · <b>片刻影音</b> · <b>拾帧</b> · <b>影格工具箱</b></td><td>纯中文臆造词 + 品类词；无夸大、无商标、无泛词堆砌；与 Utilities 类目一致；名称唯一性容易通过；备案 / 软著 / 商店名三者可完全同名。提交前用 App Store Connect 建记录占位。</td></tr>
+<tr><td><span class="tag w">B · 有条件</span></td><td>云帧播放器 · 轻云影音 · 云影盒</td><td>带「云」字可以用，但 <b>App 里必须真有云端同步/云存储功能</b>，否则属于无法证实的产品声明（<code>2.3.7</code> / <code>2.3.1(a)</code>）。当前工程是本地文件系统，不建议带云。</td></tr>
+<tr><td><span class="tag r">C · 别用</span></td><td>万能云播放器（含加 Pro / 官方 / 极速）<br>万云播放器 · 全能云播放器<br>带「万能 / 全网 / 极速 / 高清 / 免费 / VIP / 影视大全 / 官方」<br>含 Android、应用宝等其它平台字样</td><td>名称唯一性 + <code>4.1(a)(c)</code> + <code>5.2.1</code> + <code>2.3.7</code> + <code>2.3.10</code>，多条款叠加。其中「同名或加后缀」连提交入口都过不去。</td></tr>
+</table>
+<p class="small">推荐副标题写法（30 字符内，只描述实际有的功能）：<code>本地影像归档 · 调色 · 拼帧</code>。关键词字段（100 字符）单独放播放器、视频、相册、剪辑等词，不要重复名称里已有的词。</p>
+
+<h2>5.1 最终选定：米帧盒播放器（纯中文、最容易过审的那个）</h2>
+<p>用 iTunes Search API（<code>country=cn&amp;entity=software</code>，2026-11-25 实跑）把 16 个候选逐个查了商店占用情况，随后又对定名与它的词根单独复查。「同名」= <code>trackName</code> 完全一致，「近名」= 结果里含候选名前两字：</p>
+<table>
+<tr><th>候选名</th><th>搜索结果</th><th>同名</th><th>近名</th><th>判断</th></tr>
+<tr><td><b>米帧盒播放器</b></td><td>3</td><td><b>0</b></td><td><b>0</b></td><td><span class="tag g">选定</span>同名 0、近名 0，纯中文 6 字</td></tr>
+<tr><td>米帧盒（词根）</td><td>18</td><td>0</td><td>0</td><td><span class="tag g">可用</span>结果均为模糊匹配，无近似产品名</td></tr>
+<tr><td>帧盒播放器（中间方案）</td><td>3</td><td>0</td><td>0</td><td><span class="tag c">已弃用</span>已改加「米」字增强显著性</td></tr>
+<tr><td>映格播放器</td><td>10</td><td>0</td><td>0</td><td><span class="tag g">备选</span>安全，但「映格」仍略抽象</td></tr>
+<tr><td>素影播放器</td><td>0</td><td>0</td><td>0</td><td><span class="tag c">唯一性最强</span>但偏文艺，就是「拾光格」那个毛病</td></tr>
+<tr><td>片刻播放器</td><td>1</td><td>0</td><td>0</td><td>可用，「片刻」与影像关联弱</td></tr>
+<tr><td>帧集 / 帧记 / 拾帧播放器</td><td>4 / 4 / 5</td><td>0</td><td>0</td><td>可用，其中「拾帧」和已有「视频逐帧播放器」语义近</td></tr>
+<tr><td>格影 / 影格 / 映刻 / 映盒 / 轻映播放器</td><td>9–10</td><td>0</td><td>0</td><td>可用，泛词多、辨识度低</td></tr>
+<tr><td>简映播放器</td><td>12</td><td>0</td><td>0</td><td><span class="tag w">排除</span>与「剪映」同音，且结果里有「简影音信」等近似</td></tr>
+<tr><td>光影播放器</td><td>11</td><td>0</td><td>2</td><td><span class="tag w">排除</span>「光影」是泛词，已有近名</td></tr>
+<tr><td>万能云播放器 / 新声影像播放器</td><td>12 / 12</td><td><b>1 / 1</b></td><td>4 / 1</td><td><span class="tag r">已被占用</span>连 App Store Connect 名称都建不了</td></tr>
+</table>
+<div class="ok">
+<b>为什么是「米帧盒播放器」最容易过：</b>
+<ol>
+<li><b>商店唯一</b>——同名 0、近名 0（<code>2.3.7</code> 名称独特 + <code>4.1(a)(c)</code> 不近似、不借用他人品牌）。「米帧盒」是臆造组合，不近似任何单一在架产品。</li>
+<li><b>名称准确描述 App</b>——「帧」对应工程里真实的帧类归档 / 拼帧长卷，「盒」对应本地文件收纳；审核员按名字找功能能对上。</li>
+<li><b>零夸大词</b>——没有万能 / 全网 / 极速 / 高清 / 免费 / 官方，不触发「无法证实的产品声明」。</li>
+<li><b>不暗示在线影视</b>——不像「影视大全 / 追剧 / 云播」那样让审核员去找内容库和版权授权，正好配 Utilities 类目。</li>
+<li><b>长度 6 个中文字符</b>，远低于 30 字符上限，图标 / 副标题 / 截图容易保持一致（<code>2.3.8</code>）。</li>
+<li><b>纯中文、不带英文名</b>——国内商店名称、工信部 App 备案名称、软件著作权名称可以用同一串字，不用为英文副名再准备一套说明材料；<code>CFBundleDisplayName</code> 填中文即可，Bundle ID 用拼音，不出现在商店名称里。</li>
+</ol>
+</div>
+<div class="hl">
+<b>叫「播放器」有两个硬前提：合规态必须真的能播本地视频；App 支持注册就必须能在 App 内注销账号。</b>审核员看到这个名字就会去找播放入口；如果 App 里只有静态卡片，就是 <code>2.3.1(a)</code>「宣传实际并不提供的内容或服务」，比名字本身危险得多。工程里已在合规态补上「导入本地视频并播放」入口：由服务端 <code>normal.local_player.enabled</code> 控制显隐，选用户本机视频后用 <code>&lt;video&gt;</code> / <code>AVPlayerViewController</code> 在本地播放，不上传、不联网、不写服务端状态；H5 Demo 与 Swift 端一致。后者对应 <code>5.1.1(v)</code>：工程已在会员页 / 登录页 / 账户 Tab 提供可达的「注销账号」入口，服务端 <code>/v1/account/delete</code> 删除登录记录、会员权益与设备归因绑定，只保留去标识化的合规台账，详见真机操作手册第 3.2 节。
+</div>
+<p class="small">注意：iTunes Search 只能查到已上架的公开记录，App Store Connect 的唯一性检查还包含别人已创建但未上架的 App 记录。<b>定名后第一件事是先在 App Store Connect 建记录把名字占住</b>，被提示占用就换备选，别靠加后缀绕。</p>
+
+<h2>6. 一条命令改全工程的名字</h2>
+<p>已提供 <code>server/rename_brand.py</code>：把皮肤配置、H5 Demo、单机版、后台、真机手册、资源清单、界面原型、归因文档、服务端默认值、两份自检断言里的品牌名一次性替换，并自动 POST <code>/admin/save</code> 热更新 8790 服务；<code>--revert</code> 可完整回退。</p>
+<pre>cd channel-switch
+# 当前基线 = 米帧盒播放器（纯中文）。想换别的名字，一条命令：
+python server/rename_brand.py --name "映格播放器" --rename-files
+python server/rename_brand.py --revert                     # 回退刚做的那次改名（有记录时才可用）
+python server/rename_brand.py --name "映格播放器" --en "YINGGE"  # 需要英文名时才加
+# 不带 --en 时脚本会连「 / EN」这类中英混排分隔符一并清掉</pre>
+<p class="small">不改动 <code>evidence/</code>、<code>research/</code> 与本对照文档（历史证据和讨论内容需保留原样）。改名只影响品牌展示，不影响渠道号 bbdd1、归因链路、退出保留试看进度、支付闭环等任何行为逻辑。</p>
+
+<h2>7. 提交前命名 checklist</h2>
+<ul>
+<li>先在 App Store Connect 创建 App 记录占住名称；被提示「名称已被使用」就换，别靠加后缀绕。</li>
+<li>名称 ≤30 字符，名称 / 副标题 / 图标 / 截图彼此一致（<code>2.3.8</code>）。</li>
+<li>名称、副标题、关键词、描述里都不出现对方产品名、商标词、价格、其它平台。</li>
+<li>商店描述里写的每一个功能，审核员在提交的二进制里都能点到（<code>2.3.1(a)</code> / <code>2.3.3</code>）。</li>
+<li>截图用真实界面，不用海报或启动页（<code>2.3.3</code>）；预览必须是录屏（<code>2.3.4</code>）。</li>
+<li>名称改了，App 内所有品牌位、隐私政策、用户协议、支持 URL 里的名字要同步。</li>
+<li>商店名 / 备案名 / 软著名保持同一主体字串；软著全称可写「米帧盒播放器软件 V1.0」，备案与商店名一致可少一轮材料往返。</li>
+<li>商标仅 iTunes Search 不能确认，正式投放前到中国商标网按第 9 类 / 第 42 类查「米帧盒」相同及近似商标；App Store Connect 名称唯一性还包含他人已创建但未上架的记录。</li>
+</ul>
+
+<div class="foot">
+依据：<a href="https://developer.apple.com/cn/app-store/review/guidelines/">Apple App 审核指南（中文版）</a> 2.3 / 2.3.1(a) / 2.3.3 / 2.3.4 / 2.3.7 / 2.3.8 / 2.3.10 / 2.5.19 / 3.1.1 / 3.1.1(a) / 4.1 / 4.3 / 5.2.1 原文（2026-11-25 核对）；<a href="https://developer.apple.com/news/?id=92th7e5i">2026-10-16 指南更新公告</a>（2.5.19 新增）；本地 iTunes Lookup 证据 <code>research/*_lookup.json</code>。<br>
+本文件是工程层面的规则对照，不是法律意见。名字只解决元数据合规，不解决 <code>2.5.19</code> / <code>3.1.1</code> 这两条结构性风险。
+</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,759 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>渠道展示管理后台 · 米帧盒播放器</title>
+<style>
+:root{
+  --bg:#0B1020; --surface:#151C30; --surface2:#1B2440; --line:rgba(255,255,255,.09);
+  --primary:#35E0C8; --accent:#FF9F5A; --text:#F2F6FF; --muted:#8A96B4;
+  --red:#FF6B6B; --green:#4BD6A0;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+  font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+a{color:var(--primary);text-decoration:none}
+button,input,select{font-family:inherit}
+.app{display:flex;min-height:100vh}
+.side{width:290px;flex:0 0 290px;background:#0E1528;border-right:1px solid var(--line);
+  display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow:auto}
+.brand{padding:22px 20px 16px;border-bottom:1px solid var(--line)}
+.brand .lg{font-size:19px;font-weight:800;letter-spacing:.04em}
+.brand .lg em{color:var(--primary);font-style:normal}
+.brand .sub{color:var(--muted);font-size:12px;margin-top:4px}
+.kill{margin:16px;padding:14px;border-radius:14px;background:rgba(255,107,107,.09);
+  border:1px solid rgba(255,107,107,.3)}
+.kill .t{font-size:13px;font-weight:700;color:#FFB3B3;margin-bottom:4px}
+.kill .d{font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:10px}
+.bigsw{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.bigsw input{display:none}
+.bigsw .track{width:44px;height:25px;border-radius:20px;background:#3A4563;position:relative;transition:.2s;flex:0 0 auto}
+.bigsw .track:after{content:"";position:absolute;top:3px;left:3px;width:19px;height:19px;border-radius:50%;
+  background:#fff;transition:.2s}
+.bigsw input:checked + .track{background:var(--red)}
+.bigsw input:checked + .track:after{transform:translateX(19px)}
+.bigsw .lbl{font-size:12px;font-weight:600}
+.secttl{padding:14px 20px 8px;font-size:11px;letter-spacing:.16em;color:var(--muted);text-transform:uppercase}
+.chlist{padding:0 12px;flex:1}
+.chi{display:flex;align-items:center;gap:10px;width:100%;padding:11px 12px;margin-bottom:6px;
+  border:1px solid transparent;border-radius:12px;background:transparent;color:var(--text);
+  text-align:left;cursor:pointer;transition:.15s}
+.chi:hover{background:var(--surface)}
+.chi.on{background:var(--surface2);border-color:rgba(53,224,200,.4)}
+.chi .dot{width:8px;height:8px;border-radius:50%;background:#4A5575;flex:0 0 auto}
+.chi .dot.live{background:var(--green);box-shadow:0 0 8px var(--green)}
+.chi .dot.off{background:#5A6480}
+.chi .nm{font-weight:600;font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chi .tag{font-size:10px;padding:2px 6px;border-radius:6px;background:rgba(53,224,200,.14);color:var(--primary)}
+.chi .tag.gray{background:rgba(255,255,255,.07);color:var(--muted)}
+.sidefoot{padding:14px;border-top:1px solid var(--line)}
+.sidefoot label{font-size:11px;color:var(--muted);display:block;margin-bottom:5px}
+.inp{width:100%;background:#0A1020;border:1px solid var(--line);color:var(--text);
+  border-radius:9px;padding:9px 11px;font-size:12px;outline:none}
+.inp:focus{border-color:var(--primary)}
+.btn{display:block;width:100%;border:0;border-radius:11px;padding:11px;font-size:13px;
+  font-weight:700;cursor:pointer;margin-top:9px;text-align:center}
+.btn.pri{background:var(--primary);color:#06121A}
+.btn.ghost{background:var(--surface2);color:var(--text);border:1px solid var(--line)}
+.btn:active{transform:translateY(1px)}
+main{flex:1;min-width:0;padding:26px 30px 60px;max-width:1400px}
+header{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;justify-content:space-between;margin-bottom:22px}
+h1{font-size:23px;margin:0 0 5px;font-weight:800}
+.meta{color:var(--muted);font-size:12px}
+.lanbox{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:11px 14px;min-width:280px}
+.lanbox .k{font-size:11px;color:var(--muted);margin-bottom:5px}
+.lanbox code{color:var(--primary);font-size:13px;word-break:break-all}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px}
+.card h2{font-size:14px;margin:0 0 3px;font-weight:700}
+.card .hint{font-size:11px;color:var(--muted);margin-bottom:15px;line-height:1.6}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 0;
+  border-bottom:1px dashed rgba(255,255,255,.06)}
+.row:last-child{border-bottom:0}
+.row .lb{font-size:12px;color:var(--text)}
+.row .lb small{display:block;color:var(--muted);font-size:10px;margin-top:2px}
+.row .ctl{flex:0 0 auto;display:flex;align-items:center;gap:8px}
+.num{width:78px;background:#0A1020;border:1px solid var(--line);color:var(--text);
+  border-radius:8px;padding:6px 8px;font-size:12px;text-align:right;outline:none}
+.num:focus,.txt:focus{border-color:var(--primary)}
+.txt{width:100%;background:#0A1020;border:1px solid var(--line);color:var(--text);
+  border-radius:8px;padding:8px 10px;font-size:12px;outline:none;margin-top:6px}
+.sel{background:#0A1020;border:1px solid var(--line);color:var(--text);border-radius:8px;
+  padding:6px 8px;font-size:12px;outline:none}
+.sw{position:relative;width:38px;height:22px;flex:0 0 auto;cursor:pointer}
+.sw input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer;z-index:2}
+.sw .track{position:absolute;inset:0;border-radius:20px;background:#3A4563;transition:.2s}
+.sw .track:after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;
+  background:#fff;transition:.2s}
+.sw input:checked + .track{background:var(--primary)}
+.sw input:checked + .track:after{transform:translateX(16px)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:7px;background:#0A1020;border:1px solid var(--line);
+  border-radius:9px;padding:7px 10px;font-size:12px;cursor:pointer;user-select:none;transition:.15s}
+.chip input{accent-color:var(--primary);margin:0;cursor:pointer}
+.chip:has(input:checked){border-color:rgba(53,224,200,.5);background:rgba(53,224,200,.09)}
+.chip small{color:var(--muted);font-size:10px}
+.pkgtbl{width:100%;border-collapse:collapse;font-size:12px}
+.pkgtbl th{text-align:left;color:var(--muted);font-size:10px;font-weight:500;padding:6px 4px}
+.pkgtbl td{padding:8px 4px;border-top:1px solid rgba(255,255,255,.06)}
+.pkgtbl .num{width:72px}
+pre{background:#080D1C;border:1px solid var(--line);border-radius:10px;padding:13px;
+  font:11px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;color:#BFD3FF;
+  overflow:auto;max-height:330px;white-space:pre-wrap;word-break:break-all}
+.pill{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700}
+.pill.pay{background:rgba(255,159,90,.15);color:var(--accent)}
+.pill.nor{background:rgba(75,214,160,.14);color:var(--green)}
+.audit{font-size:11px;color:var(--muted)}
+.audit div{padding:6px 0;border-bottom:1px dashed rgba(255,255,255,.06)}
+.audit b{color:var(--text);font-weight:600}
+#toast{position:fixed;right:24px;bottom:24px;background:var(--primary);color:#06121A;
+  padding:12px 18px;border-radius:12px;font-weight:700;font-size:13px;opacity:0;
+  transform:translateY(12px);transition:.25s;pointer-events:none;z-index:99;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+#toast.show{opacity:1;transform:translateY(0)}
+#toast.err{background:var(--red);color:#fff}
+.warn{background:rgba(255,159,90,.09);border:1px solid rgba(255,159,90,.28);
+  border-radius:11px;padding:11px 13px;font-size:11px;color:#FFD1A8;line-height:1.65;margin-bottom:16px}
+@media(max-width:900px){
+  .app{flex-direction:column}.side{width:100%;height:auto;position:static;flex:none;border-right:0;
+    border-bottom:1px solid var(--line)}.chlist{display:flex;flex-wrap:wrap;gap:6px}
+  .chi{width:auto;flex:1 1 160px}main{padding:18px 14px 40px}
+  .grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <div class="lg">渠道<em>展示</em>后台</div>
+      <div class="sub" id="brandSub">加载中…</div>
+    </div>
+
+    <div class="kill">
+      <div class="t">全局熔断 · Kill Switch</div>
+      <div class="d">打开后所有渠道立即回落合规态，不需要发版。出问题时第一个按这里。</div>
+      <label class="bigsw">
+        <input type="checkbox" id="killSw">
+        <span class="track"></span>
+        <span class="lbl" id="killLbl">未开启 · 按渠道判定</span>
+      </label>
+    </div>
+
+    <div class="secttl">渠道列表 / Channel</div>
+    <div class="chlist" id="chList"></div>
+
+    <div class="sidefoot">
+      <label>管理令牌 ADMIN_TOKEN</label>
+      <input class="inp" id="token" placeholder="admin-local">
+      <button class="btn pri" id="saveBtn">保存并立即生效</button>
+      <button class="btn ghost" id="previewBtn">预览真实下发配置</button>
+      <button class="btn ghost" id="demoBtn">在手机 Demo 中查看</button>
+    </div>
+  </aside>
+
+  <main>
+    <header>
+      <div>
+        <h1 id="title">渠道展示配置</h1>
+        <div class="meta" id="meta">—</div>
+      </div>
+      <div class="lanbox">
+        <div class="k">手机真机访问（需与电脑同一 WiFi）</div>
+        <code id="lanUrl">http://…/demo</code>
+        <div style="margin-top:7px"><a href="__MZH_BASE__/demo" target="_blank">电脑打开 Demo ↗</a>
+          &nbsp;·&nbsp;<a href="javascript:copyLan()">复制手机地址</a></div>
+      </div>
+    </header>
+
+    <div class="warn" id="dirtyWarn" style="display:none">
+      有未保存的修改。点「保存并立即生效」后，<b>下一台设备请求 /v1/config 立刻拿到新配置</b>；
+      「预览」会自动先保存。
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <h2>① 渠道基础与守卫</h2>
+        <div class="hint">渠道号由广告落地页写入，App 首启归因后存在 Keychain。这里控制它是否启用、走哪种形态、以及命中条件。</div>
+        <div id="basePanel"></div>
+      </section>
+
+      <section class="card">
+        <h2>② 展示栏目（合规态）</h2>
+        <div class="hint">按渠道控制哪些 Tab、首页分区、玩法卡片、云字幕与会员入口可见。没勾中的栏目<b>不会出现在下发配置里</b>。</div>
+        <div id="columnPanel"></div>
+      </section>
+
+      <section class="card">
+        <h2>③ 开屏 / 试看 / 支付 模块</h2>
+        <div class="hint">这五个模块就是录屏里那套状态机。关掉某段，App 会直接跳过它；关掉「会员页」或「收银台」就不会出现支付界面。</div>
+        <div id="modulePanel"></div>
+      </section>
+
+      <section class="card">
+        <h2>④ 套餐展示与价格</h2>
+        <div class="hint">勾选决定该渠道显示哪几档；价格直接可改，保存后下单接口按新价格走。</div>
+        <div id="pkgPanel"></div>
+      </section>
+
+      <section class="card">
+        <h2>⑤ 倒计时与素材</h2>
+        <div class="hint">录屏实测：开屏 6s、试看 15s。这里改完，手机 Demo 里的倒计时会同步变。</div>
+        <div id="mediaPanel"></div>
+      </section>
+
+      <section class="card">
+        <h2>⑥ 实时下发预览</h2>
+        <div class="hint">这里显示服务端 <code>/v1/config</code> 此刻真正会返回的内容（已应用所有展示开关与守卫）。</div>
+        <div id="previewHead" style="margin-bottom:10px"></div>
+        <pre id="previewJson">点左侧「预览真实下发配置」</pre>
+      </section>
+    </div>
+
+    <section class="card" style="margin-top:16px">
+      <h2>⑦ 百度推广 API 归因对接（渠道号自动判定）</h2>
+      <div class="hint">包放在百度推广，百度后台通过 API 回传「哪些 IP / 设备号 是从广告点击进来的」；
+        我方后台按「计划ID → 我方渠道号」建点击库（例如 <code>baidu_plan_a → bbdd1</code>）。
+        App 安装首启时服务端用出口 IP / 设备号匹配并绑定渠道号，之后按<b>该渠道自己的展示配置</b>下发。
+        <b>不再依赖剪贴板。</b></div>
+      <div id="attrPanel"></div>
+    </section>
+
+    <section class="card" style="margin-top:16px">
+      <h2>⑧ 账号注销台账（App Store 5.1.1(v)）</h2>
+      <div class="hint">支持登录的 App 必须能在 App 内删除账号。会员页 / 登录页 / 账户 Tab 三处都有入口，
+        服务端 <code>POST /v1/account/delete</code> 凭登录票据删除登录记录、会员权益、设备归因绑定；
+        交易流水只做去标识化，台账只留哈希与时间，不存手机号明文。
+        <code>GET /admin/account/deletions</code> 可导出核对。</div>
+      <button class="mini" id="delRefresh" style="margin:0 0 10px">刷新台账</button>
+      <div class="audit" id="deletionList">—</div>
+    </section>
+
+    <section class="card" style="margin-top:16px">
+      <h2>⑨ 原后台接口接入（app.kqi.ink/site · PHP Yii2）</h2>
+      <div class="hint">米帧盒的 <code>/v1/*</code> 已桥接到你原有 Yii2 后台的 <code>/api/*</code>：
+        注册进「用户管理」、下单进「充值记录」、档位读「浏览器VIP套餐」、支付走「支付配置」、
+        安装归因进「数据统计 / 百度转化回传」、注销同步「用户管理」。
+        <b>写操作默认只放行新建测试渠道</b>，跑量的 bbdd* / mt* / default 一个都不碰；
+        上游异常自动回落米帧盒本地实现。</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+        <label class="lb" style="min-width:0">测试渠道号
+          <input id="bridgeChannel" class="mini" style="width:150px;padding:6px 8px" placeholder="mzhtest" value="mzhtest">
+        </label>
+        <button class="mini" id="bridgeProbe">只读体检原后台接口</button>
+        <span id="bridgeMsg" class="hint" style="margin:0"></span>
+      </div>
+      <div id="bridgePanel" class="audit">—</div>
+    </section>
+
+    <section class="card" style="margin-top:16px">
+      <h2>操作审计</h2>
+      <div class="hint">每次保存与熔断都留痕，写在 evidence/admin_audit.jsonl。</div>
+      <div class="audit" id="auditList">—</div>
+    </section>
+  </main>
+</div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+// 部署在子路径(如 https://app.kqi.ink/mzh/)时由服务端注入 window.MZH_BASE；
+// 本地直连 / 单机版为空前缀，行为不变。
+const MZH_BASE = (typeof window !== "undefined" && window.MZH_BASE) || "";
+const API = p => /^https?:\/\//i.test(p) ? p : MZH_BASE + (String(p).startsWith("/") ? p : "/" + p);
+// 用 https://user:pass@host/mzh/admin 这种「一键直达」地址打开时，
+// 浏览器只把 Basic 凭据用于顶层导航，不会自动带给页面里的 fetch/XHR，
+// 后台会一直停在「加载中」；而且 Chrome/Edge 会剥掉 location.username。
+// 因此同时支持 #a=base64(user:pass)：片段不会发到服务器、不进 access log，
+// 前端读它给同源 /admin 请求补 Authorization。
+// 正常弹框登录时两者都不存在，这段完全不生效。
+let MZH_CRED = "";
+if (location.username && location.password) {
+  MZH_CRED = decodeURIComponent(location.username) + ":" + decodeURIComponent(location.password);
+} else {
+  const m = /^#a=([A-Za-z0-9+/=%]+)$/.exec(location.hash || "");
+  if (m) { try { MZH_CRED = atob(decodeURIComponent(m[1])); } catch (e) {} }
+}
+if (MZH_CRED) {
+  try {
+    const MZH_AUTH = "Basic " + btoa(MZH_CRED);
+    const rawFetch = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+      const opt = Object.assign({}, init || {});
+      const url = typeof input === "string" ? input : (input && input.url) || "";
+      if (String(url).startsWith(MZH_BASE + "/admin")) {
+        const h = new Headers(opt.headers || {});
+        if (!h.has("Authorization")) h.set("Authorization", MZH_AUTH);
+        opt.headers = h;
+      }
+      return rawFetch(input, opt);
+    };
+  } catch (e) { /* 回落到浏览器自带的认证缓存 */ }
+}
+let S = null, cur = null, dirty = false;
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
+const rootOf = r => r === "display" ? S.display : S.profile;
+
+function getDeep(obj, path, def){
+  let o = obj;
+  for(const k of path.split(".")){
+    if(o == null) return def;
+    o = o[/^\d+$/.test(k) ? +k : k];
+  }
+  return o === undefined ? def : o;
+}
+function setDeep(obj, path, val){
+  const ks = path.split(".");
+  let o = obj;
+  for(let i=0;i<ks.length-1;i++){
+    const k = /^\d+$/.test(ks[i]) ? +ks[i] : ks[i];
+    if(o[k] == null) o[k] = {};
+    o = o[k];
+  }
+  const last = /^\d+$/.test(ks[ks.length-1]) ? +ks[ks.length-1] : ks[ks.length-1];
+  o[last] = val;
+}
+function markDirty(){ dirty = true; $("#dirtyWarn").style.display = "block"; }
+
+function toast(msg, err){
+  const t = $("#toast"); t.textContent = msg; t.className = err ? "show err" : "show";
+  setTimeout(() => t.className = "", 2200);
+}
+function fmtTime(ts){
+  const d = new Date(ts*1000);
+  return d.toLocaleString("zh-CN", {hour12:false});
+}
+function token(){ return $("#token").value.trim(); }
+
+function sw(root, path, label, desc, on){
+  return `<div class="row"><div class="lb">${esc(label)}${desc?`<small>${esc(desc)}</small>`:""}</div>
+    <div class="ctl"><label class="sw"><input type="checkbox" data-root="${root}" data-path="${path}"
+      data-type="bool" ${on?"checked":""}><span class="track"></span></label></div></div>`;
+}
+function num(root, path, label, desc, val, step){
+  return `<div class="row"><div class="lb">${esc(label)}${desc?`<small>${esc(desc)}</small>`:""}</div>
+    <div class="ctl"><input class="num" type="number" step="${step||1}" value="${esc(val)}"
+      data-root="${root}" data-path="${path}" data-type="number"></div></div>`;
+}
+function txt(root, path, placeholder, val){
+  return `<input class="txt" placeholder="${esc(placeholder)}" value="${esc(val)}"
+    data-root="${root}" data-path="${path}" data-type="text">`;
+}
+function chips(group, root, path, items, selected, labels){
+  const sel = new Set(selected || []);
+  return `<div class="chips">` + items.map(it => {
+    const val = typeof it === "string" ? it : it.id;
+    const name = typeof it === "string" ? it : it.name;
+    const sub = (typeof it === "object" && it.maps_to) ? `<small>↔ ${esc(it.maps_to)}</small>` : "";
+    return `<label class="chip"><input type="checkbox" data-group="${group}" data-root="${root}"
+      data-path="${path}" data-item="${esc(val)}" ${sel.has(val)?"checked":""}>
+      <span>${esc(name)}</span>${sub}</label>`;
+  }).join("") + `</div>`;
+}
+
+async function loadState(keepCur){
+  const r = await fetch(API("/admin/state"), {cache:"no-store"});
+  S = await r.json();
+  if(!keepCur || !S.channels_order.includes(cur))
+    cur = S.channels_order.find(c => c !== "organic") || S.channels_order[0];
+  $("#token").value = localStorage.getItem("admin_token") || S.admin_token || "admin-local";
+  $("#brandSub").textContent = `${S.profile_meta.name} · ${S.channels_order.length} 个渠道`;
+  $("#meta").textContent = `皮肤: ${S.profile_meta.name} ｜ 文件: ${S.profile_path || "内置"} ｜ 运营态: ${S.display.kill_switch?"已熔断":"正常"}`;
+  $("#lanUrl").textContent = (S.public_base || `http://${S.lan_ip}:${S.port}`) + "/demo";
+  render();
+  renderAudit();
+  renderBridge();
+}
+
+function render(){
+  // 渠道列表
+  $("#chList").innerHTML = S.channels_order.map(n => {
+    const c = S.profile.channels[n] || {};
+    const live = c.enabled && c.mode === "paywall" && !S.display.kill_switch;
+    return `<button class="chi ${n===cur?"on":""}" data-ch="${esc(n)}">
+      <span class="dot ${live?"live":"off"}"></span>
+      <span class="nm">${esc(n)}</span>
+      <span class="tag ${live?"":"gray"}">${live?"PAYWALL":"NORMAL"}</span></button>`;
+  }).join("");
+  $("#killSw").checked = !!S.display.kill_switch;
+  $("#killLbl").textContent = S.display.kill_switch ? "已开启 · 全量合规态" : "未开启 · 按渠道判定";
+  $("#title").textContent = `渠道展示配置 · ${cur}`;
+
+  const c = S.profile.channels[cur] || {};
+  const d = S.display.channels[cur] || {};
+  const pw = c.paywall || {};
+  const g = c.guard || {};
+  const P = "channels." + cur;
+
+  // ① 基础与守卫
+  $("#basePanel").innerHTML =
+    sw("profile", P+".enabled", "渠道启用", "关掉后该渠道一律回落合规态", !!c.enabled) +
+    `<div class="row"><div class="lb">业务形态<small>normal=工具首页 / paywall=倒计时+视频+VIP</small></div>
+      <div class="ctl"><select class="sel" data-root="profile" data-path="${P}.mode" data-type="text">
+        <option value="paywall" ${c.mode==="paywall"?"selected":""}>paywall</option>
+        <option value="normal" ${c.mode==="normal"?"selected":""}>normal</option></select></div></div>` +
+    `<div class="row"><div class="lb">渠道备注</div></div>` +
+    txt("profile", P+".desc", "渠道说明", c.desc || "") +
+    (c.mode === "paywall" ?
+      num("profile", P+".guard.start_after_hours", "安装后延迟开启", "小时；设 24~72 可避开安装即审", g.start_after_hours ?? 0, 0.5) +
+      num("profile", P+".guard.rollout", "灰度比例", "0~1，按 idfv 稳定分桶", g.rollout ?? 1, 0.05) +
+      txt("profile", P+".guard.allow_countries.0", "允许国家(首个)", g.allow_countries?.[0] || "cn") +
+      txt("profile", P+".guard.block_builds.0", "屏蔽版本(首个)", g.block_builds?.[0] || "")
+    : `<div class="hint" style="padding-top:10px">该渠道当前为 normal，守卫不参与判定。</div>`);
+
+  // ② 展示栏目
+  $("#columnPanel").innerHTML =
+    `<div style="font-size:11px;color:var(--muted);margin:2px 0 8px">底部 Tab</div>` +
+    chips("tabs", "display", "channels."+cur+".normal_tabs", S.tabs_all, d.normal_tabs) +
+    `<div style="font-size:11px;color:var(--muted);margin:14px 0 8px">首页分区</div>` +
+    chips("sections", "display", "channels."+cur+".home_sections", S.sections_all, d.home_sections) +
+    `<div style="font-size:11px;color:var(--muted);margin:14px 0 8px">四大玩法卡片（功能照抄，名字已换）</div>` +
+    chips("features", "display", "channels."+cur+".craft_features", S.features_all, d.craft_features) +
+    sw("display", "channels."+cur+".cloud_subtitle", "云字幕工坊入口", "上传→ASR→烧录→72h 删除", d.cloud_subtitle !== false) +
+    sw("display", "channels."+cur+".membership_entry", "会员中心入口", "账户页的会员占位 / 可重新唤起会员页", d.membership_entry !== false);
+
+  // ③ 模块
+  const modNames = {splash:"开屏浮层", trial:"视频试看", vip:"会员套餐页", checkout:"订单页 / 收银台", login:"手机号登录"};
+  const modDesc = {splash:"倒计时 + 进入按钮", trial:"全屏视频 + 剩余秒数 + 试看结束弹窗",
+    vip:"三档套餐 + 支付宝支付按钮", checkout:"自建订单页 → 支付宝 H5", login:"两次手机号，无验证码"};
+  const gt = pw.gate || {};
+  $("#modulePanel").innerHTML = S.modules.map(m =>
+    sw("display", "channels."+cur+".paywall_modules."+m, modNames[m] || m, modDesc[m] || "",
+       d.paywall_modules?.[m] !== false)).join("") +
+    (c.mode === "paywall" ?
+      `<div style="font-size:11px;color:var(--muted);margin:14px 0 6px">
+        充值闭环 · 只有一种形态（退出静默回片段）</div>` +
+      sw("profile", P+".paywall.gate.force_paywall_until_vip", "未付费时锁定完整功能",
+         "点「暂不开通 / 稍后再说」静默回试看片段，不弹任何提示；只有付款成功才解锁", gt.force_paywall_until_vip !== false) +
+      num("profile", P+".paywall.gate.login_to_vip_delay_seconds", "登录后弹充值延迟（秒）",
+          "注册成功 1 秒后弹出", gt.login_to_vip_delay_seconds ?? 1, 0.5) +
+      num("profile", P+".paywall.gate.reopen_interval_seconds", "片段看完后回充值（秒）",
+          "试看片段结束后多久静默回充值页，全程不弹提示", gt.reopen_interval_seconds ?? 2, 0.5) +
+      sw("profile", P+".paywall.gate.persistent_banner", "首页常驻会员横幅",
+         "紫色「开通会员」条，点了也进充值页", gt.persistent_banner !== false)
+    : "") +
+    `<div class="hint" style="margin:12px 0 0">退出按钮一律静默回试看片段，不弹提示；片段看完、切 Tab、
+      点功能或点会员横幅都会静默回到充值页，只有支付成功才解锁完整功能。关闭「会员套餐页」后没有充值页可弹。
+      全局熔断在左侧，一键全量回落合规态。</div>`;
+
+  // ④ 套餐
+  const pkgs = pw.vip?.packages || [];
+  const vis = new Set(d.visible_packages || []);
+  $("#pkgPanel").innerHTML = pkgs.length ? `<table class="pkgtbl"><tr><th>显示</th><th>名称</th><th>现价 ¥</th><th>划线价 ¥</th></tr>` +
+    pkgs.map((p,i) => `<tr>
+      <td><label class="sw"><input type="checkbox" data-group="packages" data-root="display"
+        data-path="channels.${esc(cur)}.visible_packages" data-item="${esc(p.id)}"
+        ${vis.has(p.id)?"checked":""}><span class="track"></span></label></td>
+      <td>${esc(p.name)}<small style="display:block;color:var(--muted);font-size:10px">${esc(p.id)}</small></td>
+      <td><input class="num" type="number" step="1" value="${esc(p.price)}"
+        data-root="profile" data-path="${P}.paywall.vip.packages.${i}.price" data-type="number"></td>
+      <td><input class="num" type="number" step="1" value="${esc(p.origin_price)}"
+        data-root="profile" data-path="${P}.paywall.vip.packages.${i}.origin_price" data-type="number"></td>
+    </tr>`).join("") + `</table>` : `<div class="hint">该渠道没有套餐（normal 形态）。</div>`;
+
+  // ⑤ 倒计时与素材
+  $("#mediaPanel").innerHTML =
+    (c.mode === "paywall" ?
+      num("profile", P+".paywall.splash.countdown_seconds", "开屏倒计时（秒）", "录屏实测 6", pw.splash?.countdown_seconds ?? 6, 1) +
+      num("profile", P+".paywall.trial.countdown_seconds", "试看倒计时（秒）", "录屏实测 15", pw.trial?.countdown_seconds ?? 15, 1) +
+      `<div class="row" style="display:block"><div class="lb">试看底部固定小字</div>` +
+      txt("profile", P+".paywall.trial.hint", "提示文案", pw.trial?.hint || "") + `</div>` +
+      `<div class="row" style="display:block"><div class="lb">试看视频 URL</div>` +
+      txt("profile", P+".paywall.trial.video_url", "https://cdn.../trial.mp4", pw.trial?.video_url || "") + `</div>` +
+      `<div class="row" style="display:block"><div class="lb">会员页标题 / 支付按钮</div>` +
+      txt("profile", P+".paywall.vip.title", "会员页标题", pw.vip?.title || "") +
+      txt("profile", P+".paywall.vip.button", "支付按钮", pw.vip?.button || "") + `</div>`
+    : `<div class="hint">normal 形态没有开屏 / 试看 / 支付参数。</div>`);
+}
+
+function renderAudit(){
+  const a = S.audit || [];
+  $("#auditList").innerHTML = a.length ? a.slice().reverse().map(x =>
+    `<div><b>${esc(x.action)}</b> · ${esc(fmtTime(x.ts))} · ${esc(JSON.stringify(x.detail))}</div>`).join("")
+    : `<div>暂无操作记录</div>`;
+}
+
+// 统一的控件变更处理
+document.addEventListener("input", onEdit);
+document.addEventListener("change", onEdit);
+function onEdit(e){
+  const el = e.target;
+  if(!el.dataset || !el.dataset.root) return;
+  localStorage.setItem("admin_token", token());
+  const root = rootOf(el.dataset.root);
+  const path = el.dataset.path;
+  if(el.dataset.group){
+    const boxes = [...document.querySelectorAll(`[data-group="${el.dataset.group}"]`)];
+    const vals = boxes.filter(b => b.checked).map(b => b.dataset.item);
+    setDeep(root, path, vals);
+  } else {
+    const t = el.dataset.type;
+    let v = el.type === "checkbox" ? el.checked : el.value;
+    if(t === "number") v = Number(v);
+    setDeep(root, path, v);
+  }
+  markDirty();
+  // 形态/启用变化立即刷新面板结构
+  if(el.dataset.path.endsWith(".mode") || el.dataset.path.endsWith(".enabled")){
+    render();
+  }
+}
+
+document.addEventListener("click", async e => {
+  const b = e.target.closest("[data-ch]");
+  if(b){ cur = b.dataset.ch; render(); await preview(false); }
+});
+
+$("#killSw").addEventListener("change", async e => {
+  const enabled = e.target.checked;
+  const r = await fetch(API("/admin/killswitch"), {method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({token:token(), enabled})});
+  const d = await r.json();
+  if(!d.ok){ toast(d.error || "失败", true); return; }
+  S.display.kill_switch = d.kill_switch;
+  render();
+  toast(d.kill_switch ? "已熔断：所有渠道回落合规态" : "已恢复：按渠道判定");
+  await preview(false);
+  await loadState(true);
+});
+
+async function save(){
+  localStorage.setItem("admin_token", token());
+  const r = await fetch(API("/admin/save"), {method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({token:token(), profile:S.profile, display:S.display})});
+  const d = await r.json();
+  if(!d.ok){ toast(d.error || JSON.stringify(d), true); return false; }
+  dirty = false; $("#dirtyWarn").style.display = "none";
+  toast("已保存 · 即时生效");
+  return true;
+}
+$("#saveBtn").addEventListener("click", async () => { if(await save()){ await preview(false); await loadState(true); } });
+
+async function preview(autoSave){
+  if(dirty && autoSave !== false){ if(!await save()) return; }
+  const r = await fetch(API("/admin/preview?ch=" + encodeURIComponent(cur)), {cache:"no-store"});
+  const d = await r.json();
+  const c = d.config || {};
+  $("#previewHead").innerHTML = `渠道 <b>${esc(d.channel)}</b> →
+    <span class="pill ${d.mode==="paywall"?"pay":"nor"}">${esc(d.mode)}</span>
+    &nbsp;<span style="color:var(--muted);font-size:11px">${esc((d.decision||[]).join(" · "))}</span>`;
+  const brief = {
+    mode: c.mode, channel: c.channel, ttl: c.ttl,
+    normal: {tabs: c.normal?.tabs, sections: c.normal?.home?.sections,
+             features: (c.normal?.craft?.features || []).map(f => f.name),
+             cloud_subtitle: !!c.normal?.craft?.cloud,
+             membership_entry: !!c.normal?.mine?.membership},
+    paywall: c.paywall ? {
+      modules: c.paywall.modules,
+      splash_seconds: c.paywall.splash?.countdown_seconds,
+      trial_seconds: c.paywall.trial?.countdown_seconds,
+      packages: (c.paywall.vip?.packages || []).map(p => p.name + " ¥" + p.price),
+      checkout: !!c.paywall.checkout, login: !!c.paywall.login
+    } : null
+  };
+  $("#previewJson").textContent = JSON.stringify(brief, null, 2);
+}
+$("#previewBtn").addEventListener("click", () => preview(true));
+$("#demoBtn").addEventListener("click", () => window.open("/demo?ch=" + encodeURIComponent(cur), "_blank"));
+
+function copyLan(){
+  const t = $("#lanUrl").textContent;
+  navigator.clipboard?.writeText(t).then(() => toast("已复制 " + t)).catch(() => toast(t));
+}
+
+// ---- 百度推广 API 归因面板 ---------------------------------------------------
+let A = null;
+
+async function loadAttribution(){
+  const keep = {ip:$("#attrIp")?.value, dev:$("#attrDev")?.value,
+                plan:$("#attrPlan")?.value, ch:$("#attrCh")?.value};
+  const r = await fetch(API("/admin/attribution"), {cache:"no-store"});
+  A = await r.json();
+  renderAttribution();
+  if(keep.ip !== undefined){
+    $("#attrIp").value = keep.ip; $("#attrDev").value = keep.dev;
+    $("#attrPlan").value = keep.plan; $("#attrCh").value = keep.ch;
+    $("#attrDemo").textContent = attrDemoUrl();
+  }
+}
+function attrDemoUrl(){
+  const ip  = ($("#attrIp")?.value || "").trim();
+  const dev = ($("#attrDev")?.value || "").trim();
+  return (A.public_base || `http://${A.lan_ip}:${A.port}`) + `/demo?auto=1` +
+    (ip  ? `&ip=${encodeURIComponent(ip)}`  : "") +
+    (dev ? `&dev=${encodeURIComponent(dev)}` : "");
+}
+function renderAttribution(){
+  const c = A.config || {}, chans = A.channels_order || [];
+  const defCh = chans.includes("bbdd1") ? "bbdd1" : (chans.find(x => x !== "organic") || "organic");
+  const clicks = (A.clicks || []).slice(-10).reverse();
+  const binds  = (A.bindings || []).slice(-10).reverse();
+  const row = cells => `<tr>${cells.map(x => `<td>${x}</td>`).join("")}</tr>`;
+  const clickRows = clicks.length ? clicks.map(x => row([
+      `<code>${esc(x.click_id)}</code>`, esc(x.ip),
+      `<code>${esc((x.device_hash || "—").slice(0,12))}</code>`,
+      `<b style="color:var(--primary)">${esc(x.channel)}</b>`, esc(fmtTime(x.ts))
+    ])).join("") : `<tr><td colspan="5" style="color:var(--muted)">暂无回传记录，点下面「回传一条点击」造一条</td></tr>`;
+  const bindRows = binds.length ? binds.map(x => row([
+      `<code>${esc((x.device_key || "—").slice(0,12))}</code>`,
+      `<b style="color:var(--primary)">${esc(x.channel)}</b>`,
+      esc(x.method), esc(x.confidence),
+      `<button class="btn ghost" style="padding:3px 9px;font-size:11px" onclick="attrUnbind('${esc(x.device_key)}')">解绑</button>`
+    ])).join("") : `<tr><td colspan="5" style="color:var(--muted)">暂无设备绑定</td></tr>`;
+
+  $("#attrPanel").innerHTML = `
+    <div class="row"><div class="lb">归因来源<small>百度推广 API 回传 / 服务端匹配</small></div>
+      <div class="ctl"><span class="pill pay">${esc(c.source || "baidu")}</span>
+        <span style="font-size:11px;color:var(--muted);margin-left:8px">鉴权 ${esc(A.partner_auth || "demo_open")}</span></div></div>
+    <div class="row"><div class="lb">计划ID → 渠道号 映射<small>渠道号由我方定义，可配多条计划</small></div>
+      <div class="ctl"><input class="inp" id="attrMap" style="width:270px" value="${esc(JSON.stringify(c.channel_map || {}))}"></div></div>
+    <div class="row"><div class="lb">点击 → 首启 归因时间窗（秒）</div>
+      <div class="ctl"><input class="num" id="attrWin" type="number" value="${esc(c.window_seconds)}"></div></div>
+    <div class="row"><div class="lb">最小置信度<small>低于此值一律回落 organic</small></div>
+      <div class="ctl"><input class="num" id="attrMin" type="number" step="0.05" value="${esc(c.min_confidence)}"></div></div>
+    <div class="row"><div class="lb">允许纯 IP 命中<small>后台知道这个 IP 来自百度即可判渠道</small></div>
+      <div class="ctl"><label class="sw"><input type="checkbox" id="attrIpOnly" ${c.allow_ip_only ? "checked":""}><span class="track"></span></label></div></div>
+    <div class="row"><div class="lb">严格模式<small>要求设备号或 ≥2 项非 IP 特征，防 NAT 误判</small></div>
+      <div class="ctl"><label class="sw"><input type="checkbox" id="attrStrict" ${c.strict_mode ? "checked":""}><span class="track"></span></label></div></div>
+    <div style="margin:10px 0 4px"><button class="btn ghost" onclick="attrSaveConf()">保存归因参数</button>
+      <button class="btn ghost" onclick="attrClear()">清空测试归因数据</button></div>
+
+    <div style="font-size:11px;color:var(--muted);margin:16px 0 6px">① 模拟百度推广 API 回传一条点击</div>
+    <div class="row"><div class="ctl" style="flex-wrap:wrap;gap:8px;justify-content:flex-start;width:100%">
+      <input class="inp" id="attrIp" placeholder="点击 IP" style="width:145px" value="${esc(A.lan_ip || "")}"
+             oninput="document.getElementById('attrDemo').textContent=attrDemoUrl()">
+      <input class="inp" id="attrDev" placeholder="设备号" style="width:145px" value="DEMO-BAIDU-001"
+             oninput="document.getElementById('attrDemo').textContent=attrDemoUrl()">
+      <input class="inp" id="attrPlan" placeholder="百度计划ID" style="width:140px" value="baidu_plan_a">
+      <select class="sel" id="attrCh">${chans.map(n => `<option value="${esc(n)}" ${n===defCh?"selected":""}>${esc(n)}</option>`).join("")}</select>
+      <button class="btn pri" onclick="attrSimulate()">回传一条点击</button></div></div>
+    <div style="font-size:11px;color:var(--muted);margin:14px 0 6px">② 手机首次启动验证（同 WiFi 打开，服务端按 IP / 设备号自动判渠道）</div>
+    <div class="row"><div class="ctl" style="width:100%;justify-content:flex-start;gap:8px;flex-wrap:wrap">
+      <code id="attrDemo" style="font-size:11px;word-break:break-all">—</code>
+      <button class="btn ghost" style="padding:4px 10px;font-size:11px" onclick="attrCopy()">复制</button>
+      <button class="btn ghost" style="padding:4px 10px;font-size:11px" onclick="window.open(attrDemoUrl(),'_blank')">打开</button></div></div>
+
+    <div style="font-size:11px;color:var(--muted);margin:16px 0 6px">百度回传点击库（共 ${esc(A.total_clicks || 0)} 条）</div>
+    <table class="pkgtbl"><tr><th>click_id</th><th>IP</th><th>设备号哈希</th><th>渠道号</th><th>时间</th></tr>${clickRows}</table>
+    <div style="font-size:11px;color:var(--muted);margin:16px 0 6px">设备绑定表（共 ${esc(A.total_bindings || 0)} 条 · 命中后按该渠道展示）</div>
+    <table class="pkgtbl"><tr><th>设备哈希</th><th>渠道号</th><th>匹配方式</th><th>置信度</th><th>操作</th></tr>${bindRows}</table>
+    <pre style="margin-top:14px;font-size:10px;line-height:1.6;white-space:pre-wrap;color:var(--muted);background:rgba(0,0,0,.2);padding:10px;border-radius:8px">生产对接（百度后台回调我方）：
+POST /v1/attribution/baidu/callback
+Content-Type: application/json
+
+{"click_id":"百度点击ID","plan_id":"baidu_plan_a","channel":"bbdd1",
+ "ip":"点击时出口IP","idfa":"或 caid / device_id / oaid","ts":点击时间戳,
+ "ua":"...","model":"iPhone","tz":"Asia/Shanghai","lang":"zh-CN","screen":"1170x2532@3"}
+
+App 首启：POST /v1/attribution/resolve {"idfv":"...","idfa":"...","country":"cn"}
+配置下发：POST /v1/config {"idfv":"...","auto_attribution":true}
+设置环境变量 BAIDU_API_SECRET 后，回传体需带 _sig(HMAC-SHA256)。</pre>`;
+  $("#attrDemo").textContent = attrDemoUrl();
+}
+async function attrPost(path, body){
+  const r = await fetch(API(path), {method:"POST", headers:{"Content-Type":"application/json"},
+                               body:JSON.stringify(body)});
+  return await r.json();
+}
+async function attrSaveConf(){
+  let map;
+  try { map = JSON.parse($("#attrMap").value); } catch(e){ toast("计划ID映射必须是 JSON", true); return; }
+  const d = await attrPost("/admin/attribution/config", {token:token(),
+    window_seconds:Number($("#attrWin").value), min_confidence:Number($("#attrMin").value),
+    allow_ip_only:$("#attrIpOnly").checked, strict_mode:$("#attrStrict").checked,
+    channel_map:map});
+  toast(d.ok ? "归因参数已保存 · 立即生效" : (d.error || "保存失败"), !d.ok);
+  await loadAttribution();
+}
+async function attrSimulate(){
+  const body = {click_id:"BAIDU-" + Date.now(), plan_id:$("#attrPlan").value.trim(),
+    channel:$("#attrCh").value, ip:$("#attrIp").value.trim(),
+    device_id:$("#attrDev").value.trim(), ua:navigator.userAgent, model:"iPhone",
+    tz:String(Intl.DateTimeFormat().resolvedOptions().timeZone || ""),
+    lang:navigator.language, screen:screen.width+"x"+screen.height+"@"+window.devicePixelRatio};
+  const d = await attrPost("/v1/attribution/baidu/callback", body);
+  toast(d.ok ? `已回传 ${d.saved} 条 · 渠道 ${body.channel}` : (d.error || JSON.stringify(d)), !d.ok);
+  await loadAttribution();
+}
+async function attrUnbind(key){
+  const d = await attrPost("/admin/attribution/unbind", {token:token(), device_key:key});
+  toast(d.ok ? "已解绑，该设备下次首启重新归因" : (d.error || "解绑失败"), !d.ok);
+  await loadAttribution();
+}
+async function attrClear(){
+  const d = await attrPost("/admin/attribution/clear", {token:token()});
+  toast(d.ok ? "已清空测试归因数据" : (d.error || "清空失败"), !d.ok);
+  await loadAttribution();
+}
+function attrCopy(){
+  const t = attrDemoUrl();
+  navigator.clipboard?.writeText(t).then(() => toast("已复制手机验证链接")).catch(() => toast(t));
+}
+
+async function loadDeletions(){
+  const d = await fetch(API("/admin/account/deletions"), {cache:"no-store"})
+    .then(r => r.json()).catch(() => ({deletions:[]}));
+  const rows = d.deletions || [];
+  $("#deletionList").innerHTML = rows.length
+    ? `<div style="margin-bottom:8px;color:var(--muted)">累计 ${d.total} 条 · 最近 ${rows.length} 条</div>` +
+      rows.slice().reverse().map(x =>
+        `<div><b>${esc(x.receipt)}</b> · ${esc(fmtTime(x.ts))} · 渠道 ${esc(x.channel||"—")}` +
+        ` · 删除 登录 ${esc(x.deleted?.logins ?? 0)} / 会员 ${esc(x.deleted?.vip ?? 0)}` +
+        ` / 绑定 ${esc(x.deleted?.device_bindings ?? 0)} / 流水去标识 ${esc(x.deleted?.orders_deidentified ?? 0)}` +
+        ` · 手机号哈希 ${esc(String(x.phone_hash||"").slice(0,8))}…</div>`).join("")
+    : `<div>暂无注销记录 · 可在 Demo 会员页点「账号与隐私 · 注销账号」走一遍</div>`;
+}
+// ⑨ 原后台(Yii2)接口接入状态 + 只读体检
+function renderBridge(){
+  const b = S.upstream || {enabled:false};
+  const p = S.upstream_probe || {ts:0, channel:"", result:[]};
+  const head = `<div style="margin-bottom:10px;line-height:1.9">
+    <div>接入状态：<b>${b.enabled ? "已启用 · 由原后台统一承载" : "未启用 · 全部走米帧盒本地实现"}</b></div>
+    <div>上游：<code>${esc(String(b.base || "—"))}</code> ｜ VIP 套餐域：<code>${esc(String(b.vip_scope || "browser"))}</code></div>
+    <div>写操作保护：<b>${b.writes_test_only ? "仅新建测试渠道" : "全渠道放行"}</b>
+      · 白名单 <code>${esc(String((b.test_channels||[]).join(", ") || "—"))}</code></div>
+    <div>跑量渠道（bbdd* / mt* / default）只读，不写入、不修改任何配置</div></div>`;
+  const routes = (b.routes||[]).map(r =>
+    `<div style="padding:3px 0;border-bottom:1px dashed var(--line, rgba(128,128,128,.25))">
+      <b>${esc(String(r.label))}</b><br>
+      <small><code>${esc(String(r.method))} ${esc(String(r.path))}</code>
+      · ${r.write ? "写(仅测试渠道可放行)" : "只读"}${r.need_token ? " · 需登录票据" : ""}</small>
+    </div>`).join("");
+  const probe = (p.result||[]).length
+    ? `<div style="margin-top:10px"><b>最近一次体检</b> · 渠道 <code>${esc(String(p.channel||"—"))}</code>
+        · ${esc(String(p.ts ? fmtTime(p.ts) : "—"))}
+       <div style="margin-top:6px">${p.result.map(x =>
+         `<div>${x.status === "ok" ? "✅" : (x.status === "fail" ? "❌" : "⏭")}
+          <code>${esc(String(x.key))}</code> ${esc(String(x.label))} ·
+          ${esc(String(x.status === "ok" ? (x.http + " / " + x.ms + "ms") : (x.error || x.reason || "")))}</div>`
+       ).join("")}</div></div>`
+    : `<div style="margin-top:10px;color:var(--muted)">尚未体检 · 点上方按钮只读探测原后台接口，不改任何渠道数据</div>`;
+  $("#bridgePanel").innerHTML = head + routes + probe;
+}
+$("#bridgeProbe").addEventListener("click", async () => {
+  const ch = ($("#bridgeChannel").value || "mzhtest").trim();
+  $("#bridgeMsg").textContent = "正在只读探测…";
+  try{
+    const d = await fetch(API("/admin/bridge/probe"), {method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({channel:ch})}).then(r => r.json());
+    if(!d.ok){ $("#bridgeMsg").textContent = String(d.error || "未启用"); toast(String(d.error || "未启用"), true); return; }
+    S.upstream_probe = d.probe;
+    renderBridge();
+    const ok = d.probe.result.filter(x => x.status === "ok").length;
+    $("#bridgeMsg").textContent = `完成：${ok}/${d.probe.result.length} 个只读接口连通`;
+    toast("体检完成");
+  }catch(e){ $("#bridgeMsg").textContent = "体检失败: " + e; toast("体检失败", true); }
+});
+
+$("#delRefresh").addEventListener("click", () => { loadDeletions(); toast("台账已刷新"); });
+
+loadState(false).then(async () => { await loadAttribution(); await loadDeletions(); await preview(false); })
+  .catch(e => toast("加载失败: " + e, true));
+</script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+[Unit]
+Description=Mizhenhe Player Config API (channel-switch backend)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mizhenhe
+Group=mizhenhe
+WorkingDirectory=/opt/mizhenhe
+EnvironmentFile=/opt/mizhenhe/mzh.env
+ExecStart=/usr/bin/python3 /opt/mizhenhe/server/app.py --port 8790 --host 127.0.0.1 --profile /opt/mizhenhe/server/profiles/wanneng_rebrand.json
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
