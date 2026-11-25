@@ -3,20 +3,24 @@
   "version": "1.0",
   "build": "1",
   "bundle_id": "com.mizhenhe.player",
-  "native_status": "pending_developer_account",
-  "native_status_text": "原生安装包待出包 · 等待 Apple 开发者账号与签名材料",
-  "native_hint": "开发者账号开通后，用 GitHub Actions 的 macOS runner 无 Mac 出包，上传 TestFlight 即可分发安装。",
+  "native_status": "ipa_ready",
+  "native_status_text": "安装包已上传 · 手机扫码即可安装",
+  "native_hint": "用 iPhone 相机扫下方安装二维码；首次安装需在 设置 → 通用 → VPN与设备管理 里信任一次。",
   "testflight_url": "",
   "appstore_url": "",
-  "ipa_url": "",
+  "ipa_url": "https://app.kqi.ink/mzh/download/ipa/mizhenhe-player.ipa",
   "admin_url": "https://app.kqi.ink/site",
   "admin_hint": "登录后左侧「米帧盒播放器」栏目",
-  "updated_at": "2026-11-25",
+  "updated_at": "2026-11-26",
   "h5_features": [
     "开屏倒计时 → 试看片段 → VIP 充值全流程",
     "登录 / 注册后 1 秒弹出充值页，付费前常驻",
     "「暂不开通 / 稍后再说 / 返回」回试看并保留原进度",
     "百度推广 API 归因、渠道展示配置、账号注销",
     "添加到主屏幕后全屏运行，无浏览器地址栏"
-  ]
+  ],
+  "signing_type": "Ad Hoc / Development",
+  "install_available": true,
+  "install_qr": "data:image/png;base64,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",
+  "install_ota_url": "itms-services://?action=download-manifest&url=https://app.kqi.ink/mzh/download/manifest.plist"
 }

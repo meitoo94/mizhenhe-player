@@ -109,7 +109,8 @@ body{margin:0;background:radial-gradient(120% 70% at 50% 0%,#1B2A4E 0%,var(--bg)
     <div class="note" id="nativeHint"></div>
     <div id="installQrWrap" style="display:none;margin-top:16px;text-align:center">
       <img id="installQr" alt="扫码安装" style="width:170px;height:170px;background:#fff;border-radius:12px;padding:6px">
-      <div class="note" style="margin-top:8px">用 iPhone 相机扫这个码 → 点「安装」<br>首次安装需在 设置 → 通用 → VPN与设备管理 里信任一次</div>
+      <div class="note" style="margin-top:8px">微信 / iPhone 相机扫码 → 在 Safari 打开 → 自动弹出「安装」<br>首次安装需在 设置 → 通用 → VPN与设备管理 里信任一次</div>
+      <div class="note" id="installTip" style="margin-top:8px;color:#35E0C8;display:none"></div>
       <a class="btn ghost" id="otaBtn" href="#">在 iPhone 上直接安装</a>
     </div>
   </div>
@@ -198,6 +199,23 @@ body{margin:0;background:radial-gradient(120% 70% at 50% 0%,#1B2A4E 0%,var(--bg)
     $("installQr").src = REL.install_qr;
     $("otaBtn").href = REL.install_ota_url;
     $("installQrWrap").style.display = "block";
+  }
+
+  // 二维码里放的是普通 https 网页链接（微信/相机都能识别），带 ?install=1 进来后
+  // 在 Safari 里自动唤起 itms-services；微信内置浏览器装不了，提示切到 Safari。
+  if (qs.get("install") === "1" && REL.install_ota_url) {
+    $("installQrWrap").scrollIntoView({behavior: "smooth", block: "center"});
+    var tip = $("installTip");
+    tip.style.display = "block";
+    var wx = /MicroMessenger/i.test(navigator.userAgent);
+    if (wx) {
+      tip.textContent = "微信里装不了：点右上角「…」→ 在 Safari 中打开，就会自动弹出安装。";
+      $("otaBtn").textContent = "在 Safari 打开后点这里安装";
+    } else {
+      tip.textContent = "正在唤起安装… 没弹出就点下方按钮再试一次。";
+      $("otaBtn").textContent = "没自动弹出？点这里安装";
+      setTimeout(function () { window.location.href = REL.install_ota_url; }, 700);
+    }
   }
 
   // 出包进度：读服务端注入的 window.MZH_PROGRESS（由 deploy/signing/next.py 生成）

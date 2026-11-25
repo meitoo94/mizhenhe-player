@@ -22,6 +22,12 @@
 	<string>$(MZH_BUILD_NUMBER)</string>
 	<key>ConfigBaseURL</key>
 	<string>$(CONFIG_BASE_URL)</string>
+	<key>ConfigHMACSecret</key>
+	<string>demo-secret-change-in-production</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>用于把调色成片、变速成片、截帧与胶片长图保存到系统相册。</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>用于在本机把视频音轨转成字幕文字，音频不会离开设备。</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>

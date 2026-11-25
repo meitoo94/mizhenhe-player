@@ -9,7 +9,7 @@
 做的事：
   1. 把 ipa 放进 download/ipa/（下载页自动出现按钮）
   2. 解出 bundle id / 版本号 / 签名类型（Ad Hoc 才能扫码直装）
-  3. 生成 OTA manifest.plist + 安装二维码（data URI，不依赖额外静态文件）
+  3. 生成 OTA manifest.plist + 安装二维码（码里是普通 https 网页链接，微信/相机都能打开）
   4. 更新 server/release_state.json
   5. --deploy：上传 ipa / manifest / 状态到 43.142.72.226 并重启服务
 
@@ -99,22 +99,38 @@ def manifest_plist(state, ipa_url, icon_url):
     return plistlib.dumps(items, fmt=plistlib.FMT_XML).decode("utf-8")
 
 
+def qr_png(text):
+    """生成二维码 PNG 字节。码里只放 https 网页链接，不放 itms-services 协议：
+    微信扫一扫 / iOS 相机遇到 itms-services:// 只会显示一串纯文本，打不开安装。"""
+    import qrcode
+    from qrcode.image.pil import PilImage
+    from PIL import Image
+    qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M,
+                       box_size=8, border=2)
+    qr.add_data(text)
+    qr.make(fit=True)
+    img = qr.make_image(image_factory=PilImage).convert("RGB").resize((360, 360), Image.NEAREST)
+    buf = io.BytesIO()
+    img.save(buf, "PNG")
+    return buf.getvalue()
+
+
 def qr_data_uri(text):
     try:
-        import qrcode
-        from qrcode.image.pil import PilImage
-        from PIL import Image
-        qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M,
-                           box_size=8, border=2)
-        qr.add_data(text)
-        qr.make(fit=True)
-        img = qr.make_image(image_factory=PilImage).convert("RGB").resize((360, 360), Image.NEAREST)
-        buf = io.BytesIO()
-        img.save(buf, "PNG")
-        return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+        return "data:image/png;base64," + base64.b64encode(qr_png(text)).decode()
     except Exception as e:
         print("[WARN] 二维码生成失败（不影响 ipa 下载）:", str(e)[:120])
         return ""
+
+
+def write_qr_file(text, path):
+    try:
+        with open(path, "wb") as f:
+            f.write(qr_png(text))
+        return True
+    except Exception as e:
+        print("[WARN] 二维码图片写失败:", str(e)[:120])
+        return False
 
 
 def deploy(files):
@@ -180,7 +196,9 @@ def main():
         print("[FAIL] 文件不存在:", src)
         return 1
 
-    name = os.path.basename(src)
+    # 服务端 /download/ipa/<name> 不做 URL 解码，中文文件名经 quote() 后会 404。
+    # 统一规范成 ASCII 名，OTA manifest 与 release_state 都指向它，更新安装也覆盖同一路径。
+    name = "mizhenhe-player.ipa"
     dst = os.path.join(IPA_DIR, name)
     if os.path.abspath(src) != os.path.abspath(dst):
         shutil.copy2(src, dst)
@@ -201,16 +219,19 @@ def main():
     if can_ota and not state.get("testflight_url") and not state.get("appstore_url"):
         state["native_status"] = "ipa_ready"
         state["native_status_text"] = "安装包已上传 · 手机扫码即可安装"
-        state["native_hint"] = "用 iPhone 相机扫下方安装二维码；首次安装需在 设置 → 通用 → VPN与设备管理 里信任一次。"
+        state["native_hint"] = "用微信或 iPhone 相机扫下方安装二维码 → 在 Safari 中打开 → 自动弹出安装；首次安装需在 设置 → 通用 → VPN与设备管理 里信任一次。"
         manifest_url = PUBLIC_BASE + "/download/manifest.plist"
         plist_text = manifest_plist(state, state["ipa_url"],
                                     PUBLIC_BASE + "/download/apple-touch-icon.png")
         with open(os.path.join(IPA_DIR, "manifest.plist"), "w", encoding="utf-8") as f:
             f.write(plist_text)
         ota = "itms-services://?action=download-manifest&url=" + manifest_url
-        state["install_qr"] = qr_data_uri(ota)
+        install_page = PUBLIC_BASE + "/download?install=1"
+        state["install_page_url"] = install_page
+        state["install_qr"] = qr_data_uri(install_page)
         state["install_ota_url"] = ota
-        print("[3/5] OTA manifest + 安装二维码已生成（Ad Hoc 直装）")
+        write_qr_file(install_page, os.path.join(ROOT, "download", "米帧盒-安装二维码.png"))
+        print("[3/5] OTA manifest + 网页链接安装二维码已生成（Safari 自动唤起直装）")
     else:
         state["native_status"] = "ipa_ready"
         state["native_status_text"] = "安装包已上传 · 请通过 TestFlight 安装"
@@ -228,7 +249,9 @@ def main():
 
     if args.deploy:
         files = [(dst, "/opt/mizhenhe/download/ipa/" + name),
-                 (STATE, "/opt/mizhenhe/server/release_state.json")]
+                 (STATE, "/opt/mizhenhe/server/release_state.json"),
+                 (os.path.join(ROOT, "download", "index.html"),
+                  "/opt/mizhenhe/download/index.html")]
         mf = os.path.join(IPA_DIR, "manifest.plist")
         if os.path.isfile(mf):
             files.append((mf, "/opt/mizhenhe/download/ipa/manifest.plist"))
@@ -236,7 +259,7 @@ def main():
         deploy(files)
         print("\n安装页:", PUBLIC_BASE + "/download")
         if can_ota:
-            print("手机扫码安装二维码就在页面上（iPhone 相机直接扫，Safari 打开更稳）。")
+            print("扫码打开的是网页链接（微信/相机都可），Safari 里会自动唤起安装。")
     else:
         print("[5/5] 未部署。加 --deploy 直接上线，或我后面统一部署。")
 

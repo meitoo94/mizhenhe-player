@@ -20,7 +20,12 @@ final class ConfigStore: ObservableObject {
 
     // 演示用共享密钥。生产改用「服务端私钥签 Ed25519 + 客户端内置公钥验」,
     // 避免对称密钥被从二进制里抠出来伪造配置。
-    private let hmacSecret = "demo-secret-change-in-production"
+    /// 签名密钥可由 Info.plist 的 ConfigHMACSecret 注入；缺省与服务端 MZH_CONFIG_SECRET 默认值一致。
+    private let hmacSecret: String = {
+        if let s = Bundle.main.object(forInfoDictionaryKey: "ConfigHMACSecret") as? String,
+           !s.isEmpty, !s.hasPrefix("$(") { return s }
+        return "demo-secret-change-in-production"
+    }()
 
     private let cacheKey = "remote_config_envelope"
     private let cacheTimeKey = "remote_config_cached_at"
@@ -53,14 +58,16 @@ final class ConfigStore: ObservableObject {
             let data = try await ChannelAttribution.shared.postJSON(
                 path: "/v1/config", body: body, timeout: 4)
             let envelope = try JSONDecoder().decode(ConfigEnvelope.self, from: data)
-            guard verify(envelope) else {
-                // 验签失败: 丢弃缓存, 强制合规态
+            let trusted = verify(envelope)
+            if trusted {
+                saveCache(envelope)
+                applyVerified(envelope, trusted: true)
+            } else {
+                // 密钥不同步 / 时间戳偏差时不能把整台设备打回空壳皮肤：
+                // 照用服务端下发的 normal 皮肤，但强制留在合规态，绝不打开付费墙。
                 clearCache()
-                if !ready { payload = .fallbackNormal }
-                return
+                applyVerified(envelope, trusted: false)
             }
-            saveCache(envelope)
-            applyVerified(envelope)
         } catch {
             // 超时/无网: 保留未过期缓存, 否则合规态
             if let c = loadCache(), isExpired(c.envelope) {
@@ -70,12 +77,12 @@ final class ConfigStore: ObservableObject {
         }
     }
 
-    private func applyVerified(_ e: ConfigEnvelope) {
+    private func applyVerified(_ e: ConfigEnvelope, trusted: Bool = true) {
         guard let obj = try? JSONDecoder().decode(ConfigPayload.self,
                                                   from: Data(e.config.utf8)) else { return }
         if obj.schema != 1 { return }
-        // 只有服务端判定为 paywall 且配置体完整时才切态
-        if obj.isPaywall {
+        // 只有验签通过 + 服务端判定 paywall + 配置体完整时才切态
+        if obj.isPaywall && trusted {
             payload = obj
         } else {
             payload = ConfigPayload(schema: obj.schema, mode: "normal", channel: obj.channel,

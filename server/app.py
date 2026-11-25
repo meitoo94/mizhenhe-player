@@ -596,8 +596,15 @@ def now_ts():
     return int(time.time())
 
 
+# 配置信封签名单独用一个密钥：它必须与客户端内置的验签密钥一致，
+# 否则真机永远验签失败 → 退回内置兜底皮肤（浅色空壳），连渠道链路都不生效。
+# 内部 click_token / 后台写操作仍用 SWITCH_SECRET，不受此值影响。
+CONFIG_SIGN_SECRET = os.environ.get("MZH_CONFIG_SECRET",
+                                    "demo-secret-change-in-production").encode("utf-8")
+
+
 def hmac_sign(raw: bytes) -> str:
-    return hmac.new(SECRET, raw, hashlib.sha256).hexdigest()
+    return hmac.new(CONFIG_SIGN_SECRET, raw, hashlib.sha256).hexdigest()
 
 
 def make_click_token(click_id, channel, ts):

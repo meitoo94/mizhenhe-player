@@ -60,7 +60,11 @@ struct RootView: View {
                             memberBanner.padding(.bottom, 78).padding(.horizontal, 12)
                         }
                     }
-                    .fullScreenCover(isPresented: $showPaywall) {
+                    .fullScreenCover(isPresented: Binding(
+                        // 正常渠道没有付费墙配置时绝不呈现空视图（旧版点会员白屏的原因）
+                        get: { showPaywall && config.payload.paywall != nil },
+                        set: { if !$0 { showPaywall = false } }
+                    )) {
                         if let p = config.payload.paywall {
                             PaywallFlow(config: p, store: config,
                                         startAtVIP: hasShownOnce) { unlocked in
