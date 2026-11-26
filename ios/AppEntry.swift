@@ -1,5 +1,6 @@
 import SwiftUI
 import Foundation
+import UIKit
 
 @main
 struct ChannelSwitchApp: App {
@@ -34,115 +35,75 @@ struct RootView: View {
     /// 付费成功才置 true; 注册/登录不算会员(录屏: 登录成功后仍反复弹充值)
     @AppStorage("is_vip_unlocked") private var vipUnlocked = false
     @AppStorage("paywall_gate_shown") private var gateShown = false
-    @State private var showPaywall = false
+    @State private var memberFromHome = false
     @State private var hasShownOnce = false
-    @State private var secondsSinceDismiss = 0
-    @State private var reopening = false
-    private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     private var normal: NormalConfig {
         config.payload.normal ?? .neutral(tabs: SkinDefaults.tabs,
                                           headline: SkinDefaults.headline)
     }
-    private var gate: GateConfig? { config.payload.paywall?.gateOrDefaults }
-    /// 付费墙层常驻: 未付费时退出按钮只静默回试看片段, 不 dismiss 这一层;
-    /// 下面的计时是异常落到合规内页时的兜底拉回(同样不弹提示)。
-    private var forced: Bool { config.isPaywall && (gate?.forces ?? false) && !vipUnlocked }
 
     var body: some View {
         Group {
             if !config.ready {
                 LaunchPlaceholder()
+            } else if config.isPaywall, let pw = config.payload.paywall, !vipUnlocked {
+                // 渠道命中后把付费墙直接作为根视图。
+                // 旧实现用 fullScreenCover：config.ready 与 showPaywall 在同一帧变化，
+                // iOS 会忽略挂在刚插入视图树上的 cover，结果是「服务端已切 paywall、
+                // 真机仍只见合规首页」，而且 isPaywall 已是 true，连诊断横幅都不显示。
+                // 直接换根视图后不依赖任何呈现时机，切渠道必定可见。
+                PaywallFlow(config: pw, store: config,
+                            startAtVIP: hasShownOnce) { unlocked in
+                    if unlocked {
+                        vipUnlocked = true
+                    } else {
+                        // 「稍后再说 / 暂不开通」静默回片段并保留进度，由 PaywallFlow 内部处理；
+                        // 走到这里只表示异常退出，重新进入直接落充值页。
+                        hasShownOnce = true
+                        gateShown = true
+                    }
+                }
             } else {
-                NormalHomeView(config: normal) { showPaywall = true }
-                    .overlay(alignment: .top) {
-                        if !config.isPaywall {
-                            Text(config.diag)
-                                .font(.caption2)
-                                .foregroundStyle(Color.white.opacity(0.72))
-                                .padding(.horizontal, 10).padding(.vertical, 4)
-                                .background(Color.black.opacity(0.42), in: Capsule())
-                                .padding(.top, 6)
-                                .allowsHitTesting(false)
-                        }
-                    }
-                    .overlay(alignment: .bottom) {
-                        if forced && (gate?.showBanner ?? false) {
-                            memberBanner.padding(.bottom, 78).padding(.horizontal, 12)
-                        }
-                    }
+                NormalHomeView(config: normal) { memberFromHome = true }
+                    .overlay(alignment: .top) { diagBanner }
                     .fullScreenCover(isPresented: Binding(
                         // 正常渠道没有付费墙配置时绝不呈现空视图（旧版点会员白屏的原因）
-                        get: { showPaywall && config.payload.paywall != nil },
-                        set: { if !$0 { showPaywall = false } }
+                        get: { memberFromHome && !vipUnlocked && config.payload.paywall != nil },
+                        set: { if !$0 { memberFromHome = false } }
                     )) {
                         if let p = config.payload.paywall {
                             PaywallFlow(config: p, store: config,
-                                        startAtVIP: hasShownOnce) { unlocked in
-                                showPaywall = false
-                                hasShownOnce = true
-                                secondsSinceDismiss = 0
-                                if unlocked {
-                                    vipUnlocked = true
-                                    reopening = false
-                                } else {
-                                    gateShown = true
-                                    // 异常落到合规内页时由计时器静默拉回充值页
-                                    reopening = forced
-                                }
+                                        startAtVIP: true) { unlocked in
+                                memberFromHome = false
+                                if unlocked { vipUnlocked = true }
                             }
                         }
                     }
             }
         }
         .mzhScreen()
-        .onReceive(tick) { _ in
-            guard reopening, forced, !showPaywall else { return }
-            secondsSinceDismiss += 1
-            let interval = max(1, Int(gate?.reopenInterval ?? 2.0))
-            if secondsSinceDismiss >= interval {
-                secondsSinceDismiss = 0
-                showPaywall = true        // 只弹充值页: PaywallFlow 的 startAtVIP=true
-            }
-        }
         .task {
             await config.bootstrap()
-            guard config.isPaywall else { return }
-            let g = config.payload.paywall?.gateOrDefaults
-            if (g?.forces ?? false) && !vipUnlocked {
-                showPaywall = true        // 冷启动: 开屏 → 试看 → 充值
-            } else if !(g?.oncePerInstall ?? true) || !gateShown {
-                showPaywall = true
-                gateShown = true
-            }
         }
     }
 
-    /// 录屏 37–40s: 合规首页底部常驻紫色「开通会员 解锁完整内容」条, 点了也进充值页
-    private var memberBanner: some View {
-        Button {
-            showPaywall = true
-            hasShownOnce = true
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "crown.fill").font(.title3)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(gate?.bannerTitle ?? "开通会员 解锁完整内容")
-                        .font(.subheadline.bold())
-                    Text("解锁完整内容与专属权益").font(.caption2)
-                }
-                Spacer()
-                Text("开通 ›").font(.subheadline.bold())
-            }
+    /// 合规首页常驻一行醒目诊断：请求次数 / 响应大小 / 验签 / 解码 / 最终形态。
+    /// 点一下复制到剪贴板，可以直接把 App 端真实状态带回后台核对。
+    private var diagBanner: some View {
+        Text("诊断 · \(config.diag) ｜ 形态 \(config.payload.mode)/\(config.payload.channel)")
+            .font(.caption2.weight(.medium))
             .foregroundStyle(.white)
-            .padding(.horizontal, 16).padding(.vertical, 12)
-            .background(
-                LinearGradient(colors: [Color(hex: "#7B3FE4"), Color(hex: "#A24BE8")],
-                               startPoint: .leading, endPoint: .trailing),
-                in: RoundedRectangle(cornerRadius: 16))
-        }
-        .buttonStyle(.plain)
-        .shadow(color: .purple.opacity(0.35), radius: 12, y: 4)
+            .lineLimit(3)
+            .multilineTextAlignment(.leading)
+            .padding(.horizontal, 12).padding(.vertical, 7)
+            .background(Color(hex: "#B4461F").opacity(0.94),
+                        in: RoundedRectangle(cornerRadius: 10))
+            .padding(.horizontal, 10).padding(.top, 8)
+            .onTapGesture {
+                UIPasteboard.general.string =
+                    "\(config.diag) | \(config.payload.mode)/\(config.payload.channel)"
+            }
     }
 }
 

@@ -57,13 +57,21 @@ final class ConfigStore: ObservableObject {
             "install_ts": KeychainStore.installTimestamp()
         ]
         // 4 秒在蜂窝网络首启时容易超时，放宽到 15 秒并重试一次；
-        // 超时以前会静默保持 normal，现在把结果写进 diag 以便一眼看出。
+        // 每一步（请求 / 验签 / 解码 / 最终形态）都写进 diag 并回传服务端，
+        // 不再出现「服务端全绿、真机却静默回首页」查不到原因的情况。
         for attempt in 1...2 {
             do {
                 let data = try await ChannelAttribution.shared.postJSON(
                     path: "/v1/config", body: body, timeout: 15)
                 let envelope = try JSONDecoder().decode(ConfigEnvelope.self, from: data)
                 let trusted = verify(envelope)
+                var decodeInfo = "解码OK"
+                do {
+                    _ = try JSONDecoder().decode(ConfigPayload.self,
+                                                 from: Data(envelope.config.utf8))
+                } catch {
+                    decodeInfo = "解码失败:" + String(describing: error)
+                }
                 if trusted {
                     saveCache(envelope)
                     applyVerified(envelope, trusted: true)
@@ -74,20 +82,40 @@ final class ConfigStore: ObservableObject {
                     clearCache()
                     applyVerified(envelope, trusted: false)
                 }
-                diag = "第\(attempt) 次请求成功 · 验签" + (trusted ? "通过" : "失败") +
-                       " · 最终形态 " + payload.mode
+                diag = "第\(attempt)次·\(data.count)B·验签" + (trusted ? "通过" : "失败") +
+                       "·" + decodeInfo + "·最终 " + payload.mode + "/" + payload.channel
+                await reportDiag(diag)
                 return
             } catch {
-                diag = "第\(attempt) 次请求失败：" + String(describing: error)
+                diag = "第\(attempt)次请求失败：" + String(describing: error)
+                await reportDiag(diag)
                 if attempt == 2 {
-                    // 超时/无网: 保留未过期缓存, 否则合规态
-                    if let c = loadCache(), isExpired(c.envelope) {
+                    // 两次都失败: 有未过期缓存就沿用它(含上次已判定的 paywall), 否则合规态
+                    if let c = loadCache(), !isExpired(c.envelope) {
+                        applyVerified(c.envelope)
+                    } else {
                         clearCache()
                         payload = .fallbackNormal
                     }
                 }
             }
         }
+    }
+
+    /// 把 App 端真实运行结果回传，验证台 /v1/app/diag 可直接查看，不用再靠截图猜。
+    private func reportDiag(_ text: String) async {
+        let body: [String: Any] = [
+            "diag": text,
+            "mode": payload.mode,
+            "channel": channel,
+            "payload_channel": payload.channel,
+            "build": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "",
+            "idfv": UIDevice.current.identifierForVendor?.uuidString ?? "",
+            "install_ts": KeychainStore.installTimestamp(),
+            "client_now": Int(Date().timeIntervalSince1970)
+        ]
+        _ = try? await ChannelAttribution.shared.postJSON(
+            path: "/v1/app/diag", body: body, timeout: 3)
     }
 
     private func applyVerified(_ e: ConfigEnvelope, trusted: Bool = true) {

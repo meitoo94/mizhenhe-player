@@ -22,7 +22,8 @@ PHP Yii2 后台 /api/* 接口上，使「用户管理 / 充值记录 / 支付配
   /v1/attribution/resolve  ->  POST /api/channel/report        安装/渠道归因上报
   /v1/config               ->  GET  /api/app/config            渠道展示配置
                               GET  /api/channel/config?qd=    渠道启停
-                              GET  /api/pay/vip-plans         VIP 套餐(后台可配)
+                              GET  /api/pay/vip-plans?scope=mizhenhe
+                                                      米帧盒VIP套餐(后台栏目可配)
   /v1/login                ->  POST /api/auth/guest            设备号一键建号/登录
                               GET  /api/auth/me                会话校验
   /v1/order                ->  POST /api/pay/vip-create       支付宝 H5 下单
@@ -67,13 +68,13 @@ LABELS = {
     "channel_report":  "安装/渠道归因上报（→ 数据统计、百度转化回传）",
     "channel_config":  "渠道启停与名称（→ 渠道管理）",
     "app_config":      "渠道展示配置（→ 渠道展示）",
-    "vip_plans":       "VIP 套餐（→ 浏览器VIP套餐 / 小说VIP套餐）",
+    "vip_plans":       "VIP 套餐（→ 米帧盒VIP套餐，独立 scope=mizhenhe）",
     "packs":           "充值套餐（→ 充值套餐配置）",
     "auth_guest":      "设备号一键建号（→ 用户管理）",
     "auth_login":      "账号密码登录（→ 用户管理）",
     "auth_me":         "会话校验（→ 用户管理）",
     "auth_delete":     "账号注销（→ 用户管理、审核 5.1.1(v)）",
-    "vip_create":      "支付宝 H5 下单（→ 充值记录、支付配置）",
+    "vip_create":      "支付宝 H5 下单（→ 充值记录、支付配置、米帧盒档位）",
     "pay_status":      "订单/会员状态（→ 充值记录）",
     "user_orders":     "我的订单（→ 充值记录）",
     "user_track":      "行为埋点（→ 数据统计）",
@@ -95,7 +96,8 @@ class Bridge:
         self.base = (os.environ.get("MZH_UPSTREAM_BASE", DEFAULT_BASE)
                      or DEFAULT_BASE).rstrip("/")
         self.enabled = os.environ.get("MZH_UPSTREAM_ENABLED", "0") == "1"
-        self.scope = os.environ.get("MZH_UPSTREAM_VIP_SCOPE", "browser") or "browser"
+        # 米帧盒专用第三套档位；小说 / 浏览器两套在售档位完全不读、不改。
+        self.scope = os.environ.get("MZH_UPSTREAM_VIP_SCOPE", "mizhenhe") or "mizhenhe"
         self.timeout = float(os.environ.get("MZH_UPSTREAM_TIMEOUT", DEFAULT_TIMEOUT))
         self.writes_test_only = os.environ.get("MZH_UPSTREAM_WRITES_TEST_ONLY", "1") == "1"
         raw = os.environ.get("MZH_UPSTREAM_TEST_CHANNELS", "mzhtest")
@@ -233,16 +235,38 @@ class Bridge:
                 price = float(price)
             except (TypeError, ValueError):
                 price = 0.0
+            origin = p.get("origin_price", p.get("origin", 0))
+            try:
+                origin = float(origin or 0)
+            except (TypeError, ValueError):
+                origin = 0.0
+            try:
+                days = int(p.get("days") or 0)
+            except (TypeError, ValueError):
+                days = 0
+            badge = str(p.get("badge") or p.get("bonus_text") or "")
+            recommend = bool(p.get("is_recommend"))
+            # 原生 App 的 VIPPackage 是严格 Codable：origin_price / perk / tag
+            # 三个字段缺任意一个，整个 ConfigPayload 都会解码失败并回落到
+            # 内置 normal 首页（表现为「绑了渠道却换不了形态」）。
+            # 后台栏目只存名称 / 天数 / 价格 / 角标，这里补齐 App 需要的展示文案。
+            perk = ("终身有效 · 解锁全部功能" if days >= 3650
+                    else ("有效期 %d 天 · 解锁全部功能" % days if days > 0
+                          else "开通即解锁全部功能"))
+            tag = badge or ("超值推荐" if recommend else "")
             packages.append({
                 "id": "yii2_" + str(pid),
                 "plan_id": pid,
                 "name": str(p.get("title") or p.get("name") or ("VIP-" + str(pid))),
                 "price": price,
                 "price_text": str(p.get("price_text") or ("¥" + format(price, ".2f"))),
-                "days": int(p.get("days") or 0),
-                "badge": str(p.get("badge") or p.get("bonus_text") or ""),
-                "recommend": bool(p.get("is_recommend")),
+                "days": days,
+                "badge": badge,
+                "recommend": recommend,
                 "source": "yii2",
+                "origin_price": origin,
+                "perk": perk,
+                "tag": tag,
             })
         return packages, d or {}
 

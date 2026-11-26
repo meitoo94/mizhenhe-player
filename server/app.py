@@ -348,6 +348,7 @@ ORDERS = {}          # order_no -> {...}
 VIP = {}             # idfv -> {level, expire_at, order_no}
 LOGINS = []          # 手机号登录记录(不含明文)
 DECISION_LOG = []    # 每次 /v1/config 的判定明细
+APP_DIAG = []        # 原生 App 上报的运行时诊断(请求/验签/解码/最终形态)
 DELETIONS = []       # 账号注销台账(只有哈希与统计, 不存手机号明文)
 
 
@@ -1487,6 +1488,14 @@ a{color:#35E0C8}</style></head><body><h1>设备已登记</h1>
         u = urlparse(self.path)
         q = parse_qs(u.query)
 
+        # ---- 原生 App 运行时诊断（验证台只读查看） ----------------------------
+        if u.path == "/v1/app/diag":
+            with LOCK:
+                rows = list(APP_DIAG[-30:])
+            self._send(200, {"ok": True, "items": rows},
+                       {"Cache-Control": "no-store"})
+            return
+
         # ---- 手机时钟 / App 请求实况（验证台诊断，只读） ----------------------
         if u.path == "/v1/clock/status":
             ip = norm_ip(client_ip(self))
@@ -1883,6 +1892,26 @@ a{{color:{primary};text-decoration:none}}
             self._feedback_upload()
             return
         b = self._body()
+
+        # ---- 0c. 原生 App 运行时诊断上报（build 5 起，验证台直接可读） --------
+        if u.path == "/v1/app/diag":
+            rec = {
+                "ts": now_ts(),
+                "ip": norm_ip(client_ip(self)),
+                "diag": str(b.get("diag") or "")[:500],
+                "mode": b.get("mode"),
+                "channel": b.get("channel"),
+                "payload_channel": b.get("payload_channel"),
+                "build": b.get("build"),
+                "idfv": str(b.get("idfv") or "")[:64],
+                "install_ts": b.get("install_ts"),
+                "client_now": b.get("client_now"),
+            }
+            with LOCK:
+                APP_DIAG.append(rec)
+            append_log("app_diag", rec)
+            self._send(200, {"ok": True}, {"Cache-Control": "no-store"})
+            return
 
         # ---- 0b. 手机时钟上报（验证台自动调用，只影响测试渠道的 issued_at） ----
         if u.path == "/v1/clock/report":

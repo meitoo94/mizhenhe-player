@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-26 02:22",
+  "updated_at": "2026-11-26 03:56",
   "mainline": {
     "done": 4,
     "total": 8,
@@ -94,12 +94,12 @@
     "total": 7,
     "next": {
       "n": 7,
-      "title": "重新扫码覆盖安装功能补齐版",
+      "title": "重新扫码覆盖安装体验优化版",
       "owner": "你",
-      "action": "打开 https://app.kqi.ink/mzh/download → 扫安装二维码 → Safari 打开 → 点安装（覆盖旧包，片库数据保留）",
+      "action": "打开 https://app.kqi.ink/mzh/download → 扫安装二维码 → Safari 打开 → 点安装",
       "target": "（手机）",
       "status": "todo",
-      "hint": "第一次装需在 设置 → 通用 → VPN与设备管理 里信任开发者；已信任过就不用再点。"
+      "hint": "build 3 已递增；已信任过开发者无需再点信任，片库数据保留。"
     },
     "steps": [
       {
@@ -166,8 +166,8 @@
         "hint": ""
       }
     ],
-    "name": "Ad Hoc 快线 · 功能补齐版已出包",
-    "desc": "本地片库、播放器工具箱、创作、账户全部可用；手机重新扫码覆盖安装即可。"
+    "name": "Ad Hoc 快线 · 体验优化版已出包（build 3）",
+    "desc": "深色主题回归、登录同意勾选、反馈中心已对接 /site 后台；重新扫码覆盖安装即可。"
   },
   "materials": {
     "team_id": "25F879952L",

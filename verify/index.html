@@ -557,6 +557,15 @@ async function appDiag(){
     html += "<br><br><span style='color:var(--muted)'>若上方「验签 / 手机时钟偏差 / App 解码兼容 / App 切态预判」全是绿，App 却仍是首页，" +
       "则属于客户端 4 秒请求超时或二进制旧逻辑，需要重新出一次包（渠道绑定不受影响）。</span>";
   }catch(_){}
+  try{
+    const r = await fetch(API("/v1/app/diag"), {cache:"no-store"}).then(x=>x.json());
+    const rows = (r.items||[]).slice(-3).reverse();
+    html += "<br><br><b>App 自己上报的运行结果（build 5 起）</b>：<br>" + (rows.length
+      ? rows.map(x => "<code>" + new Date(x.ts*1000).toLocaleTimeString() + "</code> · b" +
+          esc(x.build) + " · <b>" + esc(x.mode) + "/" + esc(x.payload_channel) + "</b> · " +
+          esc(x.diag)).join("<br>")
+      : "还没有 App 上报（需覆盖安装 build 5 后彻底重启一次 App）。");
+  }catch(_){}
   showMsg(el, html, "info");
 }
 

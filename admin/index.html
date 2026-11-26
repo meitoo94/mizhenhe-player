@@ -191,9 +191,15 @@ pre{background:#080D1C;border:1px solid var(--line);border-radius:10px;padding:1
       </section>
 
       <section class="card">
-        <h2>④ 套餐展示与价格</h2>
-        <div class="hint">勾选决定该渠道显示哪几档；价格直接可改，保存后下单接口按新价格走。</div>
-        <div id="pkgPanel"></div>
+        <h2>④ 套餐展示与价格（已停用 · 不用再配）</h2>
+        <div style="border-left:3px solid #ffb454;background:rgba(255,180,84,.08);padding:10px 14px;border-radius:0 8px 8px 0;font-size:12px;line-height:1.8">
+          原生 App 和 H5 演示的 VIP 档位，现在统一读 Yii2 后台
+          <b>「支付相关管理 → <a href="https://app.kqi.ink/site/vip/index?scope=mizhenhe" target="_blank" style="color:var(--primary,#35E0C8)">米帧盒VIP套餐</a>」</b>。
+          以后只在那一个栏目里改名称 / 折扣价 / 划线价 / 上下架 / 排序，保存后 App 刷新即生效，不用重新出包。<br>
+          在这里勾选或改价<b>不再影响任何一端</b>；本区域编辑控件已隐藏，仅保留历史数据结构。
+          核对请开 <a href="https://app.kqi.ink/mzh/verify" target="_blank" style="color:var(--primary,#35E0C8)">渠道配置验证台</a>。
+        </div>
+        <div id="pkgPanel" style="display:none"></div>
       </section>
 
       <section class="card">
@@ -232,7 +238,7 @@ pre{background:#080D1C;border:1px solid var(--line);border-radius:10px;padding:1
     <section class="card" style="margin-top:16px">
       <h2>⑨ 原后台接口接入（app.kqi.ink/site · PHP Yii2）</h2>
       <div class="hint">米帧盒的 <code>/v1/*</code> 已桥接到你原有 Yii2 后台的 <code>/api/*</code>：
-        注册进「用户管理」、下单进「充值记录」、档位读「浏览器VIP套餐」、支付走「支付配置」、
+        注册进「用户管理」、下单进「充值记录」、档位读独立的「<a href="https://app.kqi.ink/site/vip/index?scope=mizhenhe" target="_blank" style="color:var(--primary,#35E0C8)">米帧盒VIP套餐</a>」、支付走「支付配置」、
         安装归因进「数据统计 / 百度转化回传」、注销同步「用户管理」。
         <b>写操作默认只放行新建测试渠道</b>，跑量的 bbdd* / mt* / default 一个都不碰；
         上游异常自动回落米帧盒本地实现。</div>

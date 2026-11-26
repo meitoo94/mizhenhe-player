@@ -23,7 +23,7 @@ command -v openssl >/dev/null || die "缺少 openssl"
 
 echo "== 1. 目录与运行用户 =="
 id mizhenhe >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin mizhenhe
-mkdir -p "$APP"/{server/profiles,server/state,admin,demo,landing,download/ipa,signing,media,evidence,deploy/signing}
+mkdir -p "$APP"/{server/profiles,server/state,admin,demo,landing,download/ipa,signing,media,evidence,verify,deploy/signing}
 ok "目录 $APP 就绪，运行用户 mizhenhe"
 
 echo "== 2. 同步程序文件（活数据不覆盖）=="
@@ -34,6 +34,8 @@ cp "$STAGE/demo/index.html"                     "$APP/demo/index.html"
 cp "$STAGE/landing/index.html"                  "$APP/landing/index.html"
 cp "$STAGE/download/index.html"                 "$APP/download/index.html"
 cp "$STAGE/signing/index.html"                  "$APP/signing/index.html"
+cp "$STAGE/verify/index.html"                   "$APP/verify/index.html"
+for f in "$STAGE"/verify/qr-*.png; do [ -f "$f" ] && cp "$f" "$APP/verify/"; done
 # 材料进度由本地 deploy/signing/next.py 体检生成，每次部署同步最新结果
 [ -f "$STAGE/server/signing_progress.json" ] && \
   cp "$STAGE/server/signing_progress.json" "$APP/server/signing_progress.json" || true
