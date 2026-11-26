@@ -433,10 +433,7 @@ final class PlayerModel: ObservableObject {
         return "播放器报告错误（\(code)），可改用系统播放器打开"
     }
 
-    private static func fourcc(_ v: FourCharCode) -> String {
-        let b: [UInt8] = [UInt8((v >> 24) & 255), UInt8((v >> 16) & 255),
-                          UInt8((v >> 8) & 255), UInt8(v & 255)]
-        let raw = String(bytes: b, encoding: .ascii) ?? "?"
+    private static func codecName(_ raw: String) -> String {
         switch raw {
         case "hvc1", "hev1": return "HEVC/H.265"
         case "avc1": return "H.264"
@@ -462,7 +459,13 @@ final class PlayerModel: ObservableObject {
                 let sz = t.naturalSize
                 var codec = "未知编码"
                 if let f = t.formatDescriptions.first {
-                    codec = Self.fourcc(CMFormatDescriptionGetMediaSubType(f))
+                    // formatDescriptions 是 [Any]；用描述文本读 FourCC，
+                    // 避开 CMFormatDescription 的 CF 类型转换（Swift 会直接报错）。
+                    let desc = String(describing: f)
+                    for raw in ["hvc1", "hev1", "avc1", "dvh1", "dvhe"] where desc.contains(raw) {
+                        codec = Self.codecName(raw)
+                        break
+                    }
                 }
                 detail = " · \(codec) · \(Int(sz.width))×\(Int(sz.height)) · \(Int(t.nominalFrameRate.rounded()))fps"
             }
