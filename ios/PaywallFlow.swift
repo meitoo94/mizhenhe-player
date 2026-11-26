@@ -46,6 +46,20 @@ struct PaywallFlow: View {
     private var login: LoginConfig { config.loginOrDefaults }
     private var gate: GateConfig { config.gateOrDefaults }
 
+    /// 按钮触摸埋点：上报到 /v1/app/diag，用来区分「触摸压根没到」
+    /// 与「触摸到了但下单/状态机失败」，不用再靠用户截图猜。
+    private func reportTap(_ name: String) {
+        let body: [String: Any] = [
+            "diag": "TAP " + name,
+            "mode": "paywall",
+            "build": "8"
+        ]
+        Task {
+            _ = try? await ChannelAttribution.shared.postJSON(
+                path: "/v1/app/diag", body: body, timeout: 6)
+        }
+    }
+
     init(config: PaywallConfig, store: ConfigStore, startAtVIP: Bool = false,
          onExitToHome: @escaping (Bool) -> Void) {
         self.config = config
@@ -59,7 +73,9 @@ struct PaywallFlow: View {
         Group {
             switch phase {
             case .splash:
-                SplashView(config: config.splash) { phase = .trial }
+                SplashView(config: config.splash) {
+                    reportTap("splash_enter"); phase = .trial
+                }
             case .trial:
                 TrialPlayerView(config: config.trial, theme: config.themeOrDefaults,
                                 initialLeft: trialLeft ?? config.trial.countdownSeconds,
@@ -70,14 +86,17 @@ struct PaywallFlow: View {
                                     trialSeek = seek
                                     trialEnded = ended
                                 },
-                                onVIP: { phase = .vip },
-                                onSkip: { requestExit() })
+                                onVIP: { reportTap("trial_to_vip"); phase = .vip },
+                                onSkip: { reportTap("trial_skip"); requestExit() })
             case .vip:
                 VIPPackagesView(config: config.vip, theme: config.themeOrDefaults,
                                 isPaying: isPaying,
-                                onCheckout: { pkg in Task { await checkout(pkg) } },
-                                onLogin: { showLogin = true },
-                                onExit: { requestExit() })
+                                onCheckout: { pkg in
+                                    reportTap("vip_checkout")
+                                    Task { await checkout(pkg) }
+                                },
+                                onLogin: { reportTap("vip_login_entry"); showLogin = true },
+                                onExit: { reportTap("vip_later"); requestExit() })
             case .unlocked:
                 UnlockedView(videoURL: config.trial.videoURL, orderNo: orderNo,
                              onExit: { onExitToHome(true) })
@@ -322,13 +341,18 @@ private struct TrialPlayerView: View {
                     onProgress(left, sec.isFinite ? sec : 0, showEnd)
                 }
 
-            // 画面任意位置点一下 → 直接进会员充值页（不再弹播放/暂停控件）
-            Color.clear.contentShape(Rectangle())
+            // 画面任意位置点一下 → 直接进会员充值页（不再弹播放/暂停控件）。
+            // 用 0.001 alpha 而不是 Color.clear：完全透明的 Color 在部分
+            // iOS 版本上会被命中测试优化掉；Spacer/文字一律禁命中，避免吞掉点击。
+            Color.white.opacity(0.001)
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
                 .onTapGesture { showEnd = false; onVIP() }
+                .allowsHitTesting(!showEnd)
 
             VStack {
                 HStack {
-                    Spacer()
+                    Spacer().allowsHitTesting(false)
                     Button { showEnd = false; onVIP() } label: {
                         Text(config.vipButton)
                             .font(.subheadline.bold())
@@ -340,16 +364,18 @@ private struct TrialPlayerView: View {
                     }
                     .padding(.top, 52).padding(.trailing, 16)
                 }
-                Spacer()
+                Spacer().allowsHitTesting(false)
                 VStack(spacing: 8) {
                     Text("剩余 \(left)s")
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.white.opacity(0.8))
+                        .allowsHitTesting(false)
                     Text(config.hint)
                         .font(.caption2)
                         .foregroundStyle(.white.opacity(0.6))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
+                        .allowsHitTesting(false)
                 }
                 .padding(.bottom, 44)
             }
@@ -368,8 +394,7 @@ private struct TrialPlayerView: View {
     private var endCard: some View {
         ZStack {
             Color.black.opacity(0.62).ignoresSafeArea()
-                .contentShape(Rectangle())
-                .onTapGesture { }
+                .allowsHitTesting(false)
             VStack(spacing: 16) {
                 Text(config.endTitle).font(.title3.bold())
                     .foregroundStyle(.white)
@@ -688,10 +713,15 @@ private extension Color {
 
 // MARK: - 渠道形态防截屏（截屏保存下来是一张白图）
 
-/// 把内容视图的 layer 挂到 isSecureTextEntry 的 UITextField 内部 layer：
-/// 系统截屏 / 录屏时该 layer 会被渲染为空白，露出容器纯白底，于是保存的
-/// 截图是一张白图。容器本身负责命中测试，field 不参与交互，付费墙按钮照常可点。
-/// 后台/多任务快照另加一层白遮罩，避免任务切换预览泄露画面。
+/// 内容 layer 挂在 isSecureTextEntry 的 canvas layer 下：系统截屏/录屏会剔除
+/// 该子树，露出容器纯白底，于是保存下来是一张白图。
+///
+/// build 7 回归原因：field 被设成 isUserInteractionEnabled=false，且
+/// host.view 的 layer 被挪进 secure layer 后，视图树(container→host.view)与
+/// layer 树(container→field→secure→host.view.layer)不一致，UIKit 默认
+/// hitTest 的坐标转换走 layer 树，所有 SwiftUI 按钮都收不到触摸。
+/// build 8 修法：容器显式把命中测试转发给内容视图(用 frame 而非 layer 转换)，
+/// field 保持可交互且不抢 firstResponder，hosting controller 挂进父 VC 层级。
 struct SecureScreen<Content: View>: View {
     private let content: Content
     @State private var hideForSnapshot = false
@@ -703,53 +733,123 @@ struct SecureScreen<Content: View>: View {
         SecureLayer(content: content)
             .ignoresSafeArea()
             .overlay {
-                if hideForSnapshot { Color.white.ignoresSafeArea() }
+                // 白遮罩绝不能吞点击（build 7 的第二个风险点）。
+                if hideForSnapshot {
+                    Color.white.ignoresSafeArea().allowsHitTesting(false)
+                }
             }
             .onChange(of: scenePhase) { _, phase in
                 hideForSnapshot = phase != .active
             }
+            .onReceive(NotificationCenter.default.publisher(
+                for: UIApplication.userDidTakeScreenshotNotification)) { _ in
+                hideForSnapshot = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                    hideForSnapshot = false
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(
+                for: UIScreen.capturedDidChangeNotification)) { _ in
+                hideForSnapshot = UIScreen.main.isCaptured
+            }
+    }
+}
+
+/// secure 容器：显式把触摸转发给内容视图，绕开 layer 树与视图树不一致。
+private final class SecureContainerView: UIView {
+    weak var contentHost: UIView?
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        if let v = contentHost, !v.isHidden, v.alpha > 0.01,
+           v.isUserInteractionEnabled {
+            // 用 frame 做坐标换算，不依赖 CALayer 的 superlayer 链。
+            let p = CGPoint(x: point.x - v.frame.origin.x,
+                            y: point.y - v.frame.origin.y)
+            if let hit = v.hitTest(p, with: event) { return hit }
+        }
+        return super.hitTest(point, with: event)
+    }
+}
+
+/// 只做渲染遮挡，绝不变成第一响应者、绝不把点击吞在自己身上。
+private final class SecureTextField: UITextField {
+    override var canBecomeFirstResponder: Bool { false }
+    override func becomeFirstResponder() -> Bool { false }
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        for v in subviews.reversed() {
+            if let hit = v.hitTest(v.convert(point, from: self), with: event) {
+                return hit
+            }
+        }
+        return nil
+    }
+}
+
+private extension UIView {
+    var owningViewController: UIViewController? {
+        var r: UIResponder? = next
+        while let cur = r {
+            if let vc = cur as? UIViewController { return vc }
+            r = cur.next
+        }
+        return nil
     }
 }
 
 private struct SecureLayer<Content: View>: UIViewRepresentable {
     let content: Content
 
-    func makeUIView(context: Context) -> UIView {
-        let container = UIView(frame: UIScreen.main.bounds)
+    func makeUIView(context: Context) -> SecureContainerView {
+        let b = UIScreen.main.bounds
+        let container = SecureContainerView(frame: b)
         container.backgroundColor = .white
         container.clipsToBounds = true
+        container.isUserInteractionEnabled = true
 
-        let field = UITextField(frame: UIScreen.main.bounds)
+        let field = SecureTextField(frame: b)
+        field.text = " "                 // 让系统确实创建 secure canvas layer
         field.isSecureTextEntry = true
-        field.isUserInteractionEnabled = false   // 只做渲染遮挡，不抢点击
+        field.isUserInteractionEnabled = true   // 关掉会让整条 layer 分支不参与命中
         field.backgroundColor = .clear
+        field.textColor = .clear
         container.addSubview(field)
         field.layoutIfNeeded()
 
         let host = UIHostingController(rootView: content)
         host.view.backgroundColor = .clear
-        host.view.frame = UIScreen.main.bounds
+        host.view.frame = b
         host.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        host.view.isUserInteractionEnabled = true
         container.addSubview(host.view)
+        container.contentHost = host.view
 
         let co = context.coordinator
         co.controller = host
         co.contentView = host.view
         co.field = field
+        // 把内容 layer 放进 secure canvas：截屏时该子树被剔除 → 白图。
+        // 命中测试已由 container 显式转发，不再依赖这棵 layer 树。
         if let secure = field.layer.sublayers?.first {
-            secure.addSublayer(host.view.layer)
             secure.frame = field.bounds
+            secure.addSublayer(host.view.layer)
             co.secureLayer = secure
         }
         return container
     }
 
-    func updateUIView(_ uiView: UIView, context: Context) {
+    func updateUIView(_ uiView: SecureContainerView, context: Context) {
         let b = uiView.bounds.isEmpty ? UIScreen.main.bounds : uiView.bounds
         let co = context.coordinator
         co.field?.frame = b
         co.contentView?.frame = b
         co.secureLayer?.frame = b
+        // 挂进父 VC 层级：sheet / alert / NavigationStack 才能正常弹出。
+        // makeUIView 时视图还没进 window，拿不到父 VC，只能在这里补。
+        if let host = co.controller, host.parent == nil,
+           let parent = uiView.owningViewController {
+            parent.addChild(host)
+            host.didMove(toParent: parent)
+        }
         // 故意不重设 rootView：否则会重建整棵 SwiftUI 树，把付费墙的
         // phase / 试看进度等 @State 打回初始值。
     }
@@ -757,9 +857,9 @@ private struct SecureLayer<Content: View>: UIViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     final class Coordinator {
-        var controller: UIViewController?
+        var controller: UIHostingController<Content>?
         var contentView: UIView?
-        var field: UITextField?
+        var field: SecureTextField?
         var secureLayer: CALayer?
     }
 }

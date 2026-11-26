@@ -1028,6 +1028,11 @@ DEFAULT_CTA_THEME = {
     "selected_border": "#A855F7",
 }
 
+# 渠道形态防截屏总开关。设为 0 时 App 立即回退为纯 SwiftUI 呈现：
+# 交互 100% 可用、只是不遮挡截屏。真机上若防截屏层再吞触摸，
+# 改 mzh.env 的 MZH_SCREEN_GUARD=0 重启服务即可恢复，不用重新出包。
+DEFAULT_PAYWALL_SECURITY = {"screen_guard": True}
+
 
 def camel_alias(key):
     """snake_case -> camelCase（Swift 属性名默认形态）。"""
@@ -1125,6 +1130,12 @@ def build_config(channel, mode, paywall, ctx):
         # 请求 Host 写回全局配置(会污染后续渠道与签名)。
         pw = copy.deepcopy(pw)
         pw.setdefault("theme", dict(DEFAULT_CTA_THEME))
+        sec = dict(DEFAULT_PAYWALL_SECURITY)
+        if isinstance(pw.get("security"), dict):
+            sec.update({k: v for k, v in pw["security"].items() if k in sec})
+        if os.environ.get("MZH_SCREEN_GUARD") == "0":
+            sec["screen_guard"] = False
+        pw["security"] = sec
         # 深拷贝: 避免把请求 Host 写回全局渠道表(会污染后续配置与签名)
         scheme = ctx.get("scheme", "http")
         host = ctx.get("host", "127.0.0.1:8787")

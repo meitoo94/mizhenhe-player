@@ -257,10 +257,20 @@ struct PaywallConfig: Codable {
     let login: LoginConfig?
     /// CTA 高对比配色由后台下发；老配置没带时用内置深色兜底。
     let theme: PaywallTheme?
+    /// 防截屏总开关：后台可一键关掉 secure layer，交互立刻恢复。
+    let security: PaywallSecurity?
 
     var gateOrDefaults: GateConfig { gate ?? .defaults }
     var loginOrDefaults: LoginConfig { login ?? .defaults }
     var themeOrDefaults: PaywallTheme { theme ?? .defaults }
+    var screenGuard: Bool { security?.screenGuard ?? true }
+}
+
+struct PaywallSecurity: Codable {
+    let screenGuard: Bool
+    enum CodingKeys: String, CodingKey {
+        case screenGuard = "screen_guard"
+    }
 }
 
 /// 付费墙 CTA 配色：深底 + 亮字 + 发光描边，后台「渠道展示配置」可改。
