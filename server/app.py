@@ -2826,9 +2826,17 @@ a{{color:{primary};text-decoration:none}}
             contact = str(b.get("contact") or "").strip()[:128]
             images = [str(x) for x in (b.get("images") or [])
                       if str(x).startswith("/uploads/feedback/")][:9]
-            if not types or not content:
-                self._send(400, {"ok": False, "error": "invalid",
-                                 "msg": "请选择问题类型并填写描述"})
+            # 与 App 端一致的下限：后台只限制最多 2000 字，这里补一条
+            # 「至少 5 个字」并明确还差几个字，避免用户写完点不动却没提示。
+            # 返回 200 + ok:false，让 App 直接展示 msg，而不是抛 HTTP 错误。
+            if not types:
+                self._send(200, {"ok": False, "error": "invalid",
+                                 "msg": "请先选择至少 1 个问题类型"})
+                return
+            if len(content) < 5:
+                self._send(200, {"ok": False, "error": "invalid",
+                                 "msg": "问题描述至少 5 个字，还差 %d 字（当前 %d 字）"
+                                        % (5 - len(content), len(content))})
                 return
             token = feedback_token(dev)
             if not token:

@@ -1,7 +1,7 @@
 {
   "app_name": "米帧盒播放器",
   "version": "1.0",
-  "build": "8",
+  "build": "9",
   "bundle_id": "com.mizhenhe.player",
   "native_status": "ipa_ready",
   "native_status_text": "安装包已上传 · 手机扫码即可安装",

@@ -59,16 +59,15 @@ struct MainTabs: View {
         }
         .sheet(isPresented: $showPicker) {
             VideoPicker { urls in
-                let n = store.importFiles(urls)
-                notify(n > 0 ? "已导入 \(n) 个视频并完成端侧归类" : "导入失败")
+                // 后台导入 + 可见进度；完成后才写进片仓，不再卡住界面。
+                store.importFilesAsync(urls)
                 selection = 1
             }
         }
         .fileImporter(isPresented: $showFiles, allowedContentTypes: [.movie, .video, .mpeg4Movie],
                       allowsMultipleSelection: true) { result in
             guard case .success(let urls) = result else { return }
-            let n = store.importFiles(urls)
-            notify(n > 0 ? "已导入 \(n) 个视频并完成端侧归类" : "导入失败")
+            store.importFilesAsync(urls)
             selection = 1
         }
         .fullScreenCover(isPresented: Binding(get: { !queue.isEmpty },
@@ -84,6 +83,11 @@ struct MainTabs: View {
                     .padding(.top, 12)
             }
         }
+        .overlay {
+            ImportProgressCard(stage: store.importStage) {
+                store.dismissImportResult()
+            }
+        }
     }
 
     private func open(_ v: LocalVideo, _ t: Toolbox?) {
@@ -94,6 +98,67 @@ struct MainTabs: View {
     private func notify(_ s: String) {
         toast = s; showToast = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) { showToast = false }
+    }
+}
+
+// MARK: - 导入进度卡：大文件复制 / 封面 / 归类期间给明确状态
+
+private struct ImportProgressCard: View {
+    let stage: MediaImportStage
+    let dismiss: () -> Void
+
+    var body: some View {
+        Group {
+            switch stage {
+            case .idle:
+                EmptyView()
+            case .running(let done, let total, let text):
+                ZStack {
+                    Color.black.opacity(0.5).ignoresSafeArea()
+                    VStack(spacing: 12) {
+                        ProgressView().tint(MZH.primary).scaleEffect(1.2)
+                        Text("正在导入视频").font(.headline).foregroundStyle(MZH.text)
+                        Text("已完成 \(done)/\(total) · \(text)")
+                            .font(.caption).foregroundStyle(MZH.muted)
+                            .multilineTextAlignment(.center)
+                        Text("大文件需要一点时间。导入完成的视频才会出现在片仓，\n期间请先不要点开视频。")
+                            .font(.caption2).foregroundStyle(MZH.muted)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(22).frame(maxWidth: 290)
+                    .background(MZH.surface, in: RoundedRectangle(cornerRadius: 18))
+                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(MZH.line, lineWidth: 1))
+                }
+            case .finished(let ok, let failed):
+                ZStack {
+                    Color.black.opacity(0.5).ignoresSafeArea()
+                    VStack(spacing: 12) {
+                        Image(systemName: ok > 0 ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                            .font(.largeTitle)
+                            .foregroundStyle(ok > 0 ? MZH.green : MZH.warn)
+                        Text(ok > 0 ? "已导入 \(ok) 个视频" : "没有可导入的视频")
+                            .font(.headline).foregroundStyle(MZH.text)
+                        if failed > 0 {
+                            Text("\(failed) 个文件没能读取：可能还在 iCloud 下载，或格式不受支持。请先在「照片」App 把视频下载到本机，再重新导入。")
+                                .font(.caption).foregroundStyle(MZH.warn)
+                                .multilineTextAlignment(.center)
+                        } else {
+                            Text("封面与端侧归类已完成，现在点开就能播放。")
+                                .font(.caption).foregroundStyle(MZH.muted)
+                        }
+                        Button("知道了", action: dismiss)
+                            .font(.subheadline.bold())
+                            .foregroundStyle(MZH.onPrimary)
+                            .padding(.horizontal, 26).padding(.vertical, 9)
+                            .background(MZH.primary, in: Capsule())
+                            .padding(.top, 4)
+                    }
+                    .padding(22).frame(maxWidth: 300)
+                    .background(MZH.surface, in: RoundedRectangle(cornerRadius: 18))
+                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(MZH.line, lineWidth: 1))
+                }
+            }
+        }
     }
 }
 

@@ -164,6 +164,15 @@ private struct FeedbackImage: Identifiable {
     let jpeg: Data
 }
 
+/// 反馈描述最少字数：后台只限制上限 2000，这里是 App 本地下限，
+/// 必须实时告诉用户还差多少字，不能让按钮无声地灰着。
+private let kFeedbackMinChars = 5
+
+private enum FeedbackField: Hashable {
+    case content
+    case contact
+}
+
 // MARK: - 页面
 
 struct FeedbackCenterView: View {
@@ -182,10 +191,27 @@ struct FeedbackCenterView: View {
     @State private var resultOK = false
     @State private var pendingLock = false
     @State private var expandedFAQ: String?
+    @FocusState private var focus: FeedbackField?
 
-    private var canSubmit: Bool {
-        !selected.isEmpty && text.trimmingCharacters(in: .whitespacesAndNewlines).count >= 5
-        && text.count <= 2000 && !busy && !pendingLock
+    /// 按钮始终可点（提交动作里做校验并给出明确提示），
+    /// 只有正在提交 / 客服未回复这两种状态才真正禁用。
+    private var canSubmit: Bool { !busy && !pendingLock }
+
+    private var trimmedText: String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// 未满足提交条件的原因，常驻显示在输入框与提交按钮旁边。
+    private var fillHint: String? {
+        if busy { return nil }
+        if pendingLock { return "客服回复后可再次提交" }
+        if selected.isEmpty { return "请先选择至少 1 个问题类型" }
+        let n = trimmedText.count
+        if n < kFeedbackMinChars {
+            return "问题描述至少 \(kFeedbackMinChars) 个字，还差 \(kFeedbackMinChars - n) 字"
+        }
+        if text.count > 2000 { return "内容超过 2000 字，请精简后再提交" }
+        return nil
     }
 
     var body: some View {
@@ -208,13 +234,15 @@ struct FeedbackCenterView: View {
                         .font(.caption2).foregroundStyle(MZH.muted)
                         .opacity(selected.isEmpty ? 0 : 1)
 
-                    title("2 · 问题描述", hint: "\(text.count) / 2000")
+                    title("2 · 问题描述",
+                          hint: "至少 \(kFeedbackMinChars) 字 · \(text.count) / 2000")
                     ZStack(alignment: .topLeading) {
                         TextEditor(text: $text)
                             .frame(minHeight: 140)
                             .padding(10)
                             .scrollContentBackground(.hidden)
                             .background(MZH.surface2, in: RoundedRectangle(cornerRadius: 14))
+                            .focused($focus, equals: .content)
                         if text.isEmpty {
                             Text("在哪一步出问题？当时在做什么？期望的结果是什么？")
                                 .font(.caption).foregroundStyle(MZH.muted)
@@ -223,6 +251,17 @@ struct FeedbackCenterView: View {
                         }
                     }
                     .overlay(RoundedRectangle(cornerRadius: 14).stroke(MZH.line, lineWidth: 1))
+                    // 字数下限常驻提示：不足时直接写出「还差几个字」，
+                    // 不再出现写完了却点不动、也没有任何说明的情况。
+                    HStack(spacing: 6) {
+                        Image(systemName: trimmedText.count >= kFeedbackMinChars
+                              ? "checkmark.circle.fill" : "info.circle.fill")
+                        Text(trimmedText.count >= kFeedbackMinChars
+                             ? "已输入 \(trimmedText.count) 字，满足提交要求"
+                             : "至少 \(kFeedbackMinChars) 个字，还差 \(kFeedbackMinChars - trimmedText.count) 字（当前 \(trimmedText.count) 字）")
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(trimmedText.count >= kFeedbackMinChars ? MZH.green : MZH.warn)
                     if text.count > 2000 {
                         Text("内容超过 2000 字，请精简后再提交")
                             .font(.caption).foregroundStyle(MZH.danger)
@@ -271,11 +310,24 @@ struct FeedbackCenterView: View {
                     TextField("手机号或邮箱，方便客服回复你", text: $contact)
                         .keyboardType(.emailAddress)
                         .textInputAutocapitalization(.never)
+                        .focused($focus, equals: .contact)
                         .padding(12)
                         .background(MZH.surface2, in: RoundedRectangle(cornerRadius: 12))
 
                     privacyCard
                     submitButton
+                    if let h = fillHint {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.circle.fill")
+                            Text(h)
+                        }
+                        .font(.caption2).foregroundStyle(MZH.warn)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    } else if !busy {
+                        Text("类型与描述已填好，可以提交").font(.caption2)
+                            .foregroundStyle(MZH.muted)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                     if !result.isEmpty { resultCard }
 
                     title("常见问题", hint: "点开看答案")
@@ -301,6 +353,22 @@ struct FeedbackCenterView: View {
                     .padding(.bottom, 30)
                 }
                 .padding(16)
+            }
+            // 键盘三件套：上下滑动跟手收起、键盘上「完成」按钮、点空白处收起。
+            // TextEditor 放在 ScrollView 里时默认键盘会一直顶着下半屏，
+            // 用户既看不到提交按钮也点不到别处，这里全部补上。
+            .scrollDismissesKeyboard(.interactively)
+            .background(
+                Color.clear.contentShape(Rectangle())
+                    .onTapGesture { focus = nil }
+            )
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("完成") { focus = nil }
+                        .font(.subheadline.bold())
+                        .foregroundStyle(MZH.primary)
+                }
             }
             .navigationTitle("帮助与反馈")
             .background(MZH.bg.ignoresSafeArea())
@@ -452,13 +520,17 @@ struct FeedbackCenterView: View {
     }
 
     private func submitFeedback() async {
+        await MainActor.run { focus = nil }
         guard !selected.isEmpty else {
-            await MainActor.run { resultOK = false; result = "请先选择至少一个问题类型" }
+            await MainActor.run { resultOK = false; result = "请先选择至少 1 个问题类型" }
             return
         }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count >= 5 else {
-            await MainActor.run { resultOK = false; result = "请再具体描述一下遇到的问题（至少 5 个字）" }
+        guard trimmed.count >= kFeedbackMinChars else {
+            await MainActor.run {
+                resultOK = false
+                result = "问题描述至少 \(kFeedbackMinChars) 个字，还差 \(kFeedbackMinChars - trimmed.count) 字（当前 \(trimmed.count) 字）"
+            }
             return
         }
         // 先快照到本地值，避免异步过程中反复读 @State

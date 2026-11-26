@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import AVKit
 import CoreImage
 import UIKit
 
@@ -206,31 +207,127 @@ enum Exporter {
 
 // MARK: - 播放器
 
+/// 系统播放器兜底：自定义 AVPlayerLayer 出不来画面时，
+/// 交给 AVPlayerViewController 再渲染一次，用户不至于只能退出。
+private struct SystemPlayerScreen: View {
+    let player: AVPlayer
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            SystemPlayerController(player: player).ignoresSafeArea()
+            Button { dismiss() } label: {
+                Image(systemName: "xmark.circle.fill").font(.title)
+                    .foregroundStyle(.white).padding()
+            }
+        }
+        .background(Color.black.ignoresSafeArea())
+    }
+}
+
+private struct SystemPlayerController: UIViewControllerRepresentable {
+    let player: AVPlayer
+    func makeUIViewController(context: Context) -> AVPlayerViewController {
+        let vc = AVPlayerViewController()
+        vc.player = player
+        return vc
+    }
+    func updateUIViewController(_ uiViewController: AVPlayerViewController,
+                                context: Context) {}
+}
+
+/// 播放器加载状态：以前只管 play()，asset 还没 ready 或解码失败时
+/// 屏幕就是一片纯黑，用户只能猜「是不是还在导入」。现在每一步都可见。
+enum PlayerLoadState: Equatable {
+    case loading
+    case buffering
+    case ready
+    case failed(String)
+}
+
 final class PlayerModel: ObservableObject {
     let player = AVPlayer()
     let asset: AVURLAsset
     let duration: Double
     @Published var playing = false
+    @Published var loadState: PlayerLoadState = .loading
+
+    private var itemObservation: NSKeyValueObservation?
+    private var timeObservation: NSKeyValueObservation?
+    private var lastGrade: GradePreset?
+    private var lastSegments: [TempoSegment] = []
+    private var loadToken = UUID()
 
     init(url: URL) {
         asset = AVURLAsset(url: url)
         duration = CMTimeGetSeconds(asset.duration)
         player.volume = 1
+        timeObservation = player.observe(\.timeControlStatus, options: [.initial, .new]) {
+            [weak self] p, _ in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                switch p.timeControlStatus {
+                case .waitingToPlayAtSpecifiedRate:
+                    if self.loadState == .ready { self.loadState = .buffering }
+                case .playing:
+                    if self.loadState == .buffering { self.loadState = .ready }
+                    self.playing = true
+                case .paused:
+                    self.playing = false
+                default:
+                    break
+                }
+            }
+        }
     }
 
     func rebuild(grade: GradePreset?, segments: [TempoSegment]) {
+        lastGrade = grade
+        lastSegments = segments
+        loadState = .loading
+        playing = false
+
         let base: AVAsset = CompositionBuilder.hasEffect(segments)
             ? (CompositionBuilder.build(asset: asset, segments: segments) ?? asset) : asset
         let item = AVPlayerItem(asset: base)
         if let g = grade, !GradeFilter.isOriginal(g) {
             item.videoComposition = GradeFilter.composition(for: base, grade: g)
         }
+        // 等 status == readyToPlay 再 play：过早 play 或解码失败时会静默黑屏。
+        itemObservation = item.observe(\.status, options: [.initial, .new]) {
+            [weak self] it, _ in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                switch it.status {
+                case .readyToPlay:
+                    self.loadState = .ready
+                    self.player.play()
+                    self.playing = true
+                case .failed:
+                    self.loadState = .failed(it.error?.localizedDescription ?? "视频解码失败")
+                    self.playing = false
+                default:
+                    break
+                }
+            }
+        }
         player.replaceCurrentItem(with: item)
-        player.play()
-        playing = true
+
+        // 8 秒还没出首帧就给可操作的失败态，不做无限转圈。
+        let token = UUID()
+        loadToken = token
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
+            guard let self, self.loadToken == token else { return }
+            if case .loading = self.loadState {
+                self.loadState = .failed("等待画面超过 8 秒，文件可能还没准备好")
+            }
+        }
     }
 
+    func retry() { rebuild(grade: lastGrade, segments: lastSegments) }
+
     func toggle() {
+        if case .failed = loadState { retry(); return }
         if playing { player.pause() } else { player.play() }
         playing.toggle()
     }
@@ -253,6 +350,13 @@ struct PlayerLayerView: UIViewRepresentable {
     final class PlayerUIView: UIView {
         override class var layerClass: AnyClass { AVPlayerLayer.self }
         var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
+        // SwiftUI 布局后才拿到真实 bounds，显式同步一次，
+        // 避免 layer frame 停留在 0 导致有声音没画面（纯黑）。
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            playerLayer.frame = bounds
+            playerLayer.videoGravity = .resizeAspect
+        }
     }
 }
 
@@ -270,6 +374,7 @@ struct PlayerScreen: View {
     @State private var showToast = false
     @State private var shareItems: [Any] = []
     @State private var showShare = false
+    @State private var showSystemPlayer = false
 
     init(video: LocalVideo, initialTool: Toolbox? = nil) {
         self.video = video
@@ -299,9 +404,70 @@ struct PlayerScreen: View {
                 }
                 .padding(.horizontal).padding(.vertical, 10)
 
-                PlayerLayerView(player: model.player)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .onTapGesture { model.toggle() }
+                ZStack {
+                    PlayerLayerView(player: model.player)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .onTapGesture { model.toggle() }
+
+                    // 首帧出来之前先用导入时生成的封面垫底，不再是一片纯黑。
+                    if case .loading = model.loadState,
+                       let u = store.thumbURL(for: video),
+                       let img = UIImage(contentsOfFile: u.path) {
+                        Image(uiImage: img).resizable().scaledToFit()
+                            .opacity(0.3).allowsHitTesting(false)
+                    }
+
+                    switch model.loadState {
+                    case .loading:
+                        VStack(spacing: 10) {
+                            ProgressView().tint(MZH.primary).scaleEffect(1.2)
+                            Text("正在准备画面…").font(.caption).foregroundStyle(.white)
+                            Text("首次打开大视频需要几秒").font(.caption2)
+                                .foregroundStyle(MZH.muted)
+                        }
+                        .padding(18)
+                        .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 14))
+                        .allowsHitTesting(false)
+                    case .buffering:
+                        HStack(spacing: 8) {
+                            ProgressView().tint(MZH.primary)
+                            Text("正在缓冲…").font(.caption2).foregroundStyle(.white)
+                        }
+                        .padding(.horizontal, 14).padding(.vertical, 8)
+                        .background(.black.opacity(0.55), in: Capsule())
+                        .allowsHitTesting(false)
+                    case .ready:
+                        EmptyView()
+                    case .failed(let msg):
+                        VStack(spacing: 10) {
+                            Image(systemName: "play.slash.fill").font(.largeTitle)
+                                .foregroundStyle(MZH.warn)
+                            Text("这个视频暂时没有画面")
+                                .font(.subheadline.bold()).foregroundStyle(.white)
+                            Text(msg).font(.caption).foregroundStyle(MZH.muted)
+                                .multilineTextAlignment(.center).lineLimit(3)
+                            Text("可以重新加载，或改用系统播放器打开")
+                                .font(.caption2).foregroundStyle(MZH.muted)
+                            HStack(spacing: 10) {
+                                Button("重新加载") { model.retry() }
+                                    .font(.caption.bold())
+                                    .foregroundStyle(MZH.onPrimary)
+                                    .padding(.horizontal, 16).padding(.vertical, 8)
+                                    .background(MZH.primary, in: Capsule())
+                                Button("系统播放器") { showSystemPlayer = true }
+                                    .font(.caption.bold())
+                                    .foregroundStyle(MZH.primary)
+                                    .padding(.horizontal, 16).padding(.vertical, 8)
+                                    .overlay(Capsule().stroke(MZH.primary, lineWidth: 1))
+                            }
+                        }
+                        .padding(18).frame(maxWidth: 300)
+                        .background(MZH.surface.opacity(0.96),
+                                    in: RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16)
+                            .stroke(MZH.line, lineWidth: 1))
+                    }
+                }
 
                 HStack(spacing: 0) {
                     ForEach(Toolbox.allCases) { t in
@@ -334,6 +500,9 @@ struct PlayerScreen: View {
                 .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showShare) { ShareSheet(items: shareItems) }
+        .fullScreenCover(isPresented: $showSystemPlayer) {
+            SystemPlayerScreen(player: model.player)
+        }
         .overlay(alignment: .top) {
             if showToast {
                 Text(toast).font(.caption).padding(10)

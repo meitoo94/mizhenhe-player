@@ -63,11 +63,21 @@ enum MediaCategories {
 
 // MARK: - 本地片库：只在本机建立索引与副本，不上传任何视频（报告 2.2 / 4）
 
+/// 导入进度：复制 100MB 视频 / 生成封面 / 视觉归类都要花时间，
+/// 以前全在主线程同步跑完才入库，界面卡住且没有任何说明，
+/// 用户就会以为「刚导入的视频点不开」。现在每步都有可见状态。
+enum MediaImportStage: Equatable {
+    case idle
+    case running(done: Int, total: Int, stage: String)
+    case finished(ok: Int, failed: Int)
+}
+
 final class MediaStore: ObservableObject {
     static let shared = MediaStore()
 
     @Published private(set) var videos: [LocalVideo] = []
     @Published private(set) var works: [LocalWork] = []
+    @Published private(set) var importStage: MediaImportStage = .idle
 
     private let root: URL
     private let mediaDir: URL
@@ -119,8 +129,10 @@ final class MediaStore: ObservableObject {
 
     // MARK: 导入（相册 / 文件双通道）
 
-    @discardableResult
-    func importFile(_ src: URL, suggestedName: String? = nil) -> LocalVideo? {
+    /// 纯文件操作：复制副本 → 校验可播放 → 生成封面 → 端侧归类。
+    /// 不修改 @Published，因此可以放心放在后台线程跑。
+    private func prepareVideo(from src: URL, suggestedName: String? = nil,
+                              onStage: @escaping (String) -> Void) -> LocalVideo? {
         let scoped = src.startAccessingSecurityScopedResource()
         defer { if scoped { src.stopAccessingSecurityScopedResource() } }
         guard FileManager.default.fileExists(atPath: src.path) else { return nil }
@@ -128,6 +140,7 @@ final class MediaStore: ObservableObject {
         let ext = src.pathExtension.isEmpty ? "mov" : src.pathExtension
         let name = UUID().uuidString + "." + ext
         let dst = mediaDir.appendingPathComponent(name)
+        onStage("正在复制视频…")
         do {
             if FileManager.default.fileExists(atPath: dst.path) {
                 try FileManager.default.removeItem(at: dst)
@@ -135,7 +148,14 @@ final class MediaStore: ObservableObject {
             try FileManager.default.copyItem(at: src, to: dst)
         } catch { return nil }
 
+        onStage("正在读取视频信息…")
         let asset = AVURLAsset(url: dst)
+        // iCloud 还没下载完、复制被中断或格式不受支持时，副本虽然存在却解不出画面。
+        // 这种文件直接丢掉，不让它进片仓变成「点开是黑屏」的坏条目。
+        guard asset.isPlayable else {
+            try? FileManager.default.removeItem(at: dst)
+            return nil
+        }
         let duration = CMTimeGetSeconds(asset.duration)
         let bytes = (try? FileManager.default.attributesOfItem(atPath: dst.path)[.size] as? NSNumber)?
             .int64Value ?? 0
@@ -146,17 +166,60 @@ final class MediaStore: ObservableObject {
                            bytes: bytes, addedAt: Date().timeIntervalSince1970,
                            lastPlayedAt: nil, category: "其他", grade: nil,
                            tempo: nil, thumbName: nil)
+        onStage("正在生成封面与端侧归类…")
         v.thumbName = makeThumbnail(videoURL: dst, duration: v.duration, id: v.id)
         v.category = SceneClassifier.classify(imageURL: thumbDir.appendingPathComponent(v.thumbName ?? ""))
             ?? "其他"
-        videos.insert(v, at: 0)
-        save()
         return v
     }
 
+    /// 异步批量导入：每完成一步都更新可见进度，全部完成才一次性写入片仓索引。
+    /// 也就是说「片仓里能看到的视频」一定已经准备好，不会出现导入中点了黑屏。
+    func importFilesAsync(_ urls: [URL]) {
+        let total = urls.count
+        guard total > 0 else { return }
+        importStage = .running(done: 0, total: total, stage: "正在读取所选视频…")
+        DispatchQueue.global(qos: .userInitiated).async {
+            var ok = 0, failed = 0
+            var staged: [LocalVideo] = []
+            for (i, u) in urls.enumerated() {
+                let publish: (String) -> Void = { s in
+                    DispatchQueue.main.async {
+                        self.importStage = .running(done: i, total: total,
+                                                    stage: "第 \(i + 1)/\(total) 个 · " + s)
+                    }
+                }
+                if let v = self.prepareVideo(from: u, onStage: publish) {
+                    staged.append(v)
+                    ok += 1
+                } else {
+                    failed += 1
+                }
+            }
+            DispatchQueue.main.async {
+                if !staged.isEmpty {
+                    self.videos.insert(contentsOf: staged.reversed(), at: 0)
+                    self.save()
+                }
+                self.importStage = .finished(ok: ok, failed: failed)
+            }
+        }
+    }
+
+    func dismissImportResult() {
+        if case .finished = importStage { importStage = .idle }
+    }
+
+    /// 兼容旧调用（同步）：新界面一律用 importFilesAsync。
     func importFiles(_ urls: [URL]) -> Int {
         var n = 0
-        for u in urls { if importFile(u) != nil { n += 1 } }
+        for u in urls {
+            if let v = prepareVideo(from: u, onStage: { _ in }) {
+                videos.insert(v, at: 0)
+                n += 1
+            }
+        }
+        if n > 0 { save() }
         return n
     }
 
