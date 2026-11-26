@@ -9,21 +9,40 @@ import UIKit
 /// 交易流水仅做去标识化保留，注销台账只记哈希，不存手机号明文。
 @MainActor
 enum AccountDeletion {
-    private static let ticketKey = "login_ticket"
-    private static let maskedKey = "login_phone_masked"
+    // 与账户页 / 付费墙的 @AppStorage 使用同一组键。
+    // 旧版本写在 login_ticket / login_phone_masked，读取时自动迁移一次，
+    // 避免升级后出现「付费墙已登录、账户页却显示未登录」。
+    private static let ticketKey = "phone_login_ticket"
+    private static let maskedKey = "masked_phone"
+    private static let legacyTicketKey = "login_ticket"
+    private static let legacyMaskedKey = "login_phone_masked"
 
-    static var ticket: String { UserDefaults.standard.string(forKey: ticketKey) ?? "" }
-    static var maskedPhone: String { UserDefaults.standard.string(forKey: maskedKey) ?? "" }
+    private static func read(_ key: String, legacy: String) -> String {
+        let d = UserDefaults.standard
+        let cur = d.string(forKey: key) ?? ""
+        if !cur.isEmpty { return cur }
+        let old = d.string(forKey: legacy) ?? ""
+        if !old.isEmpty { d.set(old, forKey: key) }
+        return old
+    }
+
+    static var ticket: String { read(ticketKey, legacy: legacyTicketKey) }
+    static var maskedPhone: String { read(maskedKey, legacy: legacyMaskedKey) }
     static var isLoggedIn: Bool { !ticket.isEmpty }
 
     static func saveLogin(ticket: String, maskedPhone: String) {
-        UserDefaults.standard.set(ticket, forKey: ticketKey)
-        UserDefaults.standard.set(maskedPhone, forKey: maskedKey)
+        let d = UserDefaults.standard
+        d.set(ticket, forKey: ticketKey)
+        d.set(maskedPhone, forKey: maskedKey)
+        d.set(ticket, forKey: legacyTicketKey)
+        d.set(maskedPhone, forKey: legacyMaskedKey)
     }
 
     static func clearLogin() {
-        UserDefaults.standard.removeObject(forKey: ticketKey)
-        UserDefaults.standard.removeObject(forKey: maskedKey)
+        let d = UserDefaults.standard
+        for k in [ticketKey, maskedKey, legacyTicketKey, legacyMaskedKey] {
+            d.removeObject(forKey: k)
+        }
     }
 
     struct Response: Decodable {

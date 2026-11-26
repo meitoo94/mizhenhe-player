@@ -22,8 +22,13 @@ struct MineTabReal: View {
                             Image(systemName: "person.crop.circle.fill").font(.system(size: 44))
                                 .foregroundStyle(MZH.primary)
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(masked.isEmpty ? "未登录" : masked).font(.headline)
-                                Text(masked.isEmpty ? "手机号验证码登录，不登录也能用全部本地功能"
+                                // 登录票据与掩码手机号分开存：付费墙登录只写票据时，
+                                // 账户页也要正确显示「已登录」，不能再显示未登录。
+                                Text((ticket.isEmpty && masked.isEmpty) ? "未登录"
+                                     : (masked.isEmpty ? "已登录 · 米帧盒账号" : masked))
+                                    .font(.headline)
+                                Text((ticket.isEmpty && masked.isEmpty)
+                                     ? "手机号验证码登录，不登录也能用全部本地功能"
                                      : "已绑定手机号 · 点击查看账号资料")
                                     .font(.caption).foregroundStyle(MZH.muted)
                             }
@@ -343,19 +348,12 @@ private struct MemberCenterView: View {
 private struct SettingsView: View {
     @ObservedObject var store: MediaStore
     let toast: (String) -> Void
-    @State private var showDelete = false
     @State private var clearConfirm = false
 
     var body: some View {
         List {
-            Section("账号与安全") {
-                Button { showDelete = true } label: {
-                    Label("注销账号", systemImage: "person.crop.circle.badge.minus")
-                        .foregroundStyle(.red)
-                }
-                Text("注销后账号信息删除或匿名化且不可恢复，本地相册原片不受影响。")
-                    .font(.caption2).foregroundStyle(MZH.muted)
-            }
+            // 设置页不再放注销入口：账户主页面已有统一的「注销账号」，
+            // 同一功能不重复出现在两层菜单里。
             Section("帮助") {
                 NavigationLink { FeedbackCenterView() } label: {
                     Label("帮助与反馈", systemImage: "questionmark.circle")
@@ -395,10 +393,6 @@ private struct SettingsView: View {
         }
         .navigationTitle("设置")
         .mzhListBackground()
-        .sheet(isPresented: $showDelete) {
-            AccountDeletionView(channel: UserDefaults.standard
-                .string(forKey: "resolved_channel") ?? "organic")
-        }
         .alert("清除本地片库", isPresented: $clearConfirm) {
             Button("清除", role: .destructive) {
                 store.remove(ids: Set(store.videos.map(\.id)))

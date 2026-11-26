@@ -24,7 +24,7 @@ PHP Yii2 后台 /api/* 接口上，使「用户管理 / 充值记录 / 支付配
                               GET  /api/channel/config?qd=    渠道启停
                               GET  /api/pay/vip-plans?scope=mizhenhe
                                                       米帧盒VIP套餐(后台栏目可配)
-  /v1/login                ->  POST /api/auth/guest            设备号一键建号/登录
+  /v1/login                ->  POST /api/mizhenhe-user/register  米帧盒专属建号/登录
                               GET  /api/auth/me                会话校验
   /v1/order                ->  POST /api/pay/vip-create       支付宝 H5 下单
                               GET  /api/pay/status             订单/会员状态
@@ -52,7 +52,7 @@ ROUTES = {
     "app_config":       ("GET",  "/api/app/config", False),
     "vip_plans":        ("GET",  "/api/pay/vip-plans", False),
     "packs":            ("GET",  "/api/pay/packs", False),
-    "auth_guest":       ("POST", "/api/auth/guest", True),
+    "auth_guest":       ("POST", "/api/mizhenhe-user/register", True),
     "auth_login":       ("POST", "/api/auth/login", True),
     "auth_me":          ("GET",  "/api/auth/me", False),
     "auth_delete":      ("POST", "/api/auth/delete-account", True),
@@ -70,7 +70,7 @@ LABELS = {
     "app_config":      "渠道展示配置（→ 渠道展示）",
     "vip_plans":       "VIP 套餐（→ 米帧盒VIP套餐，独立 scope=mizhenhe）",
     "packs":           "充值套餐（→ 充值套餐配置）",
-    "auth_guest":      "设备号一键建号（→ 用户管理）",
+    "auth_guest":      "米帧盒专属建号（→ 用户管理，独立头像 / 命名）",
     "auth_login":      "账号密码登录（→ 用户管理）",
     "auth_me":         "会话校验（→ 用户管理）",
     "auth_delete":     "账号注销（→ 用户管理、审核 5.1.1(v)）",
@@ -270,22 +270,27 @@ class Bridge:
             })
         return packages, d or {}
 
-    def login(self, device_id, platform="ios", channel="", headers=None):
-        """设备号一键建号（Yii2 用户管理可见），返回 (ticket, is_vip, raw)。"""
+    def login(self, device_id, platform="ios", channel="", headers=None,
+              allow_write=None):
+        """米帧盒专属接口按设备号建号（Yii2 用户管理可见），返回 (ticket, is_vip, raw)。
+
+        不再复用书城 /api/auth/guest：那个接口建的是「书友」号、共用小说头像。
+        """
         d, meta = self.call("auth_guest",
                             {"device_id": device_id, "platform": platform, "qd": channel},
-                            headers, channel=channel)
+                            headers, channel=channel, allow_write=allow_write)
         d = d or {}
         ticket = (d.get("token") or d.get("access_token")
                   or (d.get("device_account") or {}).get("token") or "")
         is_vip = bool(d.get("is_vip") or (d.get("user") or {}).get("is_vip"))
         return ticket, is_vip, {"payload": d, "meta": meta}
 
-    def create_order(self, plan_id, channel="", headers=None, pay_type="alipay"):
+    def create_order(self, plan_id, channel="", headers=None, pay_type="alipay",
+                     allow_write=None):
         """调 Yii2 /api/pay/vip-create，返回米帧盒订单结构。"""
         d, meta = self.call("vip_create",
                             {"plan_id": plan_id, "scope": self.scope, "pay_type": pay_type},
-                            headers, channel=channel)
+                            headers, channel=channel, allow_write=allow_write)
         d = d or {}
         return {
             "order_no": str(d.get("order_no") or ""),

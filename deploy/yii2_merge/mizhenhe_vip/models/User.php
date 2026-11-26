@@ -277,19 +277,27 @@ class User extends ActiveRecord implements IdentityInterface
     public function getDisplayName()
     {
         $name = (string)$this->username;
-        if (preg_match('/^s[0-9a-f]{12}$/i', $name)) {
+        // 书城设备号 s+12hex；米帧盒独立编号 mz+12hex，绝不叫「书友」
+        if (preg_match('/^(?:s|mz)[0-9a-f]{12}$/i', $name)) {
             return $this->getDisplayNamePrefix() . strtoupper(substr($name, -5));
         }
         return $name;
     }
 
+    /** 米帧盒播放器专属注册形态（不复用 novel / browser 两套） */
+    const REG_MODE_MIZHENHE = 'mizhenhe';
+
     /**
-     * 昵称前缀：小说形态「书友」/ 浏览器形态「用户」
+     * 昵称前缀：米帧盒「影友」/ 浏览器「用户」/ 小说「书友」
      * @return string
      */
     public function getDisplayNamePrefix()
     {
-        return $this->getRegMode() === ChannelDisplay::APP_MODE_BROWSER ? '用户' : '书友';
+        $mode = $this->getRegMode();
+        if ($mode === self::REG_MODE_MIZHENHE) {
+            return '影友';
+        }
+        return $mode === ChannelDisplay::APP_MODE_BROWSER ? '用户' : '书友';
     }
 
     /**
@@ -302,14 +310,18 @@ class User extends ActiveRecord implements IdentityInterface
     public function getRegMode()
     {
         $mode = $this->hasAttribute('reg_mode') ? strtolower(trim((string)$this->reg_mode)) : '';
-        if ($mode === ChannelDisplay::APP_MODE_NOVEL || $mode === ChannelDisplay::APP_MODE_BROWSER) {
+        if ($mode === self::REG_MODE_MIZHENHE
+            || $mode === ChannelDisplay::APP_MODE_NOVEL
+            || $mode === ChannelDisplay::APP_MODE_BROWSER) {
             return $mode;
         }
         return self::modeOfChannel($this->hasAttribute('channel_code') ? (string)$this->channel_code : '');
     }
 
-    /** 默认头像（所有账号统一用这张图，不再用名字首字/书本图） */
+    /** 默认头像（小说 / 浏览器两套共用） */
     const AVATAR_URL = '/img/avatar-default.png';
+    /** 米帧盒播放器专属头像：后台用户管理一眼能认出来 */
+    const AVATAR_URL_MIZHENHE = '/img/avatar-mizhenhe.png';
 
     /**
      * 头像地址（后台列表、用户详情用）
@@ -317,7 +329,8 @@ class User extends ActiveRecord implements IdentityInterface
      */
     public function getAvatarUrl()
     {
-        return self::AVATAR_URL;
+        return $this->getRegMode() === self::REG_MODE_MIZHENHE
+            ? self::AVATAR_URL_MIZHENHE : self::AVATAR_URL;
     }
 
     /**
@@ -360,7 +373,7 @@ class User extends ActiveRecord implements IdentityInterface
     public function getAvatarChar()
     {
         $name = $this->getDisplayName();
-        return mb_substr($name !== '' ? $name : '书', 0, 1);
+        return mb_substr($name !== '' ? $name : $this->getDisplayNamePrefix(), 0, 1);
     }
 
     /**

@@ -525,13 +525,20 @@ class PayController extends ApiController
 
         $orderNo = isset($params['out_trade_no']) ? (string)$params['out_trade_no'] : '';
         $paid = false;
+        $isMizhenhe = false;
         if ($orderNo !== '') {
             $order = RechargeOrder::find()->where(['order_no' => $orderNo])->one();
             $paid = $order && in_array((int)$order->status, [RechargeOrder::STATUS_PAID, RechargeOrder::STATUS_REFUNDED], true);
+            // 米帧盒 VIP 订单走专属回跳页；小说 / 浏览器两套页面完全不动
+            if ($order && $order->isVipOrder() && $order->vipScope() === VipPlan::SCOPE_MIZHENHE) {
+                $isMizhenhe = true;
+            }
         }
 
         Yii::$app->response->format = \yii\web\Response::FORMAT_HTML;
-        return $this->renderFile('@app/views/api/pay-return.php', [
+        return $this->renderFile($isMizhenhe
+            ? '@app/views/api/pay-return-mizhenhe.php'
+            : '@app/views/api/pay-return.php', [
             'paid' => $paid,
             'orderNo' => $orderNo,
         ]);

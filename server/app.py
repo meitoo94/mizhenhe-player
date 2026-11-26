@@ -351,6 +351,12 @@ DECISION_LOG = []    # 每次 /v1/config 的判定明细
 APP_DIAG = []        # 原生 App 上报的运行时诊断(请求/验签/解码/最终形态)
 DELETIONS = []       # 账号注销台账(只有哈希与统计, 不存手机号明文)
 
+# 未注册直付：点「开通会员」时在 /site 自动建的正式账号。
+# 只存令牌与设备映射，跨服务重启保留，保证「下单 → 支付 → 回前台查会员」
+# 用的是同一个后台账号；不存手机号明文。
+PAY_ACCOUNTS_FILE = os.path.join(STATE_DIR, "pay_accounts.json")
+PAY_ACCOUNTS = {}    # idfv -> {ticket, device, channel, method, username, last_order_no, ts}
+
 
 # ---- 百度推广 API 归因(主链路): 回传点击库 + 设备绑定表 ----------------------
 # 不是剪贴板: 百度后台通过 API 告诉我们「哪些 IP / 设备号 是从广告点击进来的」,
@@ -373,6 +379,11 @@ DEVICE_FIELDS = ("idfa", "caid", "device_id", "oaid", "idfv")
 # 真机验证用的渠道白名单：只能绑新建的测试渠道，跑量渠道一个都不许碰。
 TEST_CHANNELS = {c.strip() for c in os.environ.get(
     "MZH_UPSTREAM_TEST_CHANNELS", "mzhtest").split(",") if c.strip()}
+
+# 真实支付 / 自动建号不再受测试渠道写白名单限制：任何渠道的未注册用户点支付
+# 都必须落到 /site 的正式账号 + 支付宝 H5，否则会回落成 404 假收银台。
+# 只影响「建号 + 下单」两类写操作，渠道配置与跑量渠道数据一个字不动。
+PAY_ALL_CHANNELS = os.environ.get("MZH_PAY_ALL_CHANNELS", "1") == "1"
 
 
 # ---- 手机时钟校准（仅测试渠道，解决 App 静默回落 normal） ------------------
@@ -620,6 +631,51 @@ def effective_channel(body, handler):
     return ch if ch in CHANNELS else "organic"
 
 
+def valid_upstream_ticket(token):
+    """只认 /site 正式签发的令牌；本地占位 TKT* 一律当作未登录。"""
+    t = str(token or "").strip()
+    return len(t) >= 16 and not t.startswith("TKT")
+
+
+def load_pay_accounts():
+    global PAY_ACCOUNTS
+    try:
+        with open(PAY_ACCOUNTS_FILE, encoding="utf-8") as f:
+            d = json.load(f)
+        PAY_ACCOUNTS = {str(k): v for k, v in (d.get("accounts") or {}).items()
+                        if isinstance(v, dict)}
+        print(f"[pay] loaded auto accounts={len(PAY_ACCOUNTS)}", flush=True)
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        print(f"[pay] load accounts failed: {e}", flush=True)
+
+
+def remember_pay_account(idfv, ticket="", device="", channel="", method="",
+                         username="", order_no=""):
+    """记住自动建号结果（内存 + 落盘），供查会员状态与重启后复用。"""
+    key = str(idfv or device or "").strip()
+    if not key:
+        return None
+    with LOCK:
+        rec = dict(PAY_ACCOUNTS.get(key) or {})
+        rec.update({"idfv": key, "ts": now_ts()})
+        for k, v in (("ticket", ticket), ("device", device), ("channel", channel),
+                     ("method", method), ("username", username),
+                     ("last_order_no", order_no)):
+            if v:
+                rec[k] = v
+        PAY_ACCOUNTS[key] = rec
+        snapshot = dict(PAY_ACCOUNTS)
+    atomic_write_json(PAY_ACCOUNTS_FILE, {"accounts": snapshot})
+    return rec
+
+
+def last_order_no(idfv):
+    with LOCK:
+        return str((PAY_ACCOUNTS.get(str(idfv or "")) or {}).get("last_order_no") or "")
+
+
 def latest_upstream_ticket(idfv):
     """取该设备最近一次经 Yii2 正式登录签发的 token（本地占位 TKT 不算）。
 
@@ -629,11 +685,86 @@ def latest_upstream_ticket(idfv):
     if not idfv:
         return ""
     with LOCK:
+        t = str((PAY_ACCOUNTS.get(str(idfv)) or {}).get("ticket") or "")
+        if valid_upstream_ticket(t):
+            return t
         for rec in reversed(LOGINS):
             t = str(rec.get("ticket") or "")
-            if rec.get("idfv") == idfv and t and not t.startswith("TKT"):
+            if rec.get("idfv") == idfv and valid_upstream_ticket(t):
                 return t
     return ""
+
+
+def auto_pay_account(body, channel, headers):
+    """没账号的用户点支付：按设备号在 /site「用户管理」自动建正式账号。
+
+    米帧盒专属注册接口 /api/mizhenhe-user/register 会建 is_guest=0 的正式账号；
+    /api/pay/vip-create 只认这种令牌，不带令牌会直接 401。
+    """
+    dev = str(body.get("idfv") or "").strip()
+    if len(dev) < 6 or not re.match(r"^[0-9A-Za-z_\-:.]+$", dev):
+        dev = device_hash("idfv:" + (dev or channel))
+    # 建号是匿名接口，别把可能已失效的旧 Authorization 带过去
+    login_hdr = {k: v for k, v in (headers or {}).items()
+                 if k.lower() != "authorization"}
+    ticket, _is_vip, extra = BRIDGE.login(
+        dev, "ios", channel, login_hdr, allow_write=True)
+    if not valid_upstream_ticket(ticket):
+        raise BridgeError("auto_register_no_ticket", 502)
+    payload = (extra or {}).get("payload") or {}
+    da = payload.get("device_account") or {}
+    username = str(da.get("username") or "")
+    key = str(body.get("idfv") or dev)
+    rec = {"ts": now_ts(), "idfv": key, "channel": channel,
+           "method": "yii2_auto_pay", "ticket": ticket}
+    with LOCK:
+        LOGINS.append(rec)
+    append_log("logins", rec)
+    remember_pay_account(key, ticket=ticket, device=dev, channel=channel,
+                         method="auto_pay", username=username)
+    append_log("auto_accounts", {"ts": now_ts(), "channel": channel,
+                                 "idfv": key, "device": dev, "username": username,
+                                 "display_name": (payload.get("user") or {}).get("display_name", ""),
+                                 "created": da.get("created")})
+    return ticket, {"username": username, "created": bool(da.get("created"))}
+
+
+def upstream_order_for(body, channel, handler):
+    """建号 + 下单，返回 (订单, 说明)。任何失败都抛 BridgeError，绝不产出假地址。"""
+    pkg = body.get("package_id", "vip_3y")
+    plan_id = str(pkg)[5:] if str(pkg).startswith("yii2_") else None
+    if plan_id is None:
+        pkgs, _ = BRIDGE.vip_packages(channel, upstream_headers(handler))
+        plan_id = pkgs[0]["plan_id"] if pkgs else None
+    if plan_id is None:
+        raise BridgeError("no_vip_plan_available", 400)
+
+    hdr = upstream_headers(handler)
+    raw = str(body.get("ticket") or body.get("token") or "")
+    tk = raw if valid_upstream_ticket(raw) else latest_upstream_ticket(body.get("idfv"))
+    auto = None
+    if not tk:
+        tk, auto = auto_pay_account(body, channel, hdr)
+    hdr["Authorization"] = "Bearer " + tk
+
+    try:
+        order, meta = BRIDGE.create_order(plan_id, channel, hdr, allow_write=True)
+    except BridgeError as e:
+        code = getattr(e, "code", 0)
+        msg = str(e)
+        # 令牌过期 / 游客号被拒 / 换过号 → 重新建号再下这一单
+        if code in (401, 403) or "登录" in msg or "游客" in msg or "注册" in msg:
+            tk2, auto2 = auto_pay_account(body, channel, hdr)
+            hdr["Authorization"] = "Bearer " + tk2
+            tk, auto = tk2, auto2
+            order, meta = BRIDGE.create_order(plan_id, channel, hdr, allow_write=True)
+        else:
+            raise
+    if not (order.get("order_no") and order.get("cashier_url")):
+        raise BridgeError("upstream_order_incomplete", 502)
+    info = {"auto_registered": bool(auto), "account": auto or {},
+            "ticket": tk, "plan_id": plan_id, "meta": meta}
+    return order, info
 
 
 # ---- 账号注销(App Store Review Guidelines 5.1.1(v)) --------------------------
@@ -2419,64 +2550,84 @@ a{{color:{primary};text-decoration:none}}
                                   "Cache-Control": "no-store"})
             return
 
+        # ---- 3b. 未注册直付自检（固定设备号复用账号，验证台一键调用） --------
+        if u.path == "/v1/pay/selftest":
+            dev = "MZH-PAY-SELFTEST-001"
+            ch = "mzhtest" if "mzhtest" in CHANNELS else "organic"
+            if not (BRIDGE and BRIDGE.enabled):
+                self._send(200, {"ok": False, "error": "upstream_disabled"})
+                return
+            fake = {"idfv": dev, "channel": ch, "ticket": "", "package_id": ""}
+            try:
+                pkgs, _ = BRIDGE.vip_packages(ch, upstream_headers(self))
+                if not pkgs:
+                    raise BridgeError("no_vip_plan", 404)
+                fake["package_id"] = "yii2_" + str(pkgs[0]["plan_id"])
+                order, info = upstream_order_for(fake, ch, self)
+                host = urlparse(order["cashier_url"]).netloc
+                ok = "alipay.com" in host and bool(order.get("order_no"))
+                with LOCK:
+                    ORDERS[order["order_no"]] = order
+                append_log("pay_selftest", {"ts": now_ts(), "ok": ok,
+                                            "order_no": order["order_no"], "host": host,
+                                            "auto_registered": info["auto_registered"],
+                                            "account": info["account"]})
+                self._send(200, {"ok": ok, "order_no": order["order_no"],
+                                 "cashier_host": host, "channel": ch,
+                                 "auto_registered": info["auto_registered"],
+                                 "account": info["account"], "upstream": True})
+            except BridgeError as e:
+                self._send(200, {"ok": False, "error": str(e),
+                                 "code": getattr(e, "code", 0)})
+            return
+
         # ---- 4. VIP 下单 -----------------------------------------------------
         if u.path == "/v1/order":
             pkg = b.get("package_id", "vip_3y")
-            # 渠道以服务端绑定判定为准（App Keychain 里常缓存 organic），否则
-            # Yii2 写白名单守卫会把真实下单拦掉，回落成「交易进行中」占位页。
+            # 渠道以服务端绑定判定为准（App Keychain 里常缓存 organic）。
             ch = effective_channel(b, self)
-            # 原后台下单：订单进 Yii2「充值记录」，支付走 Yii2「支付配置」的支付宝通道
-            if BRIDGE and BRIDGE.enabled and BRIDGE.allow_write(ch):
+            # 没注册的用户点支付时，服务端自动在 /site 建正式账号再下单；
+            # 占位票据 TKT* / 失效票据一律不采信，绝不无令牌打 vip-create。
+            if BRIDGE and BRIDGE.enabled and (PAY_ALL_CHANNELS or BRIDGE.allow_write(ch)):
                 try:
-                    plan_id = str(pkg)[5:] if str(pkg).startswith("yii2_") else None
-                    if plan_id is None:
-                        pkgs, _ = BRIDGE.vip_packages(ch, upstream_headers(self))
-                        if pkgs:
-                            plan_id = pkgs[0]["plan_id"]
-                    if plan_id is not None:
-                        hdr = upstream_headers(self)
-                        tk = str(b.get("ticket") or b.get("token")
-                                 or latest_upstream_ticket(b.get("idfv")) or "")
-                        if not tk:
-                            # 没登录就点购买：按设备号自动建正式账号并取令牌，
-                            # /api/pay/vip-create 要求正式账号令牌才能下单。
-                            dev = str(b.get("idfv") or "").strip()
-                            if len(dev) < 6 or not re.match(r"^[0-9A-Za-z_\-:.]+$", dev):
-                                dev = device_hash("idfv:" + (dev or ch))
-                            try:
-                                auto_ticket, _, _ = BRIDGE.login(dev, "ios", ch, hdr)
-                                tk = auto_ticket or ""
-                                if tk:
-                                    with LOCK:
-                                        LOGINS.append({"ts": now_ts(), "idfv": dev,
-                                                       "channel": ch,
-                                                       "method": "yii2_auto_guest",
-                                                       "ticket": tk})
-                            except BridgeError:
-                                pass
-                        if tk and not tk.startswith("TKT") and not hdr.get("Authorization"):
-                            hdr["Authorization"] = "Bearer " + tk
-                        up_order, up_meta = BRIDGE.create_order(plan_id, ch, hdr)
-                        if up_order.get("order_no") and up_order.get("cashier_url"):
-                            up_order["created_at"] = now_ts()
-                            # 直接指向 Yii2 后台生成的支付宝 H5 收银台，
-                            # 不再经过本地「交易进行中 / 重新支付」占位订单页。
-                            up_order["order_page_url"] = up_order["cashier_url"]
-                            with LOCK:
-                                ORDERS[up_order["order_no"]] = up_order
-                            append_log("orders", dict(up_order, event="yii2_created"))
-                            self._send(200, dict(up_order, upstream_meta=up_meta["meta"]))
-                            return
+                    up_order, info = upstream_order_for(b, ch, self)
+                    up_order["created_at"] = now_ts()
+                    # 直接指向 /site 后台生成的支付宝 H5 收银台。
+                    up_order["order_page_url"] = up_order["cashier_url"]
+                    remember_pay_account(str(b.get("idfv") or ""),
+                                         ticket=info["ticket"], channel=ch,
+                                         method="pay", order_no=up_order["order_no"])
+                    with LOCK:
+                        ORDERS[up_order["order_no"]] = up_order
+                    append_log("orders", dict(up_order, event="yii2_created",
+                                              channel=ch,
+                                              auto_registered=info["auto_registered"]))
+                    self._send(200, dict(up_order,
+                                         upstream_meta=info["meta"]["meta"],
+                                         upstream=True,
+                                         auto_registered=info["auto_registered"],
+                                         account=info["account"],
+                                         ticket=info["ticket"]))
+                    return
                 except BridgeError as e:
-                    append_log("upstream_errors", {"path": u.path, "error": str(e)})
+                    append_log("upstream_errors", {"path": u.path, "ts": now_ts(),
+                                                   "channel": ch, "package_id": pkg,
+                                                   "ticket_prefix": str(b.get("ticket") or "")[:6],
+                                                   "error": str(e),
+                                                   "code": getattr(e, "code", 0)})
+                    # 绝不返回 mclient.alipay.com 假收银台：那个地址必然 404。
+                    self._send(502, {"ok": False, "error": "pay_channel_unavailable",
+                                     "msg": "支付通道暂不可用，请稍后重试（已尝试自动创建账号）",
+                                     "detail": str(e)[:120]})
+                    return
+            # 桥接关闭时只生成本地演示订单（H5 演示用），地址指向自建订单页，
+            # 不再伪造支付宝域名。
             price = None
             pkg_name = None
             c = CHANNELS.get(ch, {})
             for p in c.get("paywall", {}).get("vip", {}).get("packages", []):
                 if p["id"] == pkg:
                     price = p["price"]
-            # H5 演示渠道不在写白名单里时，仍按后台档位价格生成本地演示订单，
-            # 保证任意渠道的「会员页 → 收银台」都能点通，且标价与后台一致。
             if price is None and str(pkg).startswith("yii2_") and BRIDGE and BRIDGE.enabled:
                 try:
                     bp, _ = BRIDGE.vip_packages(ch, upstream_headers(self))
@@ -2499,13 +2650,12 @@ a{{color:{primary};text-decoration:none}}
                              c.get("paywall", {}).get("vip", {}).get("packages", [])
                              if p["id"] == pkg), pkg)
             ck = c.get("paywall", {}).get("checkout", {})
-            cashier_base = ck.get("cashier_base", "https://mclient.alipay.com")
+            page = self.base_url() + ck.get("order_page_path", "/order/") + order_no
             order = {
                 "order_no": order_no, "channel": ch, "package_id": pkg,
                 "package_name": pkg_name, "amount": price, "status": "pending",
-                "created_at": now_ts(),
-                "cashier_url": cashier_base.rstrip("/") + "/h5/cashier?out_trade_no=" + order_no,
-                "order_page_url": self.base_url() + ck.get("order_page_path", "/order/") + order_no,
+                "created_at": now_ts(), "demo": True,
+                "cashier_url": page, "order_page_url": page,
             }
             with LOCK:
                 ORDERS[order_no] = order
@@ -2527,25 +2677,29 @@ a{{color:{primary};text-decoration:none}}
             if not agreed:
                 self._send(400, {"error": "agreement_required"})
                 return
-            # 原后台账号体系：设备号一键建号，账号直接出现在 Yii2「用户管理」
-            # 渠道以服务端绑定判定为准，别用 App 本地缓存的 organic 去撞写白名单。
+            # 米帧盒专属注册接口：账号直接出现在 Yii2「用户管理」，
+            # 用独立头像 / 命名，不再复用书城 /api/auth/guest。
+            # 任何渠道都走正式建号，否则会下发本地占位 TKT 票据，
+            # 后续点支付被 /site 判 401 → 假收银台 404。
             ch_eff = effective_channel(b, self)
-            if BRIDGE and BRIDGE.enabled and BRIDGE.allow_write(ch_eff):
+            if BRIDGE and BRIDGE.enabled and (PAY_ALL_CHANNELS or BRIDGE.allow_write(ch_eff)):
                 dev = str(b.get("idfv") or "").strip()
                 if len(dev) < 6 or not re.match(r"^[0-9A-Za-z_\-:.]+$", dev):
                     dev = device_hash("idfv:" + (dev or phone))
                 try:
                     ticket, is_vip, _extra = BRIDGE.login(
                         dev, str(b.get("platform") or "ios"),
-                        ch_eff, upstream_headers(self))
-                    if ticket:
+                        ch_eff, upstream_headers(self), allow_write=True)
+                    if valid_upstream_ticket(ticket):
                         rec = {"ts": now_ts(),
                                "phone_masked": phone[:3] + "****" + phone[-4:],
                                "idfv": b.get("idfv", ""), "channel": ch_eff,
-                               "method": "yii2_guest", "ticket": ticket}
+                               "method": "yii2_mizhenhe", "ticket": ticket}
                         with LOCK:
                             LOGINS.append(rec)
                         append_log("logins", rec)
+                        remember_pay_account(str(b.get("idfv") or dev), ticket=ticket,
+                                             device=dev, channel=ch_eff, method="login")
                         self._send(200, {"ok": True, "ticket": ticket,
                                         "phone_masked": rec["phone_masked"],
                                         "is_vip": is_vip, "toast": "登录成功",
@@ -2637,16 +2791,23 @@ a{{color:{primary};text-decoration:none}}
             return
 
         if u.path == "/v1/vip/status":
-            # 原后台会员状态：读 Yii2 的订单/会员字段，付费成功才解锁
+            # 原后台会员状态：读 Yii2 的订单/会员字段，付费成功才解锁。
+            # 自动建号的令牌持久化在 pay_accounts，重启后仍能用同一账号查状态。
             if BRIDGE and BRIDGE.enabled:
                 try:
                     hdr = upstream_headers(self)
-                    tk = str(b.get("ticket") or b.get("token")
-                             or latest_upstream_ticket(b.get("idfv")) or "")
-                    if tk and not tk.startswith("TKT") and not hdr.get("Authorization"):
+                    raw = str(b.get("ticket") or b.get("token") or "")
+                    tk = raw if valid_upstream_ticket(raw) else latest_upstream_ticket(b.get("idfv"))
+                    if tk and not hdr.get("Authorization"):
                         hdr["Authorization"] = "Bearer " + tk
-                    st, meta = BRIDGE.vip_status(effective_channel(b, self), hdr,
-                                                 str(b.get("order_no") or ""))
+                    order_no = str(b.get("order_no") or "") or last_order_no(b.get("idfv"))
+                    try:
+                        st, meta = BRIDGE.vip_status(effective_channel(b, self), hdr, order_no)
+                    except BridgeError:
+                        # 订单不属于当前令牌（换过号）时退回按会员字段判断
+                        if not order_no:
+                            raise
+                        st, meta = BRIDGE.vip_status(effective_channel(b, self), hdr, "")
                     self._send(200, dict(st, upstream_meta=meta))
                     return
                 except BridgeError as e:
@@ -2767,6 +2928,7 @@ def main():
     load_attribution_state()
     load_clock_offsets()
     load_deletions()
+    load_pay_accounts()
 
     class LANServer(ThreadingHTTPServer):
         allow_reuse_address = True

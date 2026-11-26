@@ -244,7 +244,17 @@
     </tbody></table>
   </div>
 
-  <p class="foot">全部接口只读核对；仅第 4 区会对测试渠道写一条设备绑定，可一键撤销。跑量渠道配置只读，不会被改动。</p>
+  <!-- 6 未注册直付自检 -->
+  <div class="card">
+    <h2><span class="n">6</span>未注册直接支付自检</h2>
+    <div class="hint">模拟「没注册、没登录、没票据」的用户直接点开通会员：服务端自动在 /site 建米帧盒专属账号 → 用该账号下单 → 返回真实支付宝 H5 收银台。固定设备号复用同一账号，不会一直新增用户。</div>
+    <div class="row">
+      <button id="btnPayTest">跑一次未注册支付自检</button>
+    </div>
+    <div id="payTestMsg" class="msg"></div>
+  </div>
+
+  <p class="foot">除第 4 区设备绑定、第 6 区未注册直付自检外均为只读核对；跑量渠道配置只读，不会被改动。</p>
 </div>
 
 <script>
@@ -569,7 +579,26 @@ async function appDiag(){
   showMsg(el, html, "info");
 }
 
+/* ---------- 6. 未注册直付自检 ---------- */
+async function paySelftest(){
+  const el = $("payTestMsg");
+  showMsg(el, "正在模拟未注册用户点支付 …", "info");
+  try{
+    const r = await fetch(API("/v1/pay/selftest"), {method:"POST",
+      headers:{"Content-Type":"application/json"}, body:"{}",
+      cache:"no-store"}).then(x=>x.json());
+    if(r.ok){
+      showMsg(el, "<b>通过</b> · 自动建号：" + (r.auto_registered ? "是" : "复用已有账号") +
+        " · 订单 <code>" + esc(r.order_no) + "</code><br>收银台域名 <b>" +
+        esc(r.cashier_host) + "</b>（真实支付宝 H5，不再是 mclient.alipay.com 404）", "good");
+    }else{
+      showMsg(el, "<b>未通过</b> · " + esc(r.error || r.msg || "未知错误"), "bad");
+    }
+  }catch(err){ showMsg(el, "自检请求失败：" + esc(err.message), "bad"); }
+}
+
 /* ---------- 初始化 ---------- */
+$("btnPayTest").addEventListener("click", paySelftest);
 $("vipAdminLink").href = VIP_ADMIN;
 if(QR.verify) $("verifyQr").src = QR.verify;
 if(QR.install) $("installQr").src = QR.install;

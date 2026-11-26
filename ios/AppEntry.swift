@@ -63,7 +63,6 @@ struct RootView: View {
                 }
             } else {
                 NormalHomeView(config: normal) { memberFromHome = true }
-                    .overlay(alignment: .top) { diagBanner }
                     .fullScreenCover(isPresented: Binding(
                         // 正常渠道没有付费墙配置时绝不呈现空视图（旧版点会员白屏的原因）
                         get: { memberFromHome && !vipUnlocked && config.payload.paywall != nil },
@@ -107,28 +106,8 @@ struct RootView: View {
         }
     }
 
-    /// 合规首页常驻一行醒目诊断：请求次数 / 响应大小 / 验签 / 解码 / 最终形态。
-    /// 点一下复制到剪贴板，可以直接把 App 端真实状态带回后台核对。
-    private var diagBanner: some View {
-        Text("诊断 · \(config.diag) ｜ 形态 \(config.payload.mode)/\(config.payload.channel)")
-            .font(.caption2.weight(.medium))
-            .foregroundStyle(.white)
-            .lineLimit(3)
-            .multilineTextAlignment(.leading)
-            .padding(.horizontal, 12).padding(.vertical, 7)
-            .background(Color(hex: "#B4461F").opacity(0.94),
-                        in: RoundedRectangle(cornerRadius: 10))
-            .padding(.horizontal, 10).padding(.top, 8)
-            .onTapGesture {
-                // 网络抖动导致留在合规首页时，点一下橙色横幅立即重新检测，
-                // 不用杀进程、不用重装。
-                Task { await config.refresh() }
-            }
-            .onLongPressGesture {
-                UIPasteboard.general.string =
-                    "\(config.diag) | \(config.payload.mode)/\(config.payload.channel)"
-            }
-    }
+    // 诊断信息仍由 RemoteConfig 上报到 /v1/app/diag（验证台可查），
+    // 但不再在合规首页常驻橙色横幅；调试期结束，正式界面保持干净。
 }
 
 /// 配置拉取完成前的占位，避免启动瞬间闪出错误形态
