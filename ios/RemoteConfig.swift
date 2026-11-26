@@ -31,6 +31,8 @@ final class ConfigStore: ObservableObject {
 
     private let cacheKey = "remote_config_envelope"
     private let cacheTimeKey = "remote_config_cached_at"
+    /// 防止冷启动 .task 与回前台重试并发重复拉取配置。
+    private var refreshing = false
 
     var isPaywall: Bool { payload.isPaywall }
 
@@ -42,8 +44,10 @@ final class ConfigStore: ObservableObject {
             applyVerified(cached.envelope)
         }
         channel = await ChannelAttribution.shared.currentChannel()
-        await refresh()
+        // 先把界面放出来，网络重试在后台继续；否则 5G 抖动时用户要盯着
+        // 启动占位页等完 3 次超时，看起来就像「App 卡死 / 没反应」。
         ready = true
+        await refresh()
     }
 
     func refresh() async {
@@ -56,10 +60,13 @@ final class ConfigStore: ObservableObject {
             "build": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "",
             "install_ts": KeychainStore.installTimestamp()
         ]
-        // 4 秒在蜂窝网络首启时容易超时，放宽到 15 秒并重试一次；
-        // 每一步（请求 / 验签 / 解码 / 最终形态）都写进 diag 并回传服务端，
+        // 5G 首启时系统可能晚几百毫秒才把蜂窝接口标记就绪（-1009），
+        // 因此放宽超时、重试 3 次并在失败间退避；每一步都写进 diag 并回传，
         // 不再出现「服务端全绿、真机却静默回首页」查不到原因的情况。
-        for attempt in 1...2 {
+        if refreshing { return }
+        refreshing = true
+        defer { refreshing = false }
+        for attempt in 1...3 {
             do {
                 let data = try await ChannelAttribution.shared.postJSON(
                     path: "/v1/config", body: body, timeout: 15)
@@ -89,15 +96,18 @@ final class ConfigStore: ObservableObject {
             } catch {
                 diag = "第\(attempt)次请求失败：" + String(describing: error)
                 await reportDiag(diag)
-                if attempt == 2 {
-                    // 两次都失败: 有未过期缓存就沿用它(含上次已判定的 paywall), 否则合规态
-                    if let c = loadCache(), !isExpired(c.envelope) {
-                        applyVerified(c.envelope)
-                    } else {
-                        clearCache()
-                        payload = .fallbackNormal
-                    }
+                if attempt < 3 {
+                    try? await Task.sleep(nanoseconds: UInt64(attempt) * 700_000_000)
+                    continue
                 }
+                // 三次都失败: 有未过期缓存就沿用它(含上次已判定的 paywall), 否则合规态
+                if let c = loadCache(), !isExpired(c.envelope) {
+                    applyVerified(c.envelope)
+                } else {
+                    clearCache()
+                    payload = .fallbackNormal
+                }
+                diag += " · 点顶部橙色横幅可立即重试"
             }
         }
     }

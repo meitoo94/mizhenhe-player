@@ -984,6 +984,32 @@ IOS_CONTRACT = {
 IOS_PACKAGE_KEYS = ["id", "name", "price", "origin_price", "perk", "tag"]
 
 
+def camel_alias(key):
+    """snake_case -> camelCase（Swift 属性名默认形态）。"""
+    parts = str(key).split("_")
+    return parts[0] + "".join(p[:1].upper() + p[1:] for p in parts[1:])
+
+
+def ensure_ios_coding_keys(cfg):
+    """Swift 侧部分 CodingKeys 没写 raw value（viewModes / bulkActions ...），
+    而客户端用的是裸 JSONDecoder（未开 convertFromSnakeCase），会按属性名
+    去找 camelCase 字面 key。服务端把同一份值双写成 camelCase 别名，
+    snake_case 与 camelCase 两种命名都能解码；Codable 会忽略多余 key，
+    H5/后台继续读原来的 snake_case 不受影响。
+    """
+    if isinstance(cfg, dict):
+        for k, v in list(cfg.items()):
+            if "_" in k:
+                alias = camel_alias(k)
+                if alias and alias != k and alias not in cfg:
+                    cfg[alias] = v
+            ensure_ios_coding_keys(v)
+    elif isinstance(cfg, list):
+        for v in cfg:
+            ensure_ios_coding_keys(v)
+    return cfg
+
+
 def ios_contract_issues(cfg):
     """返回会让 App 解码失败的字段清单（空列表 = 兼容）。"""
     issues = []
@@ -1024,6 +1050,18 @@ def ios_contract_issues(cfg):
             for k in ("price", "origin_price"):
                 if k in p and not isinstance(p[k], (int, float)):
                     issues.append("paywall.vip.packages[%d].%s 类型不符" % (i, k))
+    # 每个 snake_case 字段都必须同时有 camelCase 别名，否则 Swift 里
+    # 未写 raw value 的 CodingKeys 会 keyNotFound，整份配置解码失败。
+    def _check_aliases(node, path=""):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                if "_" in k and camel_alias(k) not in node:
+                    issues.append((path + "." if path else "") + camel_alias(k) + " 别名缺失")
+                _check_aliases(v, (path + "." + k) if path else k)
+        elif isinstance(node, list):
+            for v in node:
+                _check_aliases(v, path + "[]")
+    _check_aliases(cfg)
     return issues
 
 
@@ -2232,6 +2270,7 @@ a{{color:{primary};text-decoration:none}}
             # 原生 App 严格 Codable：下发前补齐档位字段并做契约自检，
             # 避免「服务端已切 paywall，App 解码失败却回落 normal 首页」。
             ensure_ios_packages(cfg_obj)
+            ensure_ios_coding_keys(cfg_obj)
             issues = ios_contract_issues(cfg_obj)
             canonical = json.dumps(cfg_obj, ensure_ascii=False, sort_keys=True,
                                    separators=(",", ":"))

@@ -106,7 +106,11 @@ struct LibraryConfig: Codable {
     let importButton: String
 
     enum CodingKeys: String, CodingKey {
-        case viewModes, bulkActions
+        // 这两个原来漏写 raw value，裸 JSONDecoder 会去找字面 key
+        // "viewModes" / "bulkActions"，而服务端下发的是 snake_case，
+        // 导致整份 ConfigPayload 解码抛 keyNotFound、真机静默留合规首页。
+        case viewModes = "view_modes"
+        case bulkActions = "bulk_actions"
         case searchPlaceholder = "search_placeholder"
         case emptyTitle = "empty_title"
         case importHint = "import_hint"

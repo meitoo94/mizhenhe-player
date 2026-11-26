@@ -4,7 +4,7 @@
 MZH_TEAM_ID = 25F879952L
 MZH_BUNDLE_ID = com.mizhenhe.player
 MZH_VERSION = 1.0
-MZH_BUILD_NUMBER = 5
+MZH_BUILD_NUMBER = 6
 
 // xcconfig 里 "//" 会被当注释，URL 用 /$()/ 还原双斜杠。
 CONFIG_BASE_URL = https:/$()/app.kqi.ink/mzh

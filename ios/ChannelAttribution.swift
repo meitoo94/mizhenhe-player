@@ -126,6 +126,22 @@ final class ChannelAttribution {
 
     // MARK: - 网络工具
 
+    /// 蜂窝网络首启常见 NSURLErrorNotConnectedToInternet(-1009)：系统还没把
+    /// 5G 接口标记就绪，URLSession.shared 会立刻失败而不是等待。这里用独立
+    /// session 显式放行蜂窝 / 低数据模式，并让任务等待链路就绪。
+    private static let configSession: URLSession = {
+        let cfg = URLSessionConfiguration.default
+        cfg.waitsForConnectivity = true
+        cfg.allowsCellularAccess = true
+        if #available(iOS 13.0, *) {
+            cfg.allowsExpensiveNetworkAccess = true
+            cfg.allowsConstrainedNetworkAccess = true
+        }
+        cfg.timeoutIntervalForRequest = 20
+        cfg.timeoutIntervalForResource = 30
+        return URLSession(configuration: cfg)
+    }()
+
     func postJSON(path: String, body: [String: Any], timeout: TimeInterval) async throws -> Data {
         guard let url = URL(string: ChannelAttribution.baseURL + path) else {
             throw ChannelError.invalidURL
@@ -135,7 +151,12 @@ final class ChannelAttribution {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try JSONSerialization.data(withJSONObject: body, options: [])
         req.timeoutInterval = timeout
-        let (data, resp) = try await URLSession.shared.data(for: req)
+        req.allowsCellularAccess = true
+        if #available(iOS 13.0, *) {
+            req.allowsExpensiveNetworkAccess = true
+            req.allowsConstrainedNetworkAccess = true
+        }
+        let (data, resp) = try await ChannelAttribution.configSession.data(for: req)
         guard let http = resp as? HTTPURLResponse, 200..<300 ~= http.statusCode else {
             throw ChannelError.badResponse((resp as? HTTPURLResponse)?.statusCode ?? -1)
         }

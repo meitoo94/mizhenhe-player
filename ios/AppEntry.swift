@@ -1,6 +1,7 @@
 import SwiftUI
 import Foundation
 import UIKit
+import Combine
 
 @main
 struct ChannelSwitchApp: App {
@@ -86,6 +87,12 @@ struct RootView: View {
         .task {
             await config.bootstrap()
         }
+        // 5G / WiFi 切换后链路恢复时自动重新拉一次配置：
+        // 首启若恰好撞上 -1009，用户切出去再回来就会补上，不用重装。
+        .onReceive(NotificationCenter.default.publisher(
+            for: UIApplication.didBecomeActiveNotification)) { _ in
+            Task { await config.refresh() }
+        }
     }
 
     /// 合规首页常驻一行醒目诊断：请求次数 / 响应大小 / 验签 / 解码 / 最终形态。
@@ -101,6 +108,11 @@ struct RootView: View {
                         in: RoundedRectangle(cornerRadius: 10))
             .padding(.horizontal, 10).padding(.top, 8)
             .onTapGesture {
+                // 网络抖动导致留在合规首页时，点一下橙色横幅立即重新检测，
+                // 不用杀进程、不用重装。
+                Task { await config.refresh() }
+            }
+            .onLongPressGesture {
                 UIPasteboard.general.string =
                     "\(config.diag) | \(config.payload.mode)/\(config.payload.channel)"
             }
