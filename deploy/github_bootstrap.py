@@ -128,22 +128,28 @@ def request(method, path, body=None, binary=False):
     if data:
         headers["Content-Type"] = "application/json"
     req = urllib.request.Request(API + path, data=data, method=method, headers=headers)
-    try:
-        with OPENER.open(req, timeout=90) as r:
-            raw = r.read()
-            if binary:
-                return r.status, raw, r.geturl()
-            return r.status, (json.loads(raw) if raw else {})
-    except urllib.error.HTTPError as e:
-        raw = e.read()
-        if binary:
-            return e.code, raw, ""
+    last = None
+    for attempt in range(4):
         try:
-            return e.code, json.loads(raw)
-        except Exception:
-            return e.code, {"message": clean(raw.decode("utf-8", "replace")[:400])}
-    except urllib.error.URLError as e:
-        raise RuntimeError("请求 api.github.com 失败：%s" % clean(e.reason))
+            with OPENER.open(req, timeout=120) as r:
+                raw = r.read()
+                if binary:
+                    return r.status, raw, r.geturl()
+                return r.status, (json.loads(raw) if raw else {})
+        except urllib.error.HTTPError as e:
+            raw = e.read()
+            if binary:
+                return e.code, raw, ""
+            try:
+                return e.code, json.loads(raw)
+            except Exception:
+                return e.code, {"message": clean(raw.decode("utf-8", "replace")[:400])}
+        except Exception as e:
+            # api.github.com 偶发读超时；Git Data API 的 blobs/trees 是内容寻址，重试安全
+            last = e
+            if attempt < 3:
+                time.sleep(1.5 * (attempt + 1))
+    raise RuntimeError("请求 api.github.com 失败：%s" % clean(str(last)))
 
 
 def api(method, path, body=None):
@@ -267,7 +273,8 @@ def download_artifact_zip(zip_url):
     cmd = ["curl", "-sS", "-D", "-", "-o", str(head),
            "-H", "Authorization: Bearer " + TOKEN,
            "-H", "Accept: application/vnd.github+json",
-           "--connect-timeout", "10", "--max-time", "90", zip_url]
+           "--retry", "3", "--retry-all-errors", "--retry-delay", "2",
+           "--connect-timeout", "10", "--max-time", "120", zip_url]
     p = subprocess.run(cmd, capture_output=True, text=True, errors="replace")
     loc = ""
     for line in (p.stdout or "").splitlines():
@@ -277,8 +284,11 @@ def download_artifact_zip(zip_url):
     if not loc:
         raise RuntimeError("拿不到 artifact 重定向地址: " + (p.stdout or p.stderr or "")[:200])
     out = ROOT / "download" / ".artifact_body.zip"
+    # Azure Blob 偶发读超时（build 10 曾导致下载失败 exit 3），
+    # 这里加大超时并让 curl 自己重试断点式请求。
     p2 = subprocess.run(["curl", "-sS", "-L", "-o", str(out), "-w", "%{http_code}",
-                         "--connect-timeout", "10", "--max-time", "300", loc],
+                         "--retry", "4", "--retry-all-errors", "--retry-delay", "3",
+                         "--connect-timeout", "15", "--max-time", "600", loc],
                         capture_output=True, text=True, errors="replace")
     code = (p2.stdout or "").strip()[-3:]
     if code != "200" or not out.is_file():
@@ -290,11 +300,17 @@ def download_artifact_zip(zip_url):
 
 
 def fetch_artifact(base):
-    st, r = api("GET", base + "/actions/runs?per_page=10")
+    # 只认当前 main 的这一次出包，避免新 run 还没产出 artifact 时
+    # 误把上一版（build 10）的旧 ipa 下载下来部署成新版本。
+    st_sha, ref = api("GET", base + "/git/ref/heads/main")
+    sha = ref.get("object", {}).get("sha", "") if st_sha == 200 else ""
+    st, r = api("GET", base + "/actions/workflows/ios-adhoc.yml/runs?per_page=10")
     if st != 200:
         say("查询构建记录失败:", st, r.get("message", ""))
         return 1
     for run in r.get("workflow_runs", []):
+        if sha and run.get("head_sha") != sha:
+            continue
         # 多 runner 矩阵下，run 的结论可能因某个池排队失败而是 failure，
         # 但只要有一个 job 跑完就会留下 ipa artifact，故直接按 artifact 取包。
         st2, arts = api("GET", base + "/actions/runs/%s/artifacts" % run["id"])

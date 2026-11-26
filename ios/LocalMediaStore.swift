@@ -263,10 +263,10 @@ final class MediaStore: ObservableObject {
                     }
                 }
                 report(0.02, "第 \(i + 1)/\(total) 个 · 正在上传中，请稍等")
-                guard let v = self.makeEntry(from: u) { p in
+                guard let v = self.makeEntry(from: u, onProgress: { p in
                     report(0.02 + 0.9 * p,
                            "第 \(i + 1)/\(total) 个 · 正在上传 \(Int(p * 100))%")
-                } else {
+                }) else {
                     failed += 1
                     report(1, "第 \(i + 1)/\(total) 个 · 文件未能读取")
                     continue
