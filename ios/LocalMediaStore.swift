@@ -68,7 +68,8 @@ enum MediaCategories {
 /// 用户就会以为「刚导入的视频点不开」。现在每步都有可见状态。
 enum MediaImportStage: Equatable {
     case idle
-    case running(done: Int, total: Int, stage: String)
+    /// fraction 是真实的 0...1 进度（按已写入字节算），用来画线性进度条
+    case running(done: Int, total: Int, stage: String, fraction: Double)
     case finished(ok: Int, failed: Int)
 }
 
@@ -78,6 +79,10 @@ final class MediaStore: ObservableObject {
     @Published private(set) var videos: [LocalVideo] = []
     @Published private(set) var works: [LocalWork] = []
     @Published private(set) var importStage: MediaImportStage = .idle
+    /// 已经进片仓、但封面 / 归类还在后台补的条目。
+    /// 片仓给它们打「上传中」角标，点开只提示「正在上传中，请稍等」。
+    @Published private(set) var preparingIDs: Set<String> = []
+    @Published private(set) var isImporting = false
 
     private let root: URL
     private let mediaDir: URL
@@ -129,10 +134,49 @@ final class MediaStore: ObservableObject {
 
     // MARK: 导入（相册 / 文件双通道）
 
-    /// 纯文件操作：复制副本 → 校验可播放 → 生成封面 → 端侧归类。
-    /// 不修改 @Published，因此可以放心放在后台线程跑。
-    private func prepareVideo(from src: URL, suggestedName: String? = nil,
-                              onStage: @escaping (String) -> Void) -> LocalVideo? {
+    /// 分块复制：按已写入字节回报 0...1 的真实进度。
+    /// 以前用 copyItem 一次到底，92MB 期间界面只能干等，看着像卡死。
+    private func copyWithProgress(from src: URL, to dst: URL,
+                                  onProgress: (Double) -> Void) throws {
+        let total = (try FileManager.default.attributesOfItem(atPath: src.path)[.size] as? NSNumber)?
+            .doubleValue ?? 0
+        if FileManager.default.fileExists(atPath: dst.path) {
+            try? FileManager.default.removeItem(at: dst)
+        }
+        guard FileManager.default.createFile(atPath: dst.path, contents: nil) else {
+            throw NSError(domain: "MZHImport", code: -1)
+        }
+        let input = try FileHandle(forReadingFrom: src)
+        let output = try FileHandle(forWritingTo: dst)
+        defer { try? input.close(); try? output.close() }
+        let chunk = 1 << 20
+        var written = 0.0
+        var last = Date.distantPast
+        while true {
+            let data = input.readData(ofLength: chunk)
+            if data.isEmpty { break }
+            try output.write(contentsOf: data)
+            written += Double(data.count)
+            let now = Date()
+            if total > 0, now.timeIntervalSince(last) > 0.06 {
+                last = now
+                onProgress(min(0.995, written / total))
+            }
+        }
+        onProgress(1)
+    }
+
+    /// 相册给的临时文件已经在我们自己的 tmp 目录里，同盘 move 是瞬时的，
+    /// 不再把 92MB 重复拷贝一遍；只有「文件」App / iCloud 的 URL 才真复制。
+    private func isOwnTemporary(_ u: URL) -> Bool {
+        u.standardizedFileURL.path.hasPrefix(
+            FileManager.default.temporaryDirectory.standardizedFileURL.path + "/")
+    }
+
+    /// 复制副本 + 校验可播放 + 读取时长。
+    /// 这一步完成视频就能播；封面 / 归类挪到 finalize 后台补，不再让大文件用户干等。
+    private func makeEntry(from src: URL, suggestedName: String? = nil,
+                           onProgress: (Double) -> Void) -> LocalVideo? {
         let scoped = src.startAccessingSecurityScopedResource()
         defer { if scoped { src.stopAccessingSecurityScopedResource() } }
         guard FileManager.default.fileExists(atPath: src.path) else { return nil }
@@ -140,15 +184,18 @@ final class MediaStore: ObservableObject {
         let ext = src.pathExtension.isEmpty ? "mov" : src.pathExtension
         let name = UUID().uuidString + "." + ext
         let dst = mediaDir.appendingPathComponent(name)
-        onStage("正在复制视频…")
         do {
-            if FileManager.default.fileExists(atPath: dst.path) {
-                try FileManager.default.removeItem(at: dst)
+            if isOwnTemporary(src) {
+                if FileManager.default.fileExists(atPath: dst.path) {
+                    try? FileManager.default.removeItem(at: dst)
+                }
+                try FileManager.default.moveItem(at: src, to: dst)
+                onProgress(1)
+            } else {
+                try copyWithProgress(from: src, to: dst, onProgress: onProgress)
             }
-            try FileManager.default.copyItem(at: src, to: dst)
         } catch { return nil }
 
-        onStage("正在读取视频信息…")
         let asset = AVURLAsset(url: dst)
         // iCloud 还没下载完、复制被中断或格式不受支持时，副本虽然存在却解不出画面。
         // 这种文件直接丢掉，不让它进片仓变成「点开是黑屏」的坏条目。
@@ -159,48 +206,95 @@ final class MediaStore: ObservableObject {
         let duration = CMTimeGetSeconds(asset.duration)
         let bytes = (try? FileManager.default.attributesOfItem(atPath: dst.path)[.size] as? NSNumber)?
             .int64Value ?? 0
-        let title = suggestedName ?? (src.deletingPathExtension().lastPathComponent)
-
-        var v = LocalVideo(id: UUID().uuidString, title: title, fileName: name,
-                           duration: duration.isFinite ? max(0, duration) : 0,
-                           bytes: bytes, addedAt: Date().timeIntervalSince1970,
-                           lastPlayedAt: nil, category: "其他", grade: nil,
-                           tempo: nil, thumbName: nil)
-        onStage("正在生成封面与端侧归类…")
-        v.thumbName = makeThumbnail(videoURL: dst, duration: v.duration, id: v.id)
-        v.category = SceneClassifier.classify(imageURL: thumbDir.appendingPathComponent(v.thumbName ?? ""))
-            ?? "其他"
-        return v
+        var title = suggestedName ?? src.deletingPathExtension().lastPathComponent
+        // 相册导出的是 UUID 临时名（会显示成 3D31B871-5C3A-… 这种乱码标题）
+        if title.count > 24, title.contains("-"),
+           title.range(of: "^[0-9A-Fa-f-]{24,}$", options: .regularExpression) != nil {
+            let f = DateFormatter()
+            f.dateFormat = "MM-dd HH:mm"
+            title = "视频 · " + f.string(from: Date())
+        }
+        return LocalVideo(id: UUID().uuidString, title: title, fileName: name,
+                          duration: duration.isFinite ? max(0, duration) : 0,
+                          bytes: bytes, addedAt: Date().timeIntervalSince1970,
+                          lastPlayedAt: nil, category: "其他", grade: nil,
+                          tempo: nil, thumbName: nil)
     }
 
-    /// 异步批量导入：每完成一步都更新可见进度，全部完成才一次性写入片仓索引。
-    /// 也就是说「片仓里能看到的视频」一定已经准备好，不会出现导入中点了黑屏。
+    /// 纯后台：生成封面 + 端侧归类，只返回结果补丁，由主线程写回索引（无竞态）。
+    private func finalize(_ v: LocalVideo) -> (String?, String) {
+        let thumb = makeThumbnail(videoURL: url(for: v), duration: v.duration, id: v.id)
+        let cat = thumb.flatMap {
+            SceneClassifier.classify(imageURL: thumbDir.appendingPathComponent($0))
+        } ?? "其他"
+        return (thumb, cat)
+    }
+
+    /// 在系统相册里点「完成」的那一刻立刻给可见状态：
+    /// PHPicker 把 iCloud / 4K 视频导出成临时文件本身可能要几十秒，
+    /// 以前这段时间界面完全没反应，用户只会觉得「还在传、卡住了」。
+    func beginSelection(count: Int) {
+        guard count > 0 else { return }
+        isImporting = true
+        importStage = .running(done: 0, total: count,
+                               stage: "正在从相册读取所选视频…", fraction: 0.01)
+    }
+
+    /// 异步导入：真实字节进度条 → 复制完立刻入库（标「上传中」）→ 后台补封面/归类 → 上传完成。
     func importFilesAsync(_ urls: [URL]) {
         let total = urls.count
-        guard total > 0 else { return }
-        importStage = .running(done: 0, total: total, stage: "正在读取所选视频…")
+        guard total > 0 else {
+            isImporting = false
+            importStage = .finished(ok: 0, failed: 0)
+            return
+        }
+        isImporting = true
+        importStage = .running(done: 0, total: total,
+                               stage: "正在上传中，请稍等", fraction: 0.02)
         DispatchQueue.global(qos: .userInitiated).async {
             var ok = 0, failed = 0
-            var staged: [LocalVideo] = []
             for (i, u) in urls.enumerated() {
-                let publish: (String) -> Void = { s in
+                let base = Double(i) / Double(total)
+                let span = 1.0 / Double(total)
+                let report: (Double, String) -> Void = { f, s in
                     DispatchQueue.main.async {
-                        self.importStage = .running(done: i, total: total,
-                                                    stage: "第 \(i + 1)/\(total) 个 · " + s)
+                        self.importStage = .running(done: i, total: total, stage: s,
+                                                    fraction: min(0.999, base + span * f))
                     }
                 }
-                if let v = self.prepareVideo(from: u, onStage: publish) {
-                    staged.append(v)
-                    ok += 1
+                report(0.02, "第 \(i + 1)/\(total) 个 · 正在上传中，请稍等")
+                guard let v = self.makeEntry(from: u) { p in
+                    report(0.02 + 0.9 * p,
+                           "第 \(i + 1)/\(total) 个 · 正在上传 \(Int(p * 100))%")
                 } else {
                     failed += 1
+                    report(1, "第 \(i + 1)/\(total) 个 · 文件未能读取")
+                    continue
+                }
+                ok += 1
+                // 复制完立刻入库，用户马上能在片仓看到它；此时点开只会得到
+                // 「正在上传中，请稍等」，不会再看到解码失败的错误卡。
+                DispatchQueue.main.async {
+                    self.preparingIDs.insert(v.id)
+                    self.videos.insert(v, at: 0)
+                    self.save()
+                }
+                let patch = self.finalize(v)
+                DispatchQueue.main.async {
+                    if let idx = self.videos.firstIndex(where: { $0.id == v.id }) {
+                        self.videos[idx].thumbName = patch.0
+                        self.videos[idx].category = patch.1
+                    }
+                    self.preparingIDs.remove(v.id)
+                    self.save()
+                    self.importStage = .running(done: i + 1, total: total,
+                                                stage: "第 \(i + 1)/\(total) 个上传完成",
+                                                fraction: Double(i + 1) / Double(total))
                 }
             }
             DispatchQueue.main.async {
-                if !staged.isEmpty {
-                    self.videos.insert(contentsOf: staged.reversed(), at: 0)
-                    self.save()
-                }
+                self.preparingIDs.removeAll()
+                self.isImporting = false
                 self.importStage = .finished(ok: ok, failed: failed)
             }
         }
@@ -214,7 +308,10 @@ final class MediaStore: ObservableObject {
     func importFiles(_ urls: [URL]) -> Int {
         var n = 0
         for u in urls {
-            if let v = prepareVideo(from: u, onStage: { _ in }) {
+            if var v = makeEntry(from: u, onProgress: { _ in }) {
+                let patch = finalize(v)
+                v.thumbName = patch.0
+                v.category = patch.1
                 videos.insert(v, at: 0)
                 n += 1
             }
@@ -348,6 +445,8 @@ enum SceneClassifier {
 // MARK: - 相册导入：PHPicker 无需相册读取权限（报告 2.4）
 
 struct VideoPicker: UIViewControllerRepresentable {
+    /// 选完立刻回调，让界面先进入「正在从相册读取」状态
+    let onStart: (Int) -> Void
     let onPick: ([URL]) -> Void
 
     func makeUIViewController(context: Context) -> PHPickerViewController {
@@ -362,15 +461,19 @@ struct VideoPicker: UIViewControllerRepresentable {
 
     func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
 
-    func makeCoordinator() -> Coordinator { Coordinator(onPick: onPick) }
+    func makeCoordinator() -> Coordinator { Coordinator(onStart: onStart, onPick: onPick) }
 
     final class Coordinator: NSObject, PHPickerViewControllerDelegate {
+        let onStart: (Int) -> Void
         let onPick: ([URL]) -> Void
-        init(onPick: @escaping ([URL]) -> Void) { self.onPick = onPick }
+        init(onStart: @escaping (Int) -> Void, onPick: @escaping ([URL]) -> Void) {
+            self.onStart = onStart; self.onPick = onPick
+        }
 
         func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
             picker.dismiss(animated: true)
             guard !results.isEmpty else { return }
+            DispatchQueue.main.async { self.onStart(results.count) }
             let group = DispatchGroup()
             var urls: [URL] = []
             let lock = NSLock()

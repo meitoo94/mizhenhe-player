@@ -58,11 +58,15 @@ struct MainTabs: View {
             PlayerScreen(video: v, initialTool: playerTool).environmentObject(store)
         }
         .sheet(isPresented: $showPicker) {
-            VideoPicker { urls in
-                // 后台导入 + 可见进度；完成后才写进片仓，不再卡住界面。
+            VideoPicker(onStart: { n in
+                // PHPicker 导出 iCloud / 4K 临时文件可能就要几十秒，
+                // 点「完成」的那一刻先把进度卡挂出来，不再像卡死。
+                store.beginSelection(count: n)
+                selection = 1
+            }, onPick: { urls in
                 store.importFilesAsync(urls)
                 selection = 1
-            }
+            })
         }
         .fileImporter(isPresented: $showFiles, allowedContentTypes: [.movie, .video, .mpeg4Movie],
                       allowsMultipleSelection: true) { result in
@@ -83,7 +87,8 @@ struct MainTabs: View {
                     .padding(.top, 12)
             }
         }
-        .overlay {
+        // 悬浮在顶部，不盖住片仓列表：上传中还能看到条目上的进度角标。
+        .overlay(alignment: .top) {
             ImportProgressCard(stage: store.importStage) {
                 store.dismissImportResult()
             }
@@ -91,6 +96,10 @@ struct MainTabs: View {
     }
 
     private func open(_ v: LocalVideo, _ t: Toolbox?) {
+        if store.preparingIDs.contains(v.id) {
+            notify("正在上传中，请稍等，上传完成就能播放")
+            return
+        }
         playerTool = t
         playerVideo = v
     }
@@ -101,7 +110,8 @@ struct MainTabs: View {
     }
 }
 
-// MARK: - 导入进度卡：大文件复制 / 封面 / 归类期间给明确状态
+// MARK: - 上传进度卡：真实字节进度条 + 上传完成提示
+// 不再用整屏黑遮罩：悬浮在顶部，片仓列表和条目上的「上传中」角标同时可见。
 
 private struct ImportProgressCard: View {
     let stage: MediaImportStage
@@ -112,53 +122,68 @@ private struct ImportProgressCard: View {
             switch stage {
             case .idle:
                 EmptyView()
-            case .running(let done, let total, let text):
-                ZStack {
-                    Color.black.opacity(0.5).ignoresSafeArea()
-                    VStack(spacing: 12) {
-                        ProgressView().tint(MZH.primary).scaleEffect(1.2)
-                        Text("正在导入视频").font(.headline).foregroundStyle(MZH.text)
-                        Text("已完成 \(done)/\(total) · \(text)")
-                            .font(.caption).foregroundStyle(MZH.muted)
-                            .multilineTextAlignment(.center)
-                        Text("大文件需要一点时间。导入完成的视频才会出现在片仓，\n期间请先不要点开视频。")
-                            .font(.caption2).foregroundStyle(MZH.muted)
-                            .multilineTextAlignment(.center)
+            case .running(let done, let total, let text, let fraction):
+                VStack(spacing: 9) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "arrow.up.circle.fill").foregroundStyle(MZH.primary)
+                        Text("正在上传中，请稍等").font(.subheadline.bold()).foregroundStyle(MZH.text)
+                        Spacer()
+                        Text("\(max(0, min(100, Int(fraction * 100))))%")
+                            .font(.caption.bold().monospacedDigit())
+                            .foregroundStyle(MZH.primary)
                     }
-                    .padding(22).frame(maxWidth: 290)
-                    .background(MZH.surface, in: RoundedRectangle(cornerRadius: 18))
-                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(MZH.line, lineWidth: 1))
+                    ProgressView(value: max(0, min(1, fraction)), total: 1)
+                        .tint(MZH.primary).progressViewStyle(.linear)
+                    HStack {
+                        Text(text).font(.caption2).foregroundStyle(MZH.muted).lineLimit(1)
+                        Spacer()
+                        Text("\(done)/\(total)").font(.caption2.monospacedDigit())
+                            .foregroundStyle(MZH.muted)
+                    }
+                    Text("92MB 这类大文件写入本机需要一点时间，进度到 100% 即可播放")
+                        .font(.caption2).foregroundStyle(MZH.muted)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .padding(14)
+                .background(MZH.surface, in: RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(MZH.line, lineWidth: 1))
+                .padding(.horizontal, 14).padding(.top, 8)
+                .transition(.move(edge: .top).combined(with: .opacity))
             case .finished(let ok, let failed):
-                ZStack {
-                    Color.black.opacity(0.5).ignoresSafeArea()
-                    VStack(spacing: 12) {
+                VStack(spacing: 8) {
+                    HStack(spacing: 8) {
                         Image(systemName: ok > 0 ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                            .font(.largeTitle)
+                            .font(.title3)
                             .foregroundStyle(ok > 0 ? MZH.green : MZH.warn)
-                        Text(ok > 0 ? "已导入 \(ok) 个视频" : "没有可导入的视频")
-                            .font(.headline).foregroundStyle(MZH.text)
-                        if failed > 0 {
-                            Text("\(failed) 个文件没能读取：可能还在 iCloud 下载，或格式不受支持。请先在「照片」App 把视频下载到本机，再重新导入。")
-                                .font(.caption).foregroundStyle(MZH.warn)
-                                .multilineTextAlignment(.center)
-                        } else {
-                            Text("封面与端侧归类已完成，现在点开就能播放。")
-                                .font(.caption).foregroundStyle(MZH.muted)
+                        Text(ok > 0 ? "上传完成" : "上传未完成")
+                            .font(.subheadline.bold()).foregroundStyle(MZH.text)
+                        Spacer()
+                        Button { dismiss() } label: {
+                            Image(systemName: "xmark").font(.caption).foregroundStyle(MZH.muted)
                         }
-                        Button("知道了", action: dismiss)
-                            .font(.subheadline.bold())
-                            .foregroundStyle(MZH.onPrimary)
-                            .padding(.horizontal, 26).padding(.vertical, 9)
-                            .background(MZH.primary, in: Capsule())
-                            .padding(.top, 4)
                     }
-                    .padding(22).frame(maxWidth: 300)
-                    .background(MZH.surface, in: RoundedRectangle(cornerRadius: 18))
-                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(MZH.line, lineWidth: 1))
+                    if ok > 0 {
+                        Text("已上传 \(ok) 个视频，现在点开就能播放")
+                            .font(.caption2).foregroundStyle(MZH.muted)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    if failed > 0 {
+                        Text("\(failed) 个文件没能读取：可能还在 iCloud 下载，或格式不受支持。请先在「照片」App 下载到本机再试。")
+                            .font(.caption2).foregroundStyle(MZH.warn)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(14)
+                .background(MZH.surface, in: RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(MZH.line, lineWidth: 1))
+                .padding(.horizontal, 14).padding(.top, 8)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .onAppear {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 5) { dismiss() }
                 }
             }
         }
+        .animation(.easeInOut(duration: 0.2), value: stage)
     }
 }
 
@@ -472,8 +497,11 @@ private struct LibraryTabReal: View {
                                 thumb(v).frame(width: 78, height: 52)
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(v.title).font(.subheadline).lineLimit(1)
-                                    Text("\(v.category) · \(Format.duration(v.duration)) · \(Format.bytes(v.bytes))")
-                                        .font(.caption2).foregroundStyle(MZH.muted)
+                                    Text(store.preparingIDs.contains(v.id)
+                                         ? "正在上传中，请稍等"
+                                         : "\(v.category) · \(Format.duration(v.duration)) · \(Format.bytes(v.bytes))")
+                                        .font(.caption2)
+                                        .foregroundStyle(store.preparingIDs.contains(v.id) ? MZH.primary : MZH.muted)
                                 }
                                 Spacer()
                                 if multiSelect { check(v) }
@@ -543,10 +571,24 @@ private struct LibraryTabReal: View {
             ZStack(alignment: .topTrailing) {
                 thumb(v).frame(maxWidth: .infinity).frame(height: 80)
                 if multiSelect { check(v).padding(4) }
+                // 还在上传/准备的条目：卡片本身就有明确状态，点开只提示稍等
+                if store.preparingIDs.contains(v.id) {
+                    ZStack {
+                        Color.black.opacity(0.62)
+                        VStack(spacing: 5) {
+                            ProgressView().tint(MZH.primary).scaleEffect(0.8)
+                            Text("上传中 · 请稍等").font(.caption2.bold()).foregroundStyle(.white)
+                        }
+                    }
+                    .cornerRadius(8)
+                }
             }
             Text(v.title).font(.caption2).lineLimit(1)
-            Text("\(v.category) · \(Format.duration(v.duration))")
-                .font(.caption2).foregroundStyle(MZH.muted)
+            Text(store.preparingIDs.contains(v.id)
+                 ? "正在上传中，请稍等"
+                 : "\(v.category) · \(Format.duration(v.duration))")
+                .font(.caption2)
+                .foregroundStyle(store.preparingIDs.contains(v.id) ? MZH.primary : MZH.muted)
         }
         .contentShape(Rectangle())
         .onTapGesture { tap(v) }

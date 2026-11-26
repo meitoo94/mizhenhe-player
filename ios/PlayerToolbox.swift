@@ -207,21 +207,38 @@ enum Exporter {
 
 // MARK: - 播放器
 
-/// 系统播放器兜底：自定义 AVPlayerLayer 出不来画面时，
-/// 交给 AVPlayerViewController 再渲染一次，用户不至于只能退出。
+/// 系统播放器兜底：必须新建 AVPlayer + AVPlayerItem。
+/// build 10 复用了已经 failed 的 model.player，只是换了个外壳，
+/// 同一个坏 item 照样出不来画面（用户点「系统播放器」也是黑屏）。
 private struct SystemPlayerScreen: View {
-    let player: AVPlayer
+    let url: URL
     @Environment(\.dismiss) private var dismiss
+    @State private var player = AVPlayer()
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
             SystemPlayerController(player: player).ignoresSafeArea()
-            Button { dismiss() } label: {
-                Image(systemName: "xmark.circle.fill").font(.title)
-                    .foregroundStyle(.white).padding()
-            }
+            VStack(alignment: .trailing, spacing: 10) {
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark.circle.fill").font(.title)
+                        .foregroundStyle(.white)
+                }
+                Button {
+                    player.replaceCurrentItem(with: AVPlayerItem(url: url))
+                    player.play()
+                } label: {
+                    Text("重新载入").font(.caption2.bold()).foregroundStyle(.white)
+                        .padding(.horizontal, 10).padding(.vertical, 6)
+                        .background(Color.white.opacity(0.16), in: Capsule())
+                }
+            }.padding()
         }
         .background(Color.black.ignoresSafeArea())
+        .onAppear {
+            player.replaceCurrentItem(with: AVPlayerItem(url: url))
+            player.play()
+        }
+        .onDisappear { player.pause() }
     }
 }
 
@@ -233,7 +250,9 @@ private struct SystemPlayerController: UIViewControllerRepresentable {
         return vc
     }
     func updateUIViewController(_ uiViewController: AVPlayerViewController,
-                                context: Context) {}
+                                context: Context) {
+        uiViewController.player = player
+    }
 }
 
 /// 播放器加载状态：以前只管 play()，asset 还没 ready 或解码失败时
@@ -251,12 +270,15 @@ final class PlayerModel: ObservableObject {
     let duration: Double
     @Published var playing = false
     @Published var loadState: PlayerLoadState = .loading
+    @Published var diagnosis = ""
 
     private var itemObservation: NSKeyValueObservation?
     private var timeObservation: NSKeyValueObservation?
     private var lastGrade: GradePreset?
     private var lastSegments: [TempoSegment] = []
     private var loadToken = UUID()
+    /// 第一次失败后自动用「纯 URL item」再试一次，绕开 AVURLAsset 缓存的失败状态
+    private var forcePlain = false
 
     init(url: URL) {
         asset = AVURLAsset(url: url)
@@ -287,10 +309,13 @@ final class PlayerModel: ObservableObject {
         loadState = .loading
         playing = false
 
-        let base: AVAsset = CompositionBuilder.hasEffect(segments)
+        let withEffect = !forcePlain && CompositionBuilder.hasEffect(segments)
+        let base: AVAsset = withEffect
             ? (CompositionBuilder.build(asset: asset, segments: segments) ?? asset) : asset
-        let item = AVPlayerItem(asset: base)
-        if let g = grade, !GradeFilter.isOriginal(g) {
+        // 重试时直接用文件 URL 建 item：绕开 AVURLAsset 已缓存的失败状态，
+        // 也不套 CIFilter composition，优先保证把画面放出来。
+        let item = forcePlain ? AVPlayerItem(url: asset.url) : AVPlayerItem(asset: base)
+        if !forcePlain, let g = grade, !GradeFilter.isOriginal(g) {
             item.videoComposition = GradeFilter.composition(for: base, grade: g)
         }
         // 等 status == readyToPlay 再 play：过早 play 或解码失败时会静默黑屏。
@@ -300,12 +325,24 @@ final class PlayerModel: ObservableObject {
                 guard let self else { return }
                 switch it.status {
                 case .readyToPlay:
+                    // 一旦走到纯 URL 重试才成功，就保持这个路径，
+                    // 避免之后调色预览重新套 composition 又变回黑屏。
                     self.loadState = .ready
                     self.player.play()
                     self.playing = true
                 case .failed:
-                    self.loadState = .failed(it.error?.localizedDescription ?? "视频解码失败")
                     self.playing = false
+                    if !self.forcePlain {
+                        // 自动重试一次，不用用户手点「重新加载」
+                        self.forcePlain = true
+                        self.loadState = .loading
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                            guard let self else { return }
+                            self.rebuild(grade: self.lastGrade, segments: self.lastSegments)
+                        }
+                    } else {
+                        self.loadState = .failed(Self.friendlyMessage(it.error))
+                    }
                 default:
                     break
                 }
@@ -313,18 +350,49 @@ final class PlayerModel: ObservableObject {
         }
         player.replaceCurrentItem(with: item)
 
-        // 8 秒还没出首帧就给可操作的失败态，不做无限转圈。
+        // 12 秒还没出首帧就给可操作的失败态，不做无限转圈。
         let token = UUID()
         loadToken = token
-        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 12) { [weak self] in
             guard let self, self.loadToken == token else { return }
             if case .loading = self.loadState {
-                self.loadState = .failed("等待画面超过 8 秒，文件可能还没准备好")
+                self.forcePlain = true
+                self.loadState = .failed("等待画面超过 12 秒，通常是本地副本没写完或源文件还在 iCloud 下载")
             }
         }
     }
 
-    func retry() { rebuild(grade: lastGrade, segments: lastSegments) }
+    private static func friendlyMessage(_ err: Error?) -> String {
+        let code = (err as NSError?)?.code ?? 0
+        if code == -12865 { return "这个视频的编码格式当前系统不支持（错误 \(code)）" }
+        if code == -11800 || code == -11828 || code == -11819 {
+            return "解码器读不出画面（错误 \(code)），本地副本可能不完整"
+        }
+        return "文件已写入片仓，但解码器读不出画面（错误 \(code)）"
+    }
+
+    /// 失败时把本地副本的真实状态摆出来，不再只丢一句「这项操作无法完成」
+    func diagnose(url: URL) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
+            let size = (attrs?[.size] as? NSNumber)?.int64Value ?? 0
+            let a = AVURLAsset(url: url)
+            let playable = a.isPlayable
+            let tracks = a.tracks(withMediaType: .video).count
+            var s = "本地副本 \(Format.bytes(size)) · 视频轨道 \(tracks) 条"
+            if size < 1024 { s = "本地副本只有 \(size) 字节，导入时没写完整" }
+            else if !playable { s += " · 系统判定不可播放" }
+            else if tracks == 0 { s += " · 没有可解码的画面轨道" }
+            else { s += " · 可播放标记正常，但当前解码器仍失败" }
+            DispatchQueue.main.async { self.diagnosis = s }
+        }
+    }
+
+    func retry() {
+        forcePlain = true
+        diagnosis = ""
+        rebuild(grade: lastGrade, segments: lastSegments)
+    }
 
     func toggle() {
         if case .failed = loadState { retry(); return }
@@ -439,33 +507,8 @@ struct PlayerScreen: View {
                     case .ready:
                         EmptyView()
                     case .failed(let msg):
-                        VStack(spacing: 10) {
-                            Image(systemName: "play.slash.fill").font(.largeTitle)
-                                .foregroundStyle(MZH.warn)
-                            Text("这个视频暂时没有画面")
-                                .font(.subheadline.bold()).foregroundStyle(.white)
-                            Text(msg).font(.caption).foregroundStyle(MZH.muted)
-                                .multilineTextAlignment(.center).lineLimit(3)
-                            Text("可以重新加载，或改用系统播放器打开")
-                                .font(.caption2).foregroundStyle(MZH.muted)
-                            HStack(spacing: 10) {
-                                Button("重新加载") { model.retry() }
-                                    .font(.caption.bold())
-                                    .foregroundStyle(MZH.onPrimary)
-                                    .padding(.horizontal, 16).padding(.vertical, 8)
-                                    .background(MZH.primary, in: Capsule())
-                                Button("系统播放器") { showSystemPlayer = true }
-                                    .font(.caption.bold())
-                                    .foregroundStyle(MZH.primary)
-                                    .padding(.horizontal, 16).padding(.vertical, 8)
-                                    .overlay(Capsule().stroke(MZH.primary, lineWidth: 1))
-                            }
-                        }
-                        .padding(18).frame(maxWidth: 300)
-                        .background(MZH.surface.opacity(0.96),
-                                    in: RoundedRectangle(cornerRadius: 16))
-                        .overlay(RoundedRectangle(cornerRadius: 16)
-                            .stroke(MZH.line, lineWidth: 1))
+                        // 还在上传/准备的条目：只提示稍等 + 进度条，绝不显示解码错误
+                        if importing { uploadingCard } else { failureCard(msg) }
                     }
                 }
 
@@ -501,7 +544,7 @@ struct PlayerScreen: View {
         }
         .sheet(isPresented: $showShare) { ShareSheet(items: shareItems) }
         .fullScreenCover(isPresented: $showSystemPlayer) {
-            SystemPlayerScreen(player: model.player)
+            SystemPlayerScreen(url: MediaStore.shared.url(for: video))
         }
         .overlay(alignment: .top) {
             if showToast {
@@ -512,6 +555,74 @@ struct PlayerScreen: View {
             }
         }
         .animation(.easeInOut, value: showToast)
+    }
+
+    /// 已入库但封面/归类还在后台补，或整批导入还没结束且本片没封面
+    private var importing: Bool {
+        store.preparingIDs.contains(video.id) || (store.isImporting && video.thumbName == nil)
+    }
+
+    private var importFraction: Double {
+        if case .running(_, _, _, let f) = store.importStage { return max(0, min(1, f)) }
+        return 0
+    }
+
+    private var uploadingCard: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "arrow.up.circle.fill").font(.largeTitle)
+                .foregroundStyle(MZH.primary)
+            Text("正在上传中，请稍等").font(.subheadline.bold()).foregroundStyle(.white)
+            ProgressView(value: importFraction, total: 1).tint(MZH.primary)
+                .progressViewStyle(.linear).frame(width: 190)
+            Text("\(Int(importFraction * 100))% · 上传完成就能播放")
+                .font(.caption).foregroundStyle(MZH.muted)
+            Text("大文件写入本机需要一点时间，请暂时不要关闭 App")
+                .font(.caption2).foregroundStyle(MZH.muted)
+                .multilineTextAlignment(.center)
+        }
+        .padding(18).frame(maxWidth: 300)
+        .background(MZH.surface.opacity(0.96), in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(MZH.line, lineWidth: 1))
+    }
+
+    private func failureCard(_ msg: String) -> some View {
+        VStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill").font(.largeTitle)
+                .foregroundStyle(MZH.warn)
+            Text("这个视频的本地副本打不开")
+                .font(.subheadline.bold()).foregroundStyle(.white)
+            Text("不是还在上传，是文件已经写进片仓，但解码器读不出画面")
+                .font(.caption2).foregroundStyle(MZH.muted)
+                .multilineTextAlignment(.center)
+            Text(msg).font(.caption2).foregroundStyle(MZH.muted)
+                .multilineTextAlignment(.center).lineLimit(2)
+            Text(model.diagnosis.isEmpty ? "正在检查本地副本…" : model.diagnosis)
+                .font(.caption2.monospacedDigit()).foregroundStyle(MZH.primary)
+                .multilineTextAlignment(.center).lineLimit(3)
+            Text("从微信 / 钉钉 / iCloud 直接导入的文件有时会缺数据，请先在原 App 打开确认能完整播放，再重新导入。")
+                .font(.caption2).foregroundStyle(MZH.muted)
+                .multilineTextAlignment(.center)
+            HStack(spacing: 10) {
+                Button("重新加载") { model.retry() }
+                    .font(.caption.bold()).foregroundStyle(MZH.onPrimary)
+                    .padding(.horizontal, 14).padding(.vertical, 8)
+                    .background(MZH.primary, in: Capsule())
+                Button("系统播放器") { showSystemPlayer = true }
+                    .font(.caption.bold()).foregroundStyle(MZH.primary)
+                    .padding(.horizontal, 14).padding(.vertical, 8)
+                    .overlay(Capsule().stroke(MZH.primary, lineWidth: 1))
+            }
+            Button(role: .destructive) {
+                store.remove(ids: [video.id])
+                dismiss()
+            } label: {
+                Text("删除这个副本，重新导入").font(.caption2).foregroundStyle(MZH.warn)
+            }
+        }
+        .padding(18).frame(maxWidth: 310)
+        .background(MZH.surface.opacity(0.96), in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(MZH.line, lineWidth: 1))
+        .onAppear { model.diagnose(url: MediaStore.shared.url(for: video)) }
     }
 
     @ViewBuilder
