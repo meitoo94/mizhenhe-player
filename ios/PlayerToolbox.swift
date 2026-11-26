@@ -461,7 +461,7 @@ final class PlayerModel: ObservableObject {
                let t = a.tracks(withMediaType: .video).first {
                 let sz = t.naturalSize
                 var codec = "未知编码"
-                if let f = t.formatDescriptions.first as? CMFormatDescription {
+                if let f = t.formatDescriptions.first {
                     codec = Self.fourcc(CMFormatDescriptionGetMediaSubType(f))
                 }
                 detail = " · \(codec) · \(Int(sz.width))×\(Int(sz.height)) · \(Int(t.nominalFrameRate.rounded()))fps"
