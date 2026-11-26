@@ -54,15 +54,18 @@ struct RootView: View {
                 // iOS 会忽略挂在刚插入视图树上的 cover，结果是「服务端已切 paywall、
                 // 真机仍只见合规首页」，而且 isPaywall 已是 true，连诊断横幅都不显示。
                 // 直接换根视图后不依赖任何呈现时机，切渠道必定可见。
-                PaywallFlow(config: pw, store: config,
-                            startAtVIP: hasShownOnce) { unlocked in
-                    if unlocked {
-                        vipUnlocked = true
-                    } else {
-                        // 「稍后再说 / 暂不开通」静默回片段并保留进度，由 PaywallFlow 内部处理；
-                        // 走到这里只表示异常退出，重新进入直接落充值页。
-                        hasShownOnce = true
-                        gateShown = true
+                // 渠道形态下整层做防截屏：截屏保存为一张白图。
+                SecureScreen {
+                    PaywallFlow(config: pw, store: config,
+                                startAtVIP: hasShownOnce) { unlocked in
+                        if unlocked {
+                            vipUnlocked = true
+                        } else {
+                            // 「稍后再说 / 暂不开通」静默回片段并保留进度，由 PaywallFlow 内部处理；
+                            // 走到这里只表示异常退出，重新进入直接落充值页。
+                            hasShownOnce = true
+                            gateShown = true
+                        }
                     }
                 }
             } else {

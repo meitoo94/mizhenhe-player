@@ -140,8 +140,25 @@ pre{background:#080D1C;border:1px solid var(--line);border-radius:10px;padding:1
       </label>
     </div>
 
-    <div class="secttl">渠道列表 / Channel</div>
+    <div class="secttl">渠道列表 / Channel
+      <button class="btn ghost" id="addChBtn" style="float:right;padding:2px 8px;font-size:11px">＋ 添加渠道</button>
+    </div>
     <div class="chlist" id="chList"></div>
+    <div id="addChBox" style="display:none;margin:10px 0 4px;padding:10px;border:1px solid rgba(53,224,200,.4);border-radius:10px;background:rgba(53,224,200,.06)">
+      <label style="font-size:11px;opacity:.85">渠道号（字母 / 数字 / 下划线 / 短横线）</label>
+      <input class="inp" id="newChName" placeholder="mzh_douyin_01" style="margin:4px 0 8px">
+      <label style="font-size:11px;opacity:.85">形态</label>
+      <select class="inp" id="newChMode" style="margin:4px 0 8px">
+        <option value="paywall">PAYWALL · 会员墙</option>
+        <option value="normal">NORMAL · 合规工具</option>
+      </select>
+      <label style="font-size:11px;opacity:.85">说明</label>
+      <input class="inp" id="newChDesc" placeholder="投放渠道备注" style="margin:4px 0 8px">
+      <label style="font-size:11px;opacity:.85">灰度比例 0~1</label>
+      <input class="inp" id="newChRollout" value="1" style="margin:4px 0 8px">
+      <button class="btn pri" id="addChSubmit" style="width:100%">创建渠道</button>
+      <div id="addChMsg" style="font-size:11px;margin-top:7px;line-height:1.6"></div>
+    </div>
 
     <div class="sidefoot">
       <label>管理令牌 ADMIN_TOKEN</label>
@@ -757,6 +774,30 @@ $("#bridgeProbe").addEventListener("click", async () => {
 });
 
 $("#delRefresh").addEventListener("click", () => { loadDeletions(); toast("台账已刷新"); });
+
+// 添加渠道：只新建，不改动任何已有渠道（跑量 bbdd1 等原样保留）
+$("#addChBtn").addEventListener("click", () => {
+  const box = $("#addChBox");
+  box.style.display = box.style.display === "none" ? "block" : "none";
+});
+$("#addChSubmit").addEventListener("click", async () => {
+  const name = $("#newChName").value.trim();
+  const box = $("#addChMsg");
+  if(!name){ box.textContent = "请先填渠道号"; return; }
+  box.textContent = "正在创建…";
+  try{
+    const d = await fetch(API("/admin/channels/add"), {method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({token:token(), name, mode:$("#newChMode").value,
+        desc:$("#newChDesc").value.trim(), rollout:$("#newChRollout").value})}).then(r => r.json());
+    if(!d.ok){ box.textContent = "创建失败：" + (d.error || "未知错误"); toast("创建失败", true); return; }
+    box.textContent = `已创建 ${esc(d.name)}（${esc(d.mode)}），可在上方选中后配置`;
+    $("#newChName").value = ""; $("#newChDesc").value = "";
+    cur = d.name;
+    await loadState(true);
+    toast("渠道已添加");
+  }catch(e){ box.textContent = "创建失败：" + e; toast("创建失败", true); }
+});
 
 loadState(false).then(async () => { await loadAttribution(); await loadDeletions(); await preview(false); })
   .catch(e => toast("加载失败: " + e, true));

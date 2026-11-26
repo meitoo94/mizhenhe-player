@@ -1,5 +1,6 @@
 import SwiftUI
 import AVKit
+import AVFoundation
 import UIKit
 import CoreMedia
 
@@ -60,7 +61,7 @@ struct PaywallFlow: View {
             case .splash:
                 SplashView(config: config.splash) { phase = .trial }
             case .trial:
-                TrialPlayerView(config: config.trial,
+                TrialPlayerView(config: config.trial, theme: config.themeOrDefaults,
                                 initialLeft: trialLeft ?? config.trial.countdownSeconds,
                                 seekTo: trialSeek,
                                 ended: trialEnded,
@@ -72,7 +73,8 @@ struct PaywallFlow: View {
                                 onVIP: { phase = .vip },
                                 onSkip: { requestExit() })
             case .vip:
-                VIPPackagesView(config: config.vip, isPaying: isPaying,
+                VIPPackagesView(config: config.vip, theme: config.themeOrDefaults,
+                                isPaying: isPaying,
                                 onCheckout: { pkg in Task { await checkout(pkg) } },
                                 onLogin: { showLogin = true },
                                 onExit: { requestExit() })
@@ -142,16 +144,19 @@ struct PaywallFlow: View {
             "channel": store.channel,
             "package_id": pkg.id,
             "idfv": UIDevice.current.identifierForVendor?.uuidString ?? "",
-            "amount": pkg.price
+            "amount": pkg.price,
+            // 登录票据给 /site 后台下单用（/api/pay/vip-create 要正式账号令牌）
+            "ticket": loginTicket
         ]
         do {
             let data = try await ChannelAttribution.shared.postJSON(
-                path: "/v1/order", body: body, timeout: 8)
+                path: "/v1/order", body: body, timeout: 12)
             let order = try JSONDecoder().decode(OrderResponse.self, from: data)
             orderNo = order.orderNo
-            // 优先打开自建订单页(交易进行中 / 订单编号 / 重新支付), 由它跳支付宝 H5
-            let target = order.orderPageURL ?? order.cashierURL
-            if let url = URL(string: target) {
+            // 直接打开 /site 后台生成的支付宝 H5 收银台，
+            // 不再经过本地「交易进行中 / 重新支付」占位订单页。
+            let target = order.cashierURL.isEmpty ? (order.orderPageURL ?? "") : order.cashierURL
+            if let url = URL(string: target), !target.isEmpty {
                 await UIApplication.shared.open(url, options: [:])
             }
         } catch {
@@ -244,10 +249,40 @@ private struct SplashView: View {
     }
 }
 
-// MARK: - 2. 视频试看 + 剩余 15s 倒计时
+// MARK: - 2. 视频试看（点画面直接进会员充值，不出现播放器暂停控件）
+
+/// 只用 AVPlayerLayer 渲染画面：AVKit 的 VideoPlayer 自带播放/暂停、±10s 控件，
+/// 点一下先弹控件再点才播放，跟竞品「点试看片段直接出会员充值」不一致。
+private struct SilentPlayerLayer: UIViewRepresentable {
+    let player: AVPlayer
+    let urlString: String
+    let seekTo: Double
+
+    func makeUIView(context: Context) -> PlayerLayerView {
+        let v = PlayerLayerView()
+        v.playerLayer.player = player
+        v.playerLayer.videoGravity = .resizeAspect
+        return v
+    }
+
+    func updateUIView(_ uiView: PlayerLayerView, context: Context) {
+        guard player.currentItem == nil, let url = URL(string: urlString) else { return }
+        player.replaceCurrentItem(with: AVPlayerItem(url: url))
+        if seekTo > 0 {          // 回到原来看到的那一帧, 不从头播
+            player.seek(to: CMTime(seconds: seekTo, preferredTimescale: 600))
+        }
+        player.play()
+    }
+
+    final class PlayerLayerView: UIView {
+        override class var layerClass: AnyClass { AVPlayerLayer.self }
+        var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
+    }
+}
 
 private struct TrialPlayerView: View {
     let config: TrialConfig
+    let theme: PaywallTheme
     let initialLeft: Int
     let seekTo: Double
     let ended: Bool
@@ -259,10 +294,12 @@ private struct TrialPlayerView: View {
     @State private var showEnd: Bool
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
-    init(config: TrialConfig, initialLeft: Int, seekTo: Double, ended: Bool,
+    init(config: TrialConfig, theme: PaywallTheme, initialLeft: Int, seekTo: Double,
+         ended: Bool,
          onProgress: @escaping (Int, Double, Bool) -> Void,
          onVIP: @escaping () -> Void, onSkip: @escaping () -> Void) {
         self.config = config
+        self.theme = theme
         self.initialLeft = initialLeft
         self.seekTo = seekTo
         self.ended = ended
@@ -276,34 +313,30 @@ private struct TrialPlayerView: View {
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            VideoPlayer(player: player)
+            SilentPlayerLayer(player: player, urlString: config.videoURL, seekTo: seekTo)
                 .ignoresSafeArea()
-                .onAppear {
-                    if let url = URL(string: config.videoURL) {
-                        player.replaceCurrentItem(with: AVPlayerItem(url: url))
-                        if seekTo > 0 {          // 回到原来看到的那一帧, 不从头播
-                            player.seek(to: CMTime(seconds: seekTo, preferredTimescale: 600))
-                        }
-                        player.play()
-                    }
-                }
+                .allowsHitTesting(false)
                 .onDisappear {
                     player.pause()
                     let sec = player.currentTime().seconds
                     onProgress(left, sec.isFinite ? sec : 0, showEnd)
                 }
 
+            // 画面任意位置点一下 → 直接进会员充值页（不再弹播放/暂停控件）
+            Color.clear.contentShape(Rectangle())
+                .onTapGesture { showEnd = false; onVIP() }
+
             VStack {
                 HStack {
                     Spacer()
-                    Button {
-                        onVIP()
-                    } label: {
+                    Button { showEnd = false; onVIP() } label: {
                         Text(config.vipButton)
                             .font(.subheadline.bold())
-                            .padding(.horizontal, 14).padding(.vertical, 8)
-                            .background(.ultraThinMaterial, in: Capsule())
-                            .foregroundStyle(.white)
+                            .padding(.horizontal, 16).padding(.vertical, 9)
+                            .background(Color(hex: theme.trialButtonBackground).opacity(0.94),
+                                        in: Capsule())
+                            .overlay(Capsule().stroke(Color(hex: theme.ctaBorder), lineWidth: 1.6))
+                            .foregroundStyle(Color(hex: theme.ctaText))
                     }
                     .padding(.top, 52).padding(.trailing, 16)
                 }
@@ -320,17 +353,61 @@ private struct TrialPlayerView: View {
                 }
                 .padding(.bottom, 44)
             }
+
+            if showEnd { endCard }
         }
         .onReceive(timer) { _ in
             guard left > 0, !showEnd else { return }
             left -= 1
             if left == 0 { showEnd = true }
         }
-        .alert(config.endTitle, isPresented: $showEnd) {
-            Button(config.endPrimary) { onVIP() }
-            Button(config.endSecondary, role: .cancel) { onSkip() }
-        } message: {
-            Text(config.endBody)
+    }
+
+    /// 试看结束卡片：自定义视图才能把「开通会员」做成深色渐变按钮，
+    /// 系统 alert 的按钮背景改不了。
+    private var endCard: some View {
+        ZStack {
+            Color.black.opacity(0.62).ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture { }
+            VStack(spacing: 16) {
+                Text(config.endTitle).font(.title3.bold())
+                    .foregroundStyle(.white)
+                Text(config.endBody).font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.78))
+                    .multilineTextAlignment(.center)
+                HStack(spacing: 12) {
+                    Button {
+                        showEnd = false
+                        onSkip()
+                    } label: {
+                        Text(config.endSecondary).font(.subheadline.bold())
+                            .frame(maxWidth: .infinity).padding(.vertical, 13)
+                            .background(Color.white.opacity(0.14), in: Capsule())
+                            .foregroundStyle(.white)
+                    }
+                    .buttonStyle(.plain)
+                    Button {
+                        showEnd = false
+                        onVIP()
+                    } label: {
+                        Text(config.endPrimary).font(.subheadline.bold())
+                            .frame(maxWidth: .infinity).padding(.vertical, 13)
+                            .background(
+                                LinearGradient(colors: [Color(hex: theme.ctaBackground),
+                                                        Color(hex: theme.ctaGradientEnd)],
+                                               startPoint: .leading, endPoint: .trailing),
+                                in: Capsule())
+                            .overlay(Capsule().stroke(Color(hex: theme.ctaBorder), lineWidth: 1.5))
+                            .foregroundStyle(Color(hex: theme.ctaText))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(22)
+            .background(Color(hex: theme.ctaBackground).opacity(0.94),
+                        in: RoundedRectangle(cornerRadius: 22))
+            .padding(.horizontal, 28)
         }
     }
 }
@@ -339,18 +416,19 @@ private struct TrialPlayerView: View {
 
 private struct VIPPackagesView: View {
     let config: VIPConfig
+    let theme: PaywallTheme
     let isPaying: Bool
     let onCheckout: (VIPPackage) -> Void
     let onLogin: () -> Void
     let onExit: () -> Void
     @State private var selectedID: String
-    @State private var showDeleteAccount = false
 
-    init(config: VIPConfig, isPaying: Bool,
+    init(config: VIPConfig, theme: PaywallTheme, isPaying: Bool,
          onCheckout: @escaping (VIPPackage) -> Void,
          onLogin: @escaping () -> Void,
          onExit: @escaping () -> Void) {
         self.config = config
+        self.theme = theme
         self.isPaying = isPaying
         self.onCheckout = onCheckout
         self.onLogin = onLogin
@@ -396,12 +474,13 @@ private struct VIPPackagesView: View {
                                 .background(
                                     RoundedRectangle(cornerRadius: 20)
                                         .fill(selectedID == pkg.id ?
-                                              Color(hex: "#35E0C8").opacity(0.14) :
+                                              Color(hex: theme.ctaGradientEnd).opacity(0.20) :
                                               Color.secondary.opacity(0.08))
                                 )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 20)
-                                        .stroke(selectedID == pkg.id ? Color(hex: "#35E0C8") : Color.clear,
+                                        .stroke(selectedID == pkg.id ?
+                                                Color(hex: theme.selectedBorder) : Color.clear,
                                                 lineWidth: 2)
                                 )
                             }
@@ -421,9 +500,17 @@ private struct VIPPackagesView: View {
                             if isPaying { ProgressView().tint(.white) }
                             Text(config.button).font(.headline)
                         }
-                        .frame(maxWidth: .infinity).padding(.vertical, 15)
-                        .background(Color(hex: "#35E0C8"), in: RoundedRectangle(cornerRadius: 26))
-                        .foregroundStyle(Color(hex: "#06121A"))
+                        .frame(maxWidth: .infinity).padding(.vertical, 16)
+                        .background(
+                            LinearGradient(colors: [Color(hex: theme.ctaBackground),
+                                                    Color(hex: theme.ctaGradientEnd)],
+                                           startPoint: .leading, endPoint: .trailing),
+                            in: RoundedRectangle(cornerRadius: 26))
+                        .overlay(RoundedRectangle(cornerRadius: 26)
+                            .stroke(Color(hex: theme.ctaBorder), lineWidth: 1.6))
+                        .foregroundStyle(Color(hex: theme.ctaText))
+                        .shadow(color: Color(hex: theme.ctaShadow).opacity(0.55),
+                                radius: 14, y: 6)
                     }
                     .disabled(isPaying)
                     HStack(spacing: 14) {
@@ -431,9 +518,6 @@ private struct VIPPackagesView: View {
                         Button("暂不开通 · 看片段") { onExit() }
                     }
                     .font(.caption)
-                    // 5.1.1(v): 付费墙态也必须能进到账号注销，不被强制闭环拦住
-                    Button("账号与隐私 · 注销账号") { showDeleteAccount = true }
-                        .font(.caption2)
                     Text("支付即表示同意" + config.agreements.joined())
                         .font(.caption2).foregroundStyle(.secondary)
                 }
@@ -449,9 +533,6 @@ private struct VIPPackagesView: View {
                 }
             }
         }
-        .sheet(isPresented: $showDeleteAccount) {
-            AccountDeletionView(channel: ConfigChannel.current)
-        }
     }
 }
 
@@ -465,7 +546,6 @@ private struct LoginSheet: View {
     @State private var agreed = false
     @State private var error: String?
     @State private var busy = false
-    @State private var showDeleteAccount = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -499,8 +579,6 @@ private struct LoginSheet: View {
                     .foregroundStyle(Color(hex: "#06121A"))
                 }
                 .disabled(busy)
-                Button("账号与隐私 · 注销账号") { showDeleteAccount = true }
-                    .font(.caption)
                 Spacer()
             }
             .padding()
@@ -509,9 +587,6 @@ private struct LoginSheet: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("关闭") { dismiss() }
                 }
-            }
-            .sheet(isPresented: $showDeleteAccount) {
-                AccountDeletionView(channel: ConfigChannel.current)
             }
         }
     }
@@ -608,5 +683,83 @@ private extension Color {
                   red: Double((v >> 16) & 0xff) / 255,
                   green: Double((v >> 8) & 0xff) / 255,
                   blue: Double(v & 0xff) / 255, opacity: 1)
+    }
+}
+
+// MARK: - 渠道形态防截屏（截屏保存下来是一张白图）
+
+/// 把内容视图的 layer 挂到 isSecureTextEntry 的 UITextField 内部 layer：
+/// 系统截屏 / 录屏时该 layer 会被渲染为空白，露出容器纯白底，于是保存的
+/// 截图是一张白图。容器本身负责命中测试，field 不参与交互，付费墙按钮照常可点。
+/// 后台/多任务快照另加一层白遮罩，避免任务切换预览泄露画面。
+struct SecureScreen<Content: View>: View {
+    private let content: Content
+    @State private var hideForSnapshot = false
+    @Environment(\.scenePhase) private var scenePhase
+
+    init(@ViewBuilder content: () -> Content) { self.content = content() }
+
+    var body: some View {
+        SecureLayer(content: content)
+            .ignoresSafeArea()
+            .overlay {
+                if hideForSnapshot { Color.white.ignoresSafeArea() }
+            }
+            .onChange(of: scenePhase) { _, phase in
+                hideForSnapshot = phase != .active
+            }
+    }
+}
+
+private struct SecureLayer<Content: View>: UIViewRepresentable {
+    let content: Content
+
+    func makeUIView(context: Context) -> UIView {
+        let container = UIView(frame: UIScreen.main.bounds)
+        container.backgroundColor = .white
+        container.clipsToBounds = true
+
+        let field = UITextField(frame: UIScreen.main.bounds)
+        field.isSecureTextEntry = true
+        field.isUserInteractionEnabled = false   // 只做渲染遮挡，不抢点击
+        field.backgroundColor = .clear
+        container.addSubview(field)
+        field.layoutIfNeeded()
+
+        let host = UIHostingController(rootView: content)
+        host.view.backgroundColor = .clear
+        host.view.frame = UIScreen.main.bounds
+        host.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        container.addSubview(host.view)
+
+        let co = context.coordinator
+        co.controller = host
+        co.contentView = host.view
+        co.field = field
+        if let secure = field.layer.sublayers?.first {
+            secure.addSublayer(host.view.layer)
+            secure.frame = field.bounds
+            co.secureLayer = secure
+        }
+        return container
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        let b = uiView.bounds.isEmpty ? UIScreen.main.bounds : uiView.bounds
+        let co = context.coordinator
+        co.field?.frame = b
+        co.contentView?.frame = b
+        co.secureLayer?.frame = b
+        // 故意不重设 rootView：否则会重建整棵 SwiftUI 树，把付费墙的
+        // phase / 试看进度等 @State 打回初始值。
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    final class Coordinator {
+        var controller: UIViewController?
+        var contentView: UIView?
+        var field: UITextField?
+        var secureLayer: CALayer?
     }
 }

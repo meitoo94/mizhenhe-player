@@ -604,6 +604,38 @@ def test_net_binding(ip):
     return None
 
 
+def effective_channel(body, handler):
+    """写操作(建号/下单/查会员)一律以服务端判定渠道为准。
+
+    App 本地 Keychain 里缓存的 channel 常是 organic，而渠道命中是服务端按
+    出口 IP / 设备号绑定判定的 mzhtest。以前直接信任客户端传值，会让 Yii2
+    桥接的写白名单守卫把真实建号/下单拦掉，静默回落到本地假订单和假账号
+    （表现：后台「用户管理」没新用户、支付只出「交易进行中」占位页）。
+    """
+    ip = body.get("ip") or client_ip(handler)
+    bound = resolve_bound_channel(body, ip) or test_net_binding(ip)
+    if bound and bound.get("channel") in CHANNELS:
+        return str(bound["channel"])
+    ch = str(body.get("channel") or "").strip()
+    return ch if ch in CHANNELS else "organic"
+
+
+def latest_upstream_ticket(idfv):
+    """取该设备最近一次经 Yii2 正式登录签发的 token（本地占位 TKT 不算）。
+
+    老版本 App 下单请求不带 ticket，这里按 idfv 补齐 Authorization，
+    让 /api/pay/vip-create 拿到正式账号令牌，不必等发版。
+    """
+    if not idfv:
+        return ""
+    with LOCK:
+        for rec in reversed(LOGINS):
+            t = str(rec.get("ticket") or "")
+            if rec.get("idfv") == idfv and t and not t.startswith("TKT"):
+                return t
+    return ""
+
+
 # ---- 账号注销(App Store Review Guidelines 5.1.1(v)) --------------------------
 # 支持注册/登录的 App 必须允许用户在 App 内发起账号删除, 且要真正删除账号与关联
 # 个人数据。台账只留哈希与统计, 作为「已执行删除」的合规凭证, 不存手机号明文。
@@ -983,6 +1015,19 @@ IOS_CONTRACT = {
 }
 IOS_PACKAGE_KEYS = ["id", "name", "price", "origin_price", "perk", "tag"]
 
+# 付费墙 CTA 高对比配色：深底 + 亮字 + 发光描边。
+# 后台 profile 的 paywall.theme 可覆盖；客户端把「开通会员」胶囊、
+# 试看结束弹窗主按钮、会员页主按钮统一套用这一组值。
+DEFAULT_CTA_THEME = {
+    "cta_background": "#140A2E",
+    "cta_gradient_end": "#5B21B6",
+    "cta_text": "#FFFFFF",
+    "cta_border": "#B57BFF",
+    "cta_shadow": "#7C3AED",
+    "trial_button_background": "#120726",
+    "selected_border": "#A855F7",
+}
+
 
 def camel_alias(key):
     """snake_case -> camelCase（Swift 属性名默认形态）。"""
@@ -1076,6 +1121,10 @@ def build_config(channel, mode, paywall, ctx):
         "normal": normal,
     }
     if mode == "paywall" and pw:
+        # 渠道表里的 paywall 是共享对象, 下发前深拷贝, 避免把 CTA 配色与
+        # 请求 Host 写回全局配置(会污染后续渠道与签名)。
+        pw = copy.deepcopy(pw)
+        pw.setdefault("theme", dict(DEFAULT_CTA_THEME))
         # 深拷贝: 避免把请求 Host 写回全局渠道表(会污染后续配置与签名)
         scheme = ctx.get("scheme", "http")
         host = ctx.get("host", "127.0.0.1:8787")
@@ -1982,6 +2031,60 @@ a{{color:{primary};text-decoration:none}}
                        {"Cache-Control": "no-store"})
             return
 
+        # ---- 0a. 添加渠道（只新增，不改动任何已有渠道，尤其不动跑量 bbdd1） ----
+        if u.path == "/admin/channels/add":
+            token = b.get("token") or self.headers.get("X-Admin-Token", "")
+            if not hmac.compare_digest(str(token), ADMIN_TOKEN):
+                self._send(403, {"error": "bad_admin_token"})
+                return
+            name = re.sub(r"[^0-9A-Za-z_\-]", "", str(b.get("name") or "")).strip()
+            if not name:
+                self._send(400, {"error": "渠道号不能为空（仅允许字母/数字/下划线/短横线）"})
+                return
+            if name in CHANNELS:
+                self._send(400, {"error": "渠道号已存在: " + name})
+                return
+            mode = "paywall" if str(b.get("mode") or "normal") == "paywall" else "normal"
+            desc = str(b.get("desc") or ("新增渠道 " + name))[:120]
+            if mode == "paywall":
+                tpl = CHANNELS.get("mzhtest") or next(
+                    (v for v in CHANNELS.values() if v.get("mode") == "paywall"), None)
+                if not tpl:
+                    self._send(400, {"error": "没有可用的 paywall 模板渠道"})
+                    return
+                cfg = copy.deepcopy(tpl)
+                cfg["desc"] = desc
+                cfg["enabled"] = bool(b.get("enabled", True))
+                g = cfg.setdefault("guard", {})
+                try:
+                    g["rollout"] = max(0.0, min(1.0, float(b.get("rollout", 1.0))))
+                except (TypeError, ValueError):
+                    g["rollout"] = 1.0
+                countries = b.get("countries")
+                if isinstance(countries, list) and countries:
+                    g["allow_countries"] = [str(x).lower() for x in countries][:12]
+            else:
+                cfg = {"enabled": True, "mode": "normal", "desc": desc}
+            path = PROFILE_PATH or os.path.join(ROOT, "profiles", "runtime.json")
+            try:
+                with open(path, encoding="utf-8") as f:
+                    prof = json.load(f)
+            except Exception:
+                prof = {"channels": {}, "normal": NORMAL_HOME, "meta": PROFILE_META}
+            prof.setdefault("channels", {})[name] = cfg
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            tmp = path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(prof, f, ensure_ascii=False, indent=2)
+            os.replace(tmp, path)
+            with LOCK:
+                CHANNELS[name] = cfg
+            audit("channel_add", {"name": name, "mode": mode, "desc": desc})
+            self._send(200, {"ok": True, "name": name, "mode": mode,
+                             "channels": list(CHANNELS.keys())},
+                       {"Cache-Control": "no-store"})
+            return
+
         # ---- 0. 管理后台写操作 -----------------------------------------------
         if u.path in ("/admin/save", "/admin/killswitch"):
             token = b.get("token") or self.headers.get("X-Admin-Token", "")
@@ -2308,7 +2411,9 @@ a{{color:{primary};text-decoration:none}}
         # ---- 4. VIP 下单 -----------------------------------------------------
         if u.path == "/v1/order":
             pkg = b.get("package_id", "vip_3y")
-            ch = b.get("channel", "organic")
+            # 渠道以服务端绑定判定为准（App Keychain 里常缓存 organic），否则
+            # Yii2 写白名单守卫会把真实下单拦掉，回落成「交易进行中」占位页。
+            ch = effective_channel(b, self)
             # 原后台下单：订单进 Yii2「充值记录」，支付走 Yii2「支付配置」的支付宝通道
             if BRIDGE and BRIDGE.enabled and BRIDGE.allow_write(ch):
                 try:
@@ -2319,13 +2424,33 @@ a{{color:{primary};text-decoration:none}}
                             plan_id = pkgs[0]["plan_id"]
                     if plan_id is not None:
                         hdr = upstream_headers(self)
-                        tk = str(b.get("ticket") or b.get("token") or "")
+                        tk = str(b.get("ticket") or b.get("token")
+                                 or latest_upstream_ticket(b.get("idfv")) or "")
+                        if not tk:
+                            # 没登录就点购买：按设备号自动建正式账号并取令牌，
+                            # /api/pay/vip-create 要求正式账号令牌才能下单。
+                            dev = str(b.get("idfv") or "").strip()
+                            if len(dev) < 6 or not re.match(r"^[0-9A-Za-z_\-:.]+$", dev):
+                                dev = device_hash("idfv:" + (dev or ch))
+                            try:
+                                auto_ticket, _, _ = BRIDGE.login(dev, "ios", ch, hdr)
+                                tk = auto_ticket or ""
+                                if tk:
+                                    with LOCK:
+                                        LOGINS.append({"ts": now_ts(), "idfv": dev,
+                                                       "channel": ch,
+                                                       "method": "yii2_auto_guest",
+                                                       "ticket": tk})
+                            except BridgeError:
+                                pass
                         if tk and not tk.startswith("TKT") and not hdr.get("Authorization"):
                             hdr["Authorization"] = "Bearer " + tk
                         up_order, up_meta = BRIDGE.create_order(plan_id, ch, hdr)
                         if up_order.get("order_no") and up_order.get("cashier_url"):
                             up_order["created_at"] = now_ts()
-                            up_order["order_page_url"] = self.base_url() + "/order/" + up_order["order_no"]
+                            # 直接指向 Yii2 后台生成的支付宝 H5 收银台，
+                            # 不再经过本地「交易进行中 / 重新支付」占位订单页。
+                            up_order["order_page_url"] = up_order["cashier_url"]
                             with LOCK:
                                 ORDERS[up_order["order_no"]] = up_order
                             append_log("orders", dict(up_order, event="yii2_created"))
@@ -2392,18 +2517,20 @@ a{{color:{primary};text-decoration:none}}
                 self._send(400, {"error": "agreement_required"})
                 return
             # 原后台账号体系：设备号一键建号，账号直接出现在 Yii2「用户管理」
-            if BRIDGE and BRIDGE.enabled and BRIDGE.allow_write(b.get("channel", "")):
+            # 渠道以服务端绑定判定为准，别用 App 本地缓存的 organic 去撞写白名单。
+            ch_eff = effective_channel(b, self)
+            if BRIDGE and BRIDGE.enabled and BRIDGE.allow_write(ch_eff):
                 dev = str(b.get("idfv") or "").strip()
                 if len(dev) < 6 or not re.match(r"^[0-9A-Za-z_\-:.]+$", dev):
                     dev = device_hash("idfv:" + (dev or phone))
                 try:
                     ticket, is_vip, _extra = BRIDGE.login(
                         dev, str(b.get("platform") or "ios"),
-                        str(b.get("channel") or ""), upstream_headers(self))
+                        ch_eff, upstream_headers(self))
                     if ticket:
                         rec = {"ts": now_ts(),
                                "phone_masked": phone[:3] + "****" + phone[-4:],
-                               "idfv": b.get("idfv", ""), "channel": b.get("channel", ""),
+                               "idfv": b.get("idfv", ""), "channel": ch_eff,
                                "method": "yii2_guest", "ticket": ticket}
                         with LOCK:
                             LOGINS.append(rec)
@@ -2503,10 +2630,11 @@ a{{color:{primary};text-decoration:none}}
             if BRIDGE and BRIDGE.enabled:
                 try:
                     hdr = upstream_headers(self)
-                    tk = str(b.get("ticket") or b.get("token") or "")
+                    tk = str(b.get("ticket") or b.get("token")
+                             or latest_upstream_ticket(b.get("idfv")) or "")
                     if tk and not tk.startswith("TKT") and not hdr.get("Authorization"):
                         hdr["Authorization"] = "Bearer " + tk
-                    st, meta = BRIDGE.vip_status(str(b.get("channel") or ""), hdr,
+                    st, meta = BRIDGE.vip_status(effective_channel(b, self), hdr,
                                                  str(b.get("order_no") or ""))
                     self._send(200, dict(st, upstream_meta=meta))
                     return

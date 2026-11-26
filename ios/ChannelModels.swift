@@ -255,9 +255,38 @@ struct PaywallConfig: Codable {
     let checkout: CheckoutConfig
     let gate: GateConfig?
     let login: LoginConfig?
+    /// CTA 高对比配色由后台下发；老配置没带时用内置深色兜底。
+    let theme: PaywallTheme?
 
     var gateOrDefaults: GateConfig { gate ?? .defaults }
     var loginOrDefaults: LoginConfig { login ?? .defaults }
+    var themeOrDefaults: PaywallTheme { theme ?? .defaults }
+}
+
+/// 付费墙 CTA 配色：深底 + 亮字 + 发光描边，后台「渠道展示配置」可改。
+struct PaywallTheme: Codable {
+    let ctaBackground: String
+    let ctaGradientEnd: String
+    let ctaText: String
+    let ctaBorder: String
+    let ctaShadow: String
+    let trialButtonBackground: String
+    let selectedBorder: String
+
+    enum CodingKeys: String, CodingKey {
+        case ctaBackground = "cta_background"
+        case ctaGradientEnd = "cta_gradient_end"
+        case ctaText = "cta_text"
+        case ctaBorder = "cta_border"
+        case ctaShadow = "cta_shadow"
+        case trialButtonBackground = "trial_button_background"
+        case selectedBorder = "selected_border"
+    }
+
+    static let defaults = PaywallTheme(
+        ctaBackground: "#140A2E", ctaGradientEnd: "#5B21B6",
+        ctaText: "#FFFFFF", ctaBorder: "#B57BFF", ctaShadow: "#7C3AED",
+        trialButtonBackground: "#120726", selectedBorder: "#A855F7")
 }
 
 struct SplashConfig: Codable {
