@@ -80,13 +80,14 @@ def ipa_meta(path):
     return out
 
 
-def manifest_plist(state, ipa_url, icon_url):
+def manifest_plist(state, ipa_url, icon_url, full_icon_url=None):
     items = {
         "items": [{
             "assets": [
                 {"kind": "software-package", "url": ipa_url},
                 {"kind": "display-image", "needs-shine": False, "url": icon_url},
-                {"kind": "full-size-image", "needs-shine": False, "url": icon_url},
+                {"kind": "full-size-image", "needs-shine": False,
+                 "url": full_icon_url or icon_url},
             ],
             "metadata": {
                 "bundle-identifier": state.get("bundle_id") or "com.mizhenhe.player",
@@ -97,6 +98,26 @@ def manifest_plist(state, ipa_url, icon_url):
         }]
     }
     return plistlib.dumps(items, fmt=plistlib.FMT_XML).decode("utf-8")
+
+
+def sync_ota_icons():
+    """OTA 安装中显示的是 manifest 里的 display-image / full-size-image，
+    装完显示的是 IPA 里的 AppIcon。以前 manifest 指向网页 favicon（青色三角），
+    和紫色 AppIcon 不是一个图，用户就会看到「安装中 / 装完两个 logo」。
+    这里统一从 AppIcon.png 派生三个尺寸，保证三个阶段同一张脸。"""
+    from PIL import Image
+    src = os.path.join(ROOT, "xcode", "Resources", "Assets.xcassets",
+                       "AppIcon.appiconset", "AppIcon.png")
+    if not os.path.isfile(src):
+        print("[WARN] 找不到 AppIcon.png，跳过 OTA 图标同步")
+        return []
+    # server/app.py 的静态路由只放行 /download/apple-touch-icon.png，
+    # 新增文件名不会生效；直接覆盖这个已放行的文件最稳。
+    im = Image.open(src).convert("RGB")
+    p = os.path.join(ROOT, "download", "apple-touch-icon.png")
+    im.resize((180, 180), Image.LANCZOS).save(p, "PNG", optimize=True)
+    print("[icon] OTA 显示图标已与 IPA 内 AppIcon 统一（180x180）")
+    return [(p, "/opt/mizhenhe/download/apple-touch-icon.png")]
 
 
 def qr_png(text):
@@ -252,6 +273,8 @@ def main():
                  (STATE, "/opt/mizhenhe/server/release_state.json"),
                  (os.path.join(ROOT, "download", "index.html"),
                   "/opt/mizhenhe/download/index.html")]
+        # 安装中/装完同一个 logo：把派生图标一起部署到静态目录
+        files += sync_ota_icons()
         mf = os.path.join(IPA_DIR, "manifest.plist")
         if os.path.isfile(mf):
             files.append((mf, "/opt/mizhenhe/download/ipa/manifest.plist"))

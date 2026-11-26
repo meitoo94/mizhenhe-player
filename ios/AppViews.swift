@@ -87,12 +87,8 @@ struct MainTabs: View {
                     .padding(.top, 12)
             }
         }
-        // 悬浮在顶部，不盖住片仓列表：上传中还能看到条目上的进度角标。
-        .overlay(alignment: .top) {
-            ImportProgressCard(stage: store.importStage) {
-                store.dismissImportResult()
-            }
-        }
+        // 进度卡放进片仓页面内容里（见 LibraryTabReal），不再用整屏 overlay
+        // 盖住导航栏、统计卡和片名标题。
     }
 
     private func open(_ v: LocalVideo, _ t: Toolbox?) {
@@ -423,6 +419,10 @@ private struct LibraryTabReal: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 10) {
+                // 插入式横幅：把下面的内容自然往下推，不压住任何卡片
+                ImportProgressCard(stage: store.importStage) {
+                    store.dismissImportResult()
+                }
                 HStack(spacing: 0) {
                     overview("\(store.videos.count)", "视频数")
                     overview(Format.duration(store.totalDuration), "总时长")
@@ -494,7 +494,7 @@ private struct LibraryTabReal: View {
                     List {
                         ForEach(list) { v in
                             HStack(spacing: 10) {
-                                thumb(v).frame(width: 78, height: 52)
+                                thumb(v, height: 52).frame(width: 78)
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(v.title).font(.subheadline).lineLimit(1)
                                     Text(store.preparingIDs.contains(v.id)
@@ -569,7 +569,7 @@ private struct LibraryTabReal: View {
     private func cell(_ v: LocalVideo) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             ZStack(alignment: .topTrailing) {
-                thumb(v).frame(maxWidth: .infinity).frame(height: 80)
+                thumb(v).frame(maxWidth: .infinity)
                 if multiSelect { check(v).padding(4) }
                 // 还在上传/准备的条目：卡片本身就有明确状态，点开只提示稍等
                 if store.preparingIDs.contains(v.id) {
@@ -618,14 +618,23 @@ private struct LibraryTabReal: View {
         }
     }
 
-    @ViewBuilder
-    private func thumb(_ v: LocalVideo) -> some View {
-        if let u = store.thumbURL(for: v), let img = UIImage(contentsOfFile: u.path) {
-            Image(uiImage: img).resizable().scaledToFill().clipped().cornerRadius(8)
-        } else {
-            Image(systemName: "film").frame(maxWidth: .infinity)
-                .background(MZH.surface2, in: RoundedRectangle(cornerRadius: 8))
+    private func thumb(_ v: LocalVideo, height: CGFloat = 80) -> some View {
+        Group {
+            if let u = store.thumbURL(for: v), let img = UIImage(contentsOfFile: u.path) {
+                Image(uiImage: img).resizable().scaledToFill()
+            } else {
+                ZStack {
+                    MZH.surface2
+                    Image(systemName: "film").foregroundStyle(MZH.muted)
+                }
+            }
         }
+        // 必须先定尺寸再裁剪。build 11 把 clipped() 放在 frame 之前，
+        // 竖屏封面按原比例撑到 200pt+，直接压在下一行卡片上，
+        // 看起来就是「四个视频叠在一起」。
+        .frame(maxWidth: .infinity, minHeight: height, maxHeight: height)
+        .clipped()
+        .cornerRadius(8)
     }
 }
 

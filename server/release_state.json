@@ -1,7 +1,7 @@
 {
   "app_name": "米帧盒播放器",
   "version": "1.0",
-  "build": "10",
+  "build": "11",
   "bundle_id": "com.mizhenhe.player",
   "native_status": "ipa_ready",
   "native_status_text": "安装包已上传 · 手机扫码即可安装",
@@ -11,7 +11,7 @@
   "ipa_url": "https://app.kqi.ink/mzh/download/ipa/mizhenhe-player.ipa",
   "admin_url": "https://app.kqi.ink/site",
   "admin_hint": "登录后左侧「米帧盒播放器」栏目",
-  "updated_at": "2026-11-26",
+  "updated_at": "2026-11-27",
   "h5_features": [
     "开屏倒计时 → 试看片段 → VIP 充值全流程",
     "登录 / 注册后 1 秒弹出充值页，付费前常驻",

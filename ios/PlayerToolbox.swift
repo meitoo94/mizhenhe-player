@@ -1,6 +1,7 @@
 import SwiftUI
 import AVFoundation
 import AVKit
+import CoreMedia
 import CoreImage
 import UIKit
 
@@ -274,11 +275,17 @@ final class PlayerModel: ObservableObject {
 
     private var itemObservation: NSKeyValueObservation?
     private var timeObservation: NSKeyValueObservation?
+    private var periodic: Any?
     private var lastGrade: GradePreset?
     private var lastSegments: [TempoSegment] = []
     private var loadToken = UUID()
-    /// 第一次失败后自动用「纯 URL item」再试一次，绕开 AVURLAsset 缓存的失败状态
+    /// 自动恢复期间强制走纯 URL item，不套 AVAsset / CIFilter composition
     private var forcePlain = false
+    private var autoRetries = 0
+
+    deinit {
+        if let periodic { player.removeTimeObserver(periodic) }
+    }
 
     init(url: URL) {
         asset = AVURLAsset(url: url)
@@ -303,46 +310,53 @@ final class PlayerModel: ObservableObject {
         }
     }
 
+    /// 只有用户真的在光谱 / 动能里改了参数，才需要 AVAsset + composition。
+    /// 单纯点开视频一律用系统最稳的 AVPlayerItem(url:)：build 11 之前用
+    /// AVPlayerItem(asset:) 加载 97MB 级 HEVC 时 status 会长时间停在 unknown，
+    /// 14 秒后被误判成「副本损坏」——图里那两个大视频就是这么挂的。
+    private var needsStyling: Bool {
+        let graded = lastGrade.map { !GradeFilter.isOriginal($0) } ?? false
+        return graded || CompositionBuilder.hasEffect(lastSegments)
+    }
+
     func rebuild(grade: GradePreset?, segments: [TempoSegment]) {
         lastGrade = grade
         lastSegments = segments
+        forcePlain = false
+        autoRetries = 0
+        diagnosis = ""
         loadState = .loading
         playing = false
+        installItem()
+    }
 
-        let withEffect = !forcePlain && CompositionBuilder.hasEffect(segments)
-        let base: AVAsset = withEffect
-            ? (CompositionBuilder.build(asset: asset, segments: segments) ?? asset) : asset
-        // 重试时直接用文件 URL 建 item：绕开 AVURLAsset 已缓存的失败状态，
-        // 也不套 CIFilter composition，优先保证把画面放出来。
-        let item = forcePlain ? AVPlayerItem(url: asset.url) : AVPlayerItem(asset: base)
-        if !forcePlain, let g = grade, !GradeFilter.isOriginal(g) {
-            item.videoComposition = GradeFilter.composition(for: base, grade: g)
+    private func installItem() {
+        let item: AVPlayerItem
+        if !forcePlain && needsStyling {
+            let base: AVAsset = CompositionBuilder.hasEffect(lastSegments)
+                ? (CompositionBuilder.build(asset: asset, segments: lastSegments) ?? asset) : asset
+            item = AVPlayerItem(asset: base)
+            if let g = lastGrade, !GradeFilter.isOriginal(g) {
+                item.videoComposition = GradeFilter.composition(for: base, grade: g)
+            }
+        } else {
+            // 不经过 AVURLAsset 同步解析，也不套 CIFilter：系统自己挑解码器。
+            item = AVPlayerItem(url: asset.url)
         }
-        // 等 status == readyToPlay 再 play：过早 play 或解码失败时会静默黑屏。
+        item.preferredForwardBufferDuration = 1
+
         itemObservation = item.observe(\.status, options: [.initial, .new]) {
             [weak self] it, _ in
             DispatchQueue.main.async {
                 guard let self else { return }
                 switch it.status {
                 case .readyToPlay:
-                    // 一旦走到纯 URL 重试才成功，就保持这个路径，
-                    // 避免之后调色预览重新套 composition 又变回黑屏。
-                    self.loadState = .ready
+                    self.markReady()
                     self.player.play()
-                    self.playing = true
                 case .failed:
                     self.playing = false
-                    if !self.forcePlain {
-                        // 自动重试一次，不用用户手点「重新加载」
-                        self.forcePlain = true
-                        self.loadState = .loading
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                            guard let self else { return }
-                            self.rebuild(grade: self.lastGrade, segments: self.lastSegments)
-                        }
-                    } else {
-                        self.loadState = .failed(Self.friendlyMessage(it.error))
-                    }
+                    if self.forcePlain { self.fail(Self.friendlyMessage(it.error)) }
+                    else { self.autoRecover() }
                 default:
                     break
                 }
@@ -350,48 +364,124 @@ final class PlayerModel: ObservableObject {
         }
         player.replaceCurrentItem(with: item)
 
-        // 12 秒还没出首帧就给可操作的失败态，不做无限转圈。
+        // status 的 KVO 偶尔不回来；播放时间真的在走就说明画面已经出来了。
+        if periodic == nil {
+            periodic = player.addPeriodicTimeObserver(
+                forInterval: CMTime(seconds: 0.4, preferredTimescale: 600), queue: .main) {
+                [weak self] t in
+                guard let self else { return }
+                if CMTimeGetSeconds(t) > 0.05 {
+                    switch self.loadState {
+                    case .loading, .buffering: self.markReady()
+                    default: break
+                    }
+                }
+            }
+        }
+        scheduleTimeout()
+    }
+
+    private func markReady() {
+        loadToken = UUID()          // 让挂起的超时闭包失效
+        autoRetries = 0
+        if loadState != .ready { loadState = .ready }
+        playing = true
+    }
+
+    private func fail(_ msg: String) {
+        loadToken = UUID()
+        playing = false
+        loadState = .failed(msg)
+    }
+
+    /// 超时 / 解码失败：清空旧解码会话，用纯 URL item 自动重建，最多 2 次。
+    private func autoRecover() {
+        guard autoRetries < 2 else {
+            fail("播放器等待画面超时，已自动重试 2 次")
+            return
+        }
+        autoRetries += 1
+        forcePlain = true
+        diagnosis = ""
+        loadState = .loading
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+            guard let self else { return }
+            self.player.replaceCurrentItem(with: nil)
+            self.installItem()
+        }
+    }
+
+    private func scheduleTimeout() {
         let token = UUID()
         loadToken = token
-        DispatchQueue.main.asyncAfter(deadline: .now() + 12) { [weak self] in
+        let wait: Double = autoRetries > 0 ? 8 : 12
+        DispatchQueue.main.asyncAfter(deadline: .now() + wait) { [weak self] in
             guard let self, self.loadToken == token else { return }
-            if case .loading = self.loadState {
-                self.forcePlain = true
-                self.loadState = .failed("等待画面超过 12 秒，通常是本地副本没写完或源文件还在 iCloud 下载")
+            switch self.loadState {
+            case .loading, .buffering: self.autoRecover()
+            default: return
             }
         }
     }
 
     private static func friendlyMessage(_ err: Error?) -> String {
         let code = (err as NSError?)?.code ?? 0
-        if code == -12865 { return "这个视频的编码格式当前系统不支持（错误 \(code)）" }
+        if code == -12865 { return "这个编码当前播放器不支持（错误 \(code)），请点系统播放器" }
         if code == -11800 || code == -11828 || code == -11819 {
-            return "解码器读不出画面（错误 \(code)），本地副本可能不完整"
+            return "播放器报告解码错误（\(code)），请点系统播放器打开"
         }
-        return "文件已写入片仓，但解码器读不出画面（错误 \(code)）"
+        return "播放器报告错误（\(code)），可改用系统播放器打开"
     }
 
-    /// 失败时把本地副本的真实状态摆出来，不再只丢一句「这项操作无法完成」
+    private static func fourcc(_ v: FourCharCode) -> String {
+        let b: [UInt8] = [UInt8((v >> 24) & 255), UInt8((v >> 16) & 255),
+                          UInt8((v >> 8) & 255), UInt8(v & 255)]
+        let raw = String(bytes: b, encoding: .ascii) ?? "?"
+        switch raw {
+        case "hvc1", "hev1": return "HEVC/H.265"
+        case "avc1": return "H.264"
+        case "dvh1", "dvhe": return "杜比视界"
+        default: return raw
+        }
+    }
+
+    /// 把本地副本的真实编码 / 分辨率摆出来，直接回答「为什么这两个不行」
     func diagnose(url: URL) {
         DispatchQueue.global(qos: .userInitiated).async {
             let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
             let size = (attrs?[.size] as? NSNumber)?.int64Value ?? 0
             let a = AVURLAsset(url: url)
+            let sem = DispatchSemaphore(value: 0)
+            a.loadValuesAsynchronously(forKeys: ["tracks", "playable", "duration"]) { sem.signal() }
+            _ = sem.wait(timeout: .now() + 6)
             let playable = a.isPlayable
             let tracks = a.tracks(withMediaType: .video).count
-            var s = "本地副本 \(Format.bytes(size)) · 视频轨道 \(tracks) 条"
+            var detail = ""
+            if a.statusOfValue(forKey: "tracks", error: nil) == .loaded,
+               let t = a.tracks(withMediaType: .video).first {
+                let sz = t.naturalSize
+                var codec = "未知编码"
+                if let f = t.formatDescriptions.first as? CMFormatDescription {
+                    codec = Self.fourcc(CMFormatDescriptionGetMediaSubType(f))
+                }
+                detail = " · \(codec) · \(Int(sz.width))×\(Int(sz.height)) · \(Int(t.nominalFrameRate.rounded()))fps"
+            }
+            var s = "本地副本 \(Format.bytes(size)) · 视频轨道 \(tracks) 条" + detail
             if size < 1024 { s = "本地副本只有 \(size) 字节，导入时没写完整" }
             else if !playable { s += " · 系统判定不可播放" }
-            else if tracks == 0 { s += " · 没有可解码的画面轨道" }
-            else { s += " · 可播放标记正常，但当前解码器仍失败" }
+            else if tracks == 0 { s += " · 没有画面轨道" }
+            else { s += " · 文件可读，问题在播放器加载" }
             DispatchQueue.main.async { self.diagnosis = s }
         }
     }
 
     func retry() {
         forcePlain = true
+        autoRetries = 0
         diagnosis = ""
-        rebuild(grade: lastGrade, segments: lastSegments)
+        loadState = .loading
+        player.replaceCurrentItem(with: nil)
+        installItem()
     }
 
     func toggle() {
@@ -589,25 +679,22 @@ struct PlayerScreen: View {
         VStack(spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill").font(.largeTitle)
                 .foregroundStyle(MZH.warn)
-            Text("这个视频的本地副本打不开")
+            Text("播放器没能加载出画面")
                 .font(.subheadline.bold()).foregroundStyle(.white)
-            Text("不是还在上传，是文件已经写进片仓，但解码器读不出画面")
+            Text("文件已经上传完成，封面也能生成，不是副本损坏；是播放器这条解码路径超时了")
                 .font(.caption2).foregroundStyle(MZH.muted)
                 .multilineTextAlignment(.center)
             Text(msg).font(.caption2).foregroundStyle(MZH.muted)
                 .multilineTextAlignment(.center).lineLimit(2)
-            Text(model.diagnosis.isEmpty ? "正在检查本地副本…" : model.diagnosis)
+            Text(model.diagnosis.isEmpty ? "正在检查视频编码…" : model.diagnosis)
                 .font(.caption2.monospacedDigit()).foregroundStyle(MZH.primary)
                 .multilineTextAlignment(.center).lineLimit(3)
-            Text("从微信 / 钉钉 / iCloud 直接导入的文件有时会缺数据，请先在原 App 打开确认能完整播放，再重新导入。")
-                .font(.caption2).foregroundStyle(MZH.muted)
-                .multilineTextAlignment(.center)
             HStack(spacing: 10) {
-                Button("重新加载") { model.retry() }
-                    .font(.caption.bold()).foregroundStyle(MZH.onPrimary)
-                    .padding(.horizontal, 14).padding(.vertical, 8)
-                    .background(MZH.primary, in: Capsule())
                 Button("系统播放器") { showSystemPlayer = true }
+                    .font(.caption.bold()).foregroundStyle(MZH.onPrimary)
+                    .padding(.horizontal, 16).padding(.vertical, 8)
+                    .background(MZH.primary, in: Capsule())
+                Button("重新加载") { model.retry() }
                     .font(.caption.bold()).foregroundStyle(MZH.primary)
                     .padding(.horizontal, 14).padding(.vertical, 8)
                     .overlay(Capsule().stroke(MZH.primary, lineWidth: 1))
