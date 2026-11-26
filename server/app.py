@@ -52,6 +52,7 @@ import hashlib
 import hmac
 import json
 import os
+import base64
 import re
 import sys
 import threading
@@ -90,6 +91,11 @@ os.makedirs(EVIDENCE, exist_ok=True)
 
 SECRET = os.environ.get("SWITCH_SECRET", "demo-secret-change-in-production").encode("utf-8")
 APPSTORE_URL = "https://apps.apple.com/cn/app/id6823541080"
+
+# 米帧盒 VIP 档位唯一的后台配置入口：Yii2「支付相关管理 → 米帧盒VIP套餐」。
+# 原生 App 与 H5 演示都从这里读，渠道展示后台的「④ 套餐展示与价格」不再生效。
+VIP_ADMIN_URL = os.environ.get(
+    "MZH_VIP_ADMIN_URL", "https://app.kqi.ink/site/vip/index?scope=mizhenhe")
 
 # ---------------------------------------------------------------- 渠道配置表
 # mode 只有两种: normal(合规工具态) / paywall(倒计时+视频+VIP)
@@ -363,6 +369,51 @@ ATTRIB_CONF = {
 }
 DEVICE_FIELDS = ("idfa", "caid", "device_id", "oaid", "idfv")
 
+# 真机验证用的渠道白名单：只能绑新建的测试渠道，跑量渠道一个都不许碰。
+TEST_CHANNELS = {c.strip() for c in os.environ.get(
+    "MZH_UPSTREAM_TEST_CHANNELS", "mzhtest").split(",") if c.strip()}
+
+
+# ---- 手机时钟校准（仅测试渠道，解决 App 静默回落 normal） ------------------
+# App 的 verify() 除了 HMAC 还要求 |手机时间 - issued_at| < 3600 秒。
+# 手机时钟与服务器不一致时，配置再完整、签名再正确，App 也会静默回普通首页，
+# 而服务端日志只能看到「已下发 paywall」。验证台用同一台手机上报时钟，
+# 按出口 IP 记下偏移量，下发时只给测试渠道修正 issued_at 并重新签名。
+# organic / bbdd1 等生产渠道完全不读这张表，签名原文保持原样。
+CLOCK_FILE = os.path.join(STATE_DIR, "clock_offsets.json")
+CLOCK_OFFSETS = {}          # ip -> {offset, phone_now, ts}
+
+
+def load_clock_offsets():
+    try:
+        with open(CLOCK_FILE, "r", encoding="utf-8") as f:
+            d = json.load(f)
+        CLOCK_OFFSETS.update({str(k): v for k, v in d.items() if isinstance(v, dict)})
+    except Exception:
+        pass
+
+
+def save_clock_offsets():
+    tmp = CLOCK_FILE + ".tmp"
+    os.makedirs(STATE_DIR, exist_ok=True)
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(CLOCK_OFFSETS, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, CLOCK_FILE)
+
+
+def client_clock_offset(ip):
+    rec = CLOCK_OFFSETS.get(norm_ip(ip))
+    if not rec:
+        return 0
+    try:
+        return int(rec.get("offset", 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def test_channel_allowed(ch):
+    return str(ch or "").strip() in TEST_CHANNELS
+
 
 def load_attribution_state():
     global AD_CLICKS, DEVICE_BINDINGS
@@ -371,6 +422,23 @@ def load_attribution_state():
             d = json.load(f)
         AD_CLICKS = d.get("clicks", [])
         DEVICE_BINDINGS = d.get("bindings", {})
+        # 历史测试绑定补写 /24 网段备用键：手机 5G 出口 IP 会在同一网段内漂移，
+        # 只存精确 IP 时重启一次就可能掉回 organic。仅测试渠道迁移。
+        migrated = 0
+        for rec in list(DEVICE_BINDINGS.values()):
+            if not isinstance(rec, dict):
+                continue
+            if rec.get("method") == "verify_console" and rec.get("channel") in TEST_CHANNELS:
+                rip = norm_ip(rec.get("ip"))
+                if "." in rip:
+                    k = device_hash("ip24:" + rip.rsplit(".", 1)[0])
+                    if k not in DEVICE_BINDINGS:
+                        DEVICE_BINDINGS[k] = dict(rec, device_key=k,
+                                                  device_kind="ip24_hash")
+                        migrated += 1
+        if migrated:
+            save_attribution_state()
+            print(f"[attribution] migrated {migrated} test bindings to /24", flush=True)
         conf = d.get("config")
         if isinstance(conf, dict):
             ATTRIB_CONF.update(conf)
@@ -517,6 +585,22 @@ def resolve_bound_channel(body, ip):
         h = device_hash("ip:" + norm_ip(ip))
         b = DEVICE_BINDINGS.get(h)
         return dict(b) if b else None
+
+
+def test_net_binding(ip):
+    """测试渠道专用：精确 IP 未命中时，允许同 /24 网段兜底。
+
+    手机用 5G 时运营商 NAT 出口 IP 会在同一网段内变化；只对验证台写入的
+    TEST_CHANNELS 绑定生效，不参与真实广告归因，跑量渠道一律返回 None。
+    """
+    rip = norm_ip(ip)
+    if "." not in rip:
+        return None
+    with LOCK:
+        b = DEVICE_BINDINGS.get(device_hash("ip24:" + rip.rsplit(".", 1)[0]))
+    if b and b.get("channel") in TEST_CHANNELS:
+        return dict(b)
+    return None
 
 
 # ---- 账号注销(App Store Review Guidelines 5.1.1(v)) --------------------------
@@ -833,6 +917,115 @@ def resolve(channel, ctx):
     return "paywall", reasons, cfg.get("paywall")
 
 
+def ensure_ios_packages(cfg):
+    """下发前保证 paywall.vip.packages 满足原生 App 的严格 Codable 契约。
+
+    ios/ChannelModels.swift 的 VIPPackage 把 origin_price / perk / tag 定义为
+    非可选字段；后台档位（Yii2「米帧盒VIP套餐」）不含这三个键时，Swift 的
+    JSONDecoder 会让整个 ConfigPayload 解码失败，App 静默回落 normal 首页，
+    表现就是「服务端已切 paywall，但 App 还是普通播放器」。
+    """
+    pw = cfg.get("paywall") if isinstance(cfg, dict) else None
+    vip = pw.get("vip") if isinstance(pw, dict) else None
+    pkgs = vip.get("packages") if isinstance(vip, dict) else None
+    if not isinstance(pkgs, list):
+        return cfg
+    fixed = []
+    for p in pkgs:
+        if not isinstance(p, dict):
+            continue
+        q = dict(p)
+        for k in ("price", "origin_price"):
+            try:
+                q[k] = float(q.get(k) or 0)
+            except (TypeError, ValueError):
+                q[k] = 0.0
+        try:
+            days = int(q.get("days") or 0)
+        except (TypeError, ValueError):
+            days = 0
+        q.setdefault("perk", ("终身有效 · 解锁全部功能" if days >= 3650
+                              else ("有效期 %d 天 · 解锁全部功能" % days if days > 0
+                                    else "开通即解锁全部功能")))
+        q["tag"] = str(q.get("tag") or q.get("badge") or "")
+        for k in ("id", "name", "perk"):
+            q[k] = str(q.get(k) or "")
+        fixed.append(q)
+    vip["packages"] = fixed
+    return cfg
+
+
+# 与 ios/ChannelModels.swift 的非可选字段一一对应；路径 → 必填键。
+IOS_CONTRACT = {
+    "": ["schema", "mode", "channel", "issued_at", "ttl"],
+    "normal": ["brand", "tagline", "headline", "tabs", "theme", "home",
+               "library", "craft", "mine"],
+    "normal.theme": ["primary", "accent", "background", "surface", "text",
+                     "muted", "corner", "tab_icons"],
+    "normal.home": ["stats", "empty_library", "channels", "sections", "empty_tips"],
+    "normal.library": ["search_placeholder", "view_modes", "bulk_actions",
+                       "empty_title", "import_hint", "import_button"],
+    "normal.craft": ["headline", "features", "cloud"],
+    "normal.craft.cloud": ["name", "desc", "items"],
+    "normal.mine": ["account", "account_hint", "membership", "links"],
+    "normal.mine.membership": ["name", "placeholder", "maps_to"],
+    "paywall": ["splash", "trial", "vip", "checkout"],
+    "paywall.splash": ["title", "subtitle", "button", "countdown_seconds"],
+    "paywall.trial": ["video_url", "poster_url", "countdown_seconds", "vip_button",
+                      "hint", "end_title", "end_body", "end_primary", "end_secondary"],
+    "paywall.vip": ["title", "packages", "button", "agreements"],
+    "paywall.checkout": ["method", "order_endpoint", "cashier_base", "support_url"],
+    "paywall.gate": ["once_per_install", "allow_skip", "skip_button",
+                     "home_after_skip", "reopen_from"],
+    "paywall.login": ["enabled", "method", "confirm_phone_input", "placeholder",
+                      "confirm_placeholder", "submit", "agreements", "success_toast"],
+}
+IOS_PACKAGE_KEYS = ["id", "name", "price", "origin_price", "perk", "tag"]
+
+
+def ios_contract_issues(cfg):
+    """返回会让 App 解码失败的字段清单（空列表 = 兼容）。"""
+    issues = []
+    for path, keys in IOS_CONTRACT.items():
+        obj = cfg
+        if path:
+            for seg in path.split("."):
+                obj = obj.get(seg) if isinstance(obj, dict) else None
+                if obj is None:
+                    break
+        if obj is None:
+            # normal / paywall 是可选的，缺失不报错
+            if path.split(".")[0] in ("normal", "paywall"):
+                continue
+            issues.append(path + " 对象缺失")
+            continue
+        if not isinstance(obj, dict):
+            issues.append(path + " 不是对象")
+            continue
+        for k in keys:
+            if k not in obj:
+                issues.append((path + "." if path else "") + k + " 缺失")
+        if path == "normal.craft":
+            for i, f in enumerate(obj.get("features") or []):
+                for k in ("id", "name", "desc", "icon", "maps_to"):
+                    if isinstance(f, dict) and k not in f:
+                        issues.append("normal.craft.features[%d].%s 缺失" % (i, k))
+    pw = cfg.get("paywall") if isinstance(cfg, dict) else None
+    vip = pw.get("vip") if isinstance(pw, dict) else None
+    if isinstance(vip, dict):
+        for i, p in enumerate(vip.get("packages") or []):
+            if not isinstance(p, dict):
+                issues.append("paywall.vip.packages[%d] 不是对象" % i)
+                continue
+            for k in IOS_PACKAGE_KEYS:
+                if k not in p:
+                    issues.append("paywall.vip.packages[%d].%s 缺失" % (i, k))
+            for k in ("price", "origin_price"):
+                if k in p and not isinstance(p[k], (int, float)):
+                    issues.append("paywall.vip.packages[%d].%s 类型不符" % (i, k))
+    return issues
+
+
 def build_config(channel, mode, paywall, ctx):
     normal, pw = apply_display(channel, NORMAL_HOME, paywall)
     payload = {
@@ -878,6 +1071,18 @@ def preview_payload(channel, ctx):
     mode, reasons, pw = resolve(channel, ctx)
     env = build_config(channel, mode, pw, ctx)
     cfg = json.loads(env["config"])
+    # H5 演示与原生 App 统一读 Yii2「米帧盒VIP套餐」：
+    # 本地皮肤里的「④ 套餐展示与价格」只留作历史数据，不再参与下发。
+    if BRIDGE and BRIDGE.enabled and cfg.get("mode") == "paywall" \
+            and isinstance(cfg.get("paywall"), dict):
+        try:
+            pkgs, _ = BRIDGE.vip_packages(channel, None)
+            if pkgs:
+                cfg["paywall"].setdefault("vip", {})["packages"] = pkgs
+                cfg["paywall"]["vip"]["source"] = "yii2_mizhenhe"
+        except BridgeError:
+            pass
+    ensure_ios_packages(cfg)
     return {"channel": channel, "mode": cfg["mode"], "decision": reasons,
             "sig": env["sig"], "config": cfg}
 
@@ -1282,6 +1487,23 @@ a{color:#35E0C8}</style></head><body><h1>设备已登记</h1>
         u = urlparse(self.path)
         q = parse_qs(u.query)
 
+        # ---- 手机时钟 / App 请求实况（验证台诊断，只读） ----------------------
+        if u.path == "/v1/clock/status":
+            ip = norm_ip(client_ip(self))
+            rec = CLOCK_OFFSETS.get(ip)
+            self._send(200, {"ok": True, "ip": ip, "server_now": now_ts(),
+                             "offset": rec.get("offset") if rec else None,
+                             "reported_at": rec.get("ts") if rec else None},
+                       {"Cache-Control": "no-store"})
+            return
+        if u.path == "/v1/config/probe":
+            with LOCK:
+                rows = list(DECISION_LOG[-20:])
+            self._send(200, {"ok": True, "items": rows,
+                             "clock_offsets": len(CLOCK_OFFSETS)},
+                       {"Cache-Control": "no-store"})
+            return
+
         # ---- 用户反馈中心（→ Yii2 /api/feedback/*） ---------------------------
         if u.path == "/v1/feedback/types":
             ok, p = feedback_request("/api/feedback/types")
@@ -1370,6 +1592,58 @@ a{color:#35E0C8}</style></head><body><h1>设备已登记</h1>
             }, {"Cache-Control": "no-store"})
             return
 
+        # ---- 米帧盒VIP套餐（后台栏目当前配置，只读核对） ----------------------
+        if u.path == "/v1/vip/plans":
+            out = {"ok": True, "scope": BRIDGE.scope if BRIDGE else "local",
+                   "admin_url": VIP_ADMIN_URL, "source": "local",
+                   "items": [], "packages": []}
+            if BRIDGE and BRIDGE.enabled:
+                try:
+                    d, meta = BRIDGE.call("vip_plans", {"scope": BRIDGE.scope},
+                                          upstream_headers(self))
+                    out["items"] = (d or {}).get("items") or []
+                    out["meta"] = meta
+                    pkgs, _ = BRIDGE.vip_packages("", upstream_headers(self), plans=d)
+                    out["packages"] = pkgs
+                    out["source"] = "yii2"
+                except BridgeError as e:
+                    out["error"] = str(e)
+                    out["source"] = "error"
+            self._send(200, out, {"Cache-Control": "no-store"})
+            return
+
+        # ---- 渠道配置验证台 ---------------------------------------------------
+        if u.path in ("/verify", "/verify/"):
+            try:
+                html = read_page("verify/index.html", self.public_prefix())
+                qrs = {}
+                qr_dir = os.path.join(PROJ, "verify")
+                if os.path.isdir(qr_dir):
+                    for name in sorted(os.listdir(qr_dir)):
+                        if name.startswith("qr-") and name.endswith(".png"):
+                            with open(os.path.join(qr_dir, name), "rb") as f:
+                                qrs[name[3:-4]] = ("data:image/png;base64,"
+                                                   + base64.b64encode(f.read()).decode())
+                inject = ("<script>window.MZH_TEST_CHANNELS=%s;"
+                          "window.MZH_QR=%s;window.MZH_VIP_ADMIN=%s;</script>") % (
+                    json.dumps(sorted(TEST_CHANNELS), ensure_ascii=False),
+                    json.dumps(qrs, ensure_ascii=False),
+                    json.dumps(VIP_ADMIN_URL, ensure_ascii=False))
+                html = html.replace("<head>", "<head>\n" + inject, 1)
+                self._html(200, html, {"Cache-Control": "no-store"})
+            except FileNotFoundError:
+                self._html(404, "<h1>verify/index.html missing</h1>")
+            return
+        if u.path == "/v1/attribution/test-status":
+            ip = norm_ip(client_ip(self))
+            key = device_hash("ip:" + ip)
+            with LOCK:
+                binding = dict(DEVICE_BINDINGS.get(key) or {})
+            self._send(200, {"ok": True, "ip": ip, "binding": binding or None,
+                             "test_channels": sorted(TEST_CHANNELS),
+                             "total_bindings": len(DEVICE_BINDINGS)},
+                       {"Cache-Control": "no-store"})
+            return
         # ---- 手机可交互 Demo ---------------------------------------------------
         if u.path in ("/demo", "/demo/"):
             try:
@@ -1609,6 +1883,22 @@ a{{color:{primary};text-decoration:none}}
             self._feedback_upload()
             return
         b = self._body()
+
+        # ---- 0b. 手机时钟上报（验证台自动调用，只影响测试渠道的 issued_at） ----
+        if u.path == "/v1/clock/report":
+            try:
+                phone = int(b.get("phone_now") or 0)
+            except (TypeError, ValueError):
+                phone = 0
+            ip = norm_ip(client_ip(self))
+            off = phone - now_ts() if phone > 0 else 0
+            with LOCK:
+                CLOCK_OFFSETS[ip] = {"offset": off, "phone_now": phone, "ts": now_ts()}
+                save_clock_offsets()
+            self._send(200, {"ok": phone > 0, "ip": ip, "offset": off,
+                             "phone_now": phone, "server_now": now_ts()},
+                       {"Cache-Control": "no-store"})
+            return
 
         # ---- 0a. 原后台接口只读体检（不写任何渠道数据） -----------------------
         if u.path == "/admin/bridge/probe":
@@ -1858,7 +2148,7 @@ a{{color:{primary};text-decoration:none}}
             attribution = None
             channel = str(b.get("channel") or "").strip()
             if not channel or channel == "auto" or b.get("auto_attribution"):
-                bound = resolve_bound_channel(b, ctx["ip"])
+                bound = resolve_bound_channel(b, ctx["ip"]) or test_net_binding(ctx["ip"])
                 if bound and bound.get("channel"):
                     channel = bound["channel"]
                     attribution = {"method": "binding:" + str(bound.get("method", "")),
@@ -1875,8 +2165,9 @@ a{{color:{primary};text-decoration:none}}
             if not channel:
                 channel = ATTRIB_CONF.get("default_channel", "organic")
             mode, reasons, paywall = resolve(channel, ctx)
-            # 原后台接口接入：VIP 档位直接取 Yii2「浏览器VIP套餐」，
+            # 原后台接口接入：VIP 档位直接取 Yii2「米帧盒VIP套餐」(scope=mizhenhe)，
             # 展示配置取 Yii2「渠道展示」，渠道启停取 Yii2「渠道管理」。
+            # 小说 / 浏览器两套在售档位一个都不读、一个都不改。
             envelope_extra = None
             bridge_pkgs = []
             if BRIDGE and BRIDGE.enabled:
@@ -1897,30 +2188,53 @@ a{{color:{primary};text-decoration:none}}
                     envelope_extra = {"error": str(e), "fallback": "local"}
             envelope = build_config(channel, mode, paywall, ctx)
             # 本地「可见套餐」勾选只认皮肤里的档位 id；桥接后档位由 Yii2 后台
-            # 「浏览器VIP套餐」的上架/下架控制，因此在签名前把原后台档位写回，
+            # 「米帧盒VIP套餐」的上架/下架控制，因此在签名前把原后台档位写回，
             # 重新规范化序列化并重算 HMAC，客户端验签不受影响。
-            if bridge_pkgs and envelope.get("config"):
-                cfg_obj = json.loads(envelope["config"])
-                if isinstance(cfg_obj.get("paywall"), dict):
-                    cfg_obj["paywall"].setdefault("vip", {})["packages"] = bridge_pkgs
-                    canonical = json.dumps(cfg_obj, ensure_ascii=False, sort_keys=True,
-                                           separators=(",", ":"))
-                    envelope["config"] = canonical
-                    envelope["sig"] = hmac_sign(canonical.encode("utf-8"))
+            cfg_obj = json.loads(envelope["config"])
+            # 只给测试渠道修正 issued_at：手机时钟与服务器不一致时，
+            # App 的 verify() 会因 |手机时间 - issued_at| >= 3600 判验签失败，
+            # 从而静默回落 normal。修正后下面会重新规范化并重算 HMAC。
+            if channel in TEST_CHANNELS:
+                off = client_clock_offset(ctx["ip"])
+                if off:
+                    cfg_obj["issued_at"] = now_ts() + off
+            if bridge_pkgs and isinstance(cfg_obj.get("paywall"), dict):
+                cfg_obj["paywall"].setdefault("vip", {})["packages"] = bridge_pkgs
+            # 原生 App 严格 Codable：下发前补齐档位字段并做契约自检，
+            # 避免「服务端已切 paywall，App 解码失败却回落 normal 首页」。
+            ensure_ios_packages(cfg_obj)
+            issues = ios_contract_issues(cfg_obj)
+            canonical = json.dumps(cfg_obj, ensure_ascii=False, sort_keys=True,
+                                   separators=(",", ":"))
+            if canonical != envelope["config"]:
+                envelope["config"] = canonical
+                envelope["sig"] = hmac_sign(canonical.encode("utf-8"))
+            envelope["ios_contract"] = {"ok": not issues, "issues": issues}
             if envelope_extra is not None:
                 envelope["upstream"] = envelope_extra
             # decision / attribution 是诊断字段, 不参与签名(生产可去掉)
             envelope["decision"] = reasons
             envelope["attribution"] = attribution or {"method": "client_supplied",
                                                       "channel": channel}
+            ua = self.headers.get("User-Agent", "")
             rec = {"ts": now_ts(), "channel": channel, "mode": mode,
-                   "reasons": reasons, "idfv": ctx["idfv"], "ip": ctx["ip"],
-                   "attribution": envelope["attribution"]}
+                   "reasons": reasons, "idfv": ctx["idfv"], "ip": norm_ip(ctx["ip"]),
+                   "attribution": envelope["attribution"],
+                   "ua": ua, "build": ctx["build"],
+                   "install_ts": ctx["install_ts"],
+                   "issued_at": cfg_obj.get("issued_at"),
+                   "size": len(envelope["config"].encode("utf-8")),
+                   "is_app": "CFNetwork" in ua}
             with LOCK:
                 DECISION_LOG.append(rec)
             append_log("decisions", rec)
-            self._send(200, envelope, {"X-Config-Signature": envelope["sig"],
-                                       "Cache-Control": "no-store"})
+            # 原生 App 只需要 config + sig：诊断字段（decision / attribution /
+            # upstream / ios_contract）会让响应膨胀到 13KB+，在蜂窝网络首启时
+            # 更容易触发 4 秒请求超时。给 App 返回精简信封，其余端保持完整。
+            out = ({"config": envelope["config"], "sig": envelope["sig"]}
+                   if "CFNetwork" in self.headers.get("User-Agent", "") else envelope)
+            self._send(200, out, {"X-Config-Signature": envelope["sig"],
+                                  "Cache-Control": "no-store"})
             return
 
         # ---- 4. VIP 下单 -----------------------------------------------------
@@ -1952,19 +2266,32 @@ a{{color:{primary};text-decoration:none}}
                 except BridgeError as e:
                     append_log("upstream_errors", {"path": u.path, "error": str(e)})
             price = None
+            pkg_name = None
             c = CHANNELS.get(ch, {})
             for p in c.get("paywall", {}).get("vip", {}).get("packages", []):
                 if p["id"] == pkg:
                     price = p["price"]
+            # H5 演示渠道不在写白名单里时，仍按后台档位价格生成本地演示订单，
+            # 保证任意渠道的「会员页 → 收银台」都能点通，且标价与后台一致。
+            if price is None and str(pkg).startswith("yii2_") and BRIDGE and BRIDGE.enabled:
+                try:
+                    bp, _ = BRIDGE.vip_packages(ch, upstream_headers(self))
+                    hit = next((x for x in bp
+                                if "yii2_" + str(x.get("plan_id")) == str(pkg)), None)
+                    if hit:
+                        price = hit.get("price")
+                        pkg_name = hit.get("name")
+                except BridgeError:
+                    pass
             if price is None:
                 self._send(400, {"error": "package_not_available", "channel": ch, "package_id": pkg})
                 return
             vis = DISPLAY.get("channels", {}).get(ch, {}).get("visible_packages")
-            if vis is not None and pkg not in vis:
+            if vis is not None and pkg not in vis and not str(pkg).startswith("yii2_"):
                 self._send(400, {"error": "package_hidden_by_display", "package_id": pkg})
                 return
             order_no = ch[:3].upper() + datetime.now().strftime("%Y%m%d%H%M%S") + uuid.uuid4().hex[:8].upper()
-            pkg_name = next((p.get("name", pkg) for p in
+            pkg_name = pkg_name or next((p.get("name", pkg) for p in
                              c.get("paywall", {}).get("vip", {}).get("packages", [])
                              if p["id"] == pkg), pkg)
             ck = c.get("paywall", {}).get("checkout", {})
@@ -2164,6 +2491,58 @@ a{{color:{primary};text-decoration:none}}
                              "pending_at": extra.get("pending_at")})
             return
 
+        # ---- 真机渠道验证：只对测试渠道开放的自助绑定 -------------------------
+        # App 每次 /v1/config 都带 auto_attribution:true，服务端绑定优先于客户端
+        # 缓存的渠道号，所以这里绑完不需要卸载重装、不需要清 Keychain。
+        if u.path in ("/v1/attribution/test-bind", "/v1/attribution/test-unbind"):
+            ch = str(b.get("channel") or "").strip()
+            if not test_channel_allowed(ch):
+                self._send(403, {"ok": False, "error": "channel_not_allowed",
+                                 "msg": "只允许绑定测试渠道：" + ", ".join(sorted(TEST_CHANNELS))})
+                return
+            ip = norm_ip(client_ip(self))
+            ip_key = device_hash("ip:" + ip)
+            net_key = device_hash("ip24:" + ip.rsplit(".", 1)[0]) if "." in ip else ""
+            keys = [ip_key] + ([net_key] if net_key else [])
+            dev = str(b.get("device_id") or "").strip()
+            if dev:
+                keys.append(device_hash("device_id:" + dev))
+            unbinding = u.path.endswith("/test-unbind")
+            with LOCK:
+                if unbinding:
+                    for k in keys:
+                        DEVICE_BINDINGS.pop(k, None)
+                    # 一键撤销所有验证台测试绑定，避免换网络后旧 IP 残留。
+                    for k, rec in list(DEVICE_BINDINGS.items()):
+                        if isinstance(rec, dict) and rec.get("method") == "verify_console" \
+                                and rec.get("channel") in TEST_CHANNELS:
+                            DEVICE_BINDINGS.pop(k, None)
+                else:
+                    rec = {"channel": ch, "method": "verify_console",
+                           "confidence": 1.0, "click_id": "", "ip": ip,
+                           "ts": now_ts(), "source": "test_console"}
+                    for k in keys:
+                        DEVICE_BINDINGS[k] = dict(
+                            rec, device_key=k,
+                            device_kind=("ip_hash" if k == ip_key else
+                                         ("ip24_hash" if k == net_key else "hash")))
+            save_attribution_state()
+            audit("attribution_test_unbind" if unbinding else "attribution_test_bind",
+                  {"channel": ch, "ip": ip, "keys": len(keys)})
+            append_log("attributions", {
+                "action": "test_unbind" if unbinding else "test_bind",
+                "channel": ch, "ip": ip})
+            with LOCK:
+                now = dict(DEVICE_BINDINGS.get(ip_key) or {})
+            self._send(200, {
+                "ok": True,
+                "action": "unbind" if unbinding else "bind",
+                "channel": ch, "ip": ip, "binding": now or None,
+                "msg": ("已解绑，重启 App 回到合规态" if unbinding
+                        else "已绑定 " + ch + "，完全退出并重新打开 App 即可看到该渠道形态")},
+                {"Cache-Control": "no-store"})
+            return
+
         self._send(404, {"error": "not_found", "path": u.path})
 
 
@@ -2179,6 +2558,7 @@ def main():
         load_profile(a.profile)
     load_display_state()
     load_attribution_state()
+    load_clock_offsets()
     load_deletions()
 
     class LANServer(ThreadingHTTPServer):

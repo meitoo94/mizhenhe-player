@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>渠道配置验证台 · 米帧盒播放器</title>
+<style>
+  :root{
+    --bg:#0B1020; --surface:#151C30; --surface2:#1C2540; --line:#2A3553;
+    --primary:#35E0C8; --accent:#7C8CFF; --text:#F2F6FF; --muted:#8A96B4;
+    --red:#FF6B7A; --green:#4ADE9B; --amber:#FFC46B;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+       padding:20px 16px 60px}
+  .wrap{max-width:1080px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 6px;font-weight:800;letter-spacing:.5px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 22px}
+  .sub b{color:var(--primary);font-weight:600}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+        padding:18px;margin-bottom:16px}
+  .card h2{font-size:15px;margin:0 0 4px;font-weight:700;display:flex;align-items:center;gap:8px}
+  .card h2 .n{width:22px;height:22px;border-radius:7px;background:var(--primary);color:#06121A;
+              font-size:12px;font-weight:800;display:grid;place-items:center;flex:none}
+  .card .hint{color:var(--muted);font-size:12px;margin:0 0 14px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+  label.fld{display:block;color:var(--muted);font-size:12px;margin-bottom:5px}
+  select,input[type=text],input[type=number]{background:var(--surface2);color:var(--text);
+       border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:13px;
+       outline:none;min-width:130px}
+  select:focus,input:focus{border-color:var(--primary)}
+  button{background:var(--primary);color:#06121A;border:0;border-radius:9px;
+         padding:9px 15px;font-size:13px;font-weight:700;cursor:pointer}
+  button.ghost{background:transparent;color:var(--primary);border:1px solid var(--line)}
+  button.ghost:hover{border-color:var(--primary)}
+  button.danger{background:transparent;color:var(--red);border:1px solid #5A2B39}
+  button:disabled{opacity:.5;cursor:default}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;
+        font-weight:700;border:1px solid var(--line);color:var(--muted)}
+  .pill.pay{background:rgba(255,107,122,.14);color:var(--red);border-color:#5A2B39}
+  .pill.norm{background:rgba(74,222,155,.13);color:var(--green);border-color:#245A42}
+  .pill.ok{background:rgba(53,224,200,.13);color:var(--primary);border-color:#1D6157}
+  .kv{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:11px 13px}
+  .kv .k{color:var(--muted);font-size:11px;margin-bottom:3px}
+  .kv .v{font-size:15px;font-weight:700;word-break:break-all}
+  .kv .v.sm{font-size:12px;font-weight:500;line-height:1.5}
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+  th,td{text-align:left;padding:8px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:11px}
+  td.mono{font-family:ui-monospace,Consolas,monospace}
+  .msg{margin-top:12px;padding:10px 13px;border-radius:9px;font-size:12px;display:none}
+  .msg.show{display:block}
+  .msg.good{background:rgba(74,222,155,.10);border:1px solid #245A42;color:var(--green)}
+  .msg.bad{background:rgba(255,107,122,.10);border:1px solid #5A2B39;color:var(--red)}
+  .msg.info{background:rgba(124,140,255,.10);border:1px solid #35406F;color:#AEB8FF}
+  .two{display:grid;grid-template-columns:200px 1fr;gap:18px;align-items:start}
+  .two.wide{grid-template-columns:400px 1fr}
+  .qrpair{display:flex;gap:12px;flex-wrap:wrap}
+  .qrpair .qrbox{flex:1 1 165px;min-width:150px;max-width:190px}
+  .qrpair .qrbox.install{border:2px solid #35E0C8}
+  .qrbox{background:#fff;border-radius:12px;padding:10px;text-align:center}
+  .qrbox img{width:100%;max-width:180px;height:auto;display:block;margin:0 auto;
+             image-rendering:pixelated}
+  .qrbox .cap{color:#334;font-size:11px;margin-top:7px;font-weight:600}
+  .qrbox .cap b{color:#0A7A6C}
+  @media(max-width:640px){.two,.two.wide{grid-template-columns:1fr}
+    .qrbox{margin:0 auto;max-width:220px}.qrpair{justify-content:center}}
+  a{color:var(--primary);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .links a{display:inline-block;margin:4px 8px 4px 0;padding:6px 11px;border:1px solid var(--line);
+           border-radius:8px;font-size:12px;background:var(--surface2);cursor:pointer}
+  .biglink{display:inline-block;margin:0 8px 0 0;padding:9px 14px;border:1px solid #1D6157;
+           border-radius:9px;background:rgba(53,224,200,.10);font-size:13px;font-weight:700}
+  code{background:var(--surface2);padding:1px 6px;border-radius:5px;font-size:11px;
+       color:var(--primary);word-break:break-all}
+  .warn{border-left:3px solid var(--amber);padding:9px 12px;background:rgba(255,196,107,.07);
+        color:#E9D3A8;font-size:12px;border-radius:0 8px 8px 0;margin-top:12px}
+  .steps{margin:10px 0 0;padding-left:20px;color:var(--muted);font-size:12px}
+  .steps li{margin:5px 0}
+  .steps b{color:var(--text)}
+  details{margin-top:12px}
+  summary{cursor:pointer;color:var(--muted);font-size:12px}
+  pre{background:#070B16;border:1px solid var(--line);border-radius:9px;padding:12px;
+      overflow:auto;max-height:340px;font-size:11px;line-height:1.5;color:#B9C6E8}
+  .foot{color:var(--muted);font-size:11px;text-align:center;margin-top:26px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>渠道配置验证台</h1>
+  <p class="sub">米帧盒播放器 · 渠道号<b>不是在 App 里选的</b>：App 首启只上报设备上下文，服务端按百度推广回传的
+     <code>click_id / 出口IP / 设备号</code> 匹配并绑定渠道，之后 <code>/v1/config</code> 按绑定结果下发展示配置。<br>
+     <b>VIP 档位只在一个地方配</b>：Yii2 后台「支付相关管理 → <b>米帧盒VIP套餐</b>」（独立 <code>scope=mizhenhe</code>）。
+     原生 App 与 H5 演示都读它；渠道展示后台「④ 套餐展示与价格」已停用，小说 / 浏览器两套在售档位一个都不动。</p>
+
+  <!-- 1 配置核对 -->
+  <div class="card">
+    <h2><span class="n">1</span>这个渠道号到底下发了什么</h2>
+    <p class="hint">「按渠道号核对」= 直接指定渠道看它自己配了什么；「按本机绑定核对」= 完全模拟 App 的真实请求（服务端绑定优先），看这台设备实际会拿到什么。</p>
+    <div class="row">
+      <div><label class="fld">渠道号</label>
+        <select id="chSel">
+          <option value="mzhtest">mzhtest（测试渠道）</option>
+          <option value="organic">organic（自然量 / 审核态）</option>
+          <option value="bbdd1">bbdd1（跑量 · 只读）</option>
+          <option value="wn_douyin_a">wn_douyin_a</option>
+          <option value="wn_gdt_b">wn_gdt_b</option>
+        </select>
+      </div>
+      <div style="align-self:flex-end" class="row">
+        <button id="btnProbe">按渠道号核对</button>
+        <button id="btnActual" class="ghost">按本机绑定核对</button>
+        <button id="btnBoth" class="ghost">两边一起看</button>
+      </div>
+    </div>
+    <div id="probeMsg" class="msg"></div>
+    <div id="clockDiag" class="msg"></div>
+    <div id="probeOut" style="display:none;margin-top:14px">
+      <div class="grid" id="kvGrid"></div>
+      <div style="margin-top:14px">
+        <div style="color:var(--muted);font-size:11px;margin-bottom:4px">VIP 套餐（原生 App 实际拿到 · 来自米帧盒VIP套餐）</div>
+        <table id="pkgTable"><thead><tr><th>名称</th><th>现价</th><th>天数</th><th>后台 plan_id</th><th>来源</th></tr></thead><tbody></tbody></table>
+      </div>
+      <div class="grid" style="margin-top:12px" id="gateGrid"></div>
+      <details><summary>查看完整下发 JSON</summary><pre id="rawJson"></pre></details>
+    </div>
+  </div>
+
+  <!-- 2 后台栏目核对 -->
+  <div class="card">
+    <h2><span class="n">2</span>米帧盒VIP套餐：后台栏目 ↔ 两端下发</h2>
+    <p class="hint">下面这张表就是 <b>Yii2「米帧盒VIP套餐」栏目当前保存的档位</b>。改名称 / 折扣价 / 划线价 / 上下架 / 排序后点保存，回到本页刷新，H5 与原生 App 会同时变，不用重新出包、不用改「浏览器VIP套餐」。</p>
+    <div class="row">
+      <a id="vipAdminLink" class="biglink" target="_blank" rel="noopener" href="https://app.kqi.ink/site/vip/index?scope=mizhenhe">打开「米帧盒VIP套餐」栏目 ↗</a>
+      <button id="btnCompare" class="ghost">读取后台栏目并对比两端</button>
+      <span class="pill" id="cmpState">未读取</span>
+    </div>
+    <div id="cmpMsg" class="msg"></div>
+    <div style="margin-top:12px">
+      <div style="color:var(--muted);font-size:11px;margin-bottom:4px">后台栏目当前档位（<code id="admScope">—</code>）</div>
+      <table id="adminPkgTable"><thead><tr><th>ID</th><th>名称</th><th>折扣价 ¥</th><th>原价 ¥</th><th>天数</th><th>角标</th><th>状态</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div id="cmpOut" style="display:none;margin-top:12px">
+      <table><thead><tr><th>项目</th><th>后台米帧盒VIP套餐</th><th>H5 Demo（<code>/demo/config</code>）</th><th>原生 App（<code>/v1/config</code>）</th></tr></thead>
+      <tbody id="cmpBody"></tbody></table>
+      <div class="warn" id="cmpWarn"></div>
+    </div>
+  </div>
+
+  <!-- 3 手机流程 -->
+  <div class="card">
+    <h2><span class="n">3</span>手机走完整流程（H5，不用装包）</h2>
+    <p class="hint">扫码，或直接<b>点下面的步骤名 / 「在浏览器打开」</b>，会立刻新开页面（点不动时会自动在本页跳转）：开屏倒计时 → 试看 → 会员套餐 → 订单 → 收银台 → 手机号登录，全部可点。后台改档位后刷新链接立即生效。</p>
+    <div class="two">
+      <div class="qrbox"><img id="qrImg" alt="渠道验证二维码"><div class="cap" id="qrCap"></div></div>
+      <div>
+        <div style="color:var(--muted);font-size:11px">当前链接（可直接点开）</div>
+        <div style="margin:5px 0 10px"><a id="demoLinkA" target="_blank" rel="noopener" href="#"><code id="demoUrl"></code></a></div>
+        <div class="row"><button id="btnOpen">在浏览器打开</button><button id="btnCopy" class="ghost">复制链接</button></div>
+        <div class="links" style="margin-top:14px">
+          <a data-step="" href="#">完整冷启动</a>
+          <a data-step="splash" href="#">开屏</a>
+          <a data-step="trial" href="#">试看</a>
+          <a data-step="vip" href="#">会员页</a>
+          <a data-step="order" href="#">订单页</a>
+          <a data-step="cashier" href="#">收银台</a>
+          <a data-step="login" href="#">登录注册</a>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <label class="fld" style="margin:0">倒计时覆盖（秒，便于逐帧验收）</label>
+          <input type="number" id="cdVal" min="1" max="600" placeholder="留空用后台值" style="width:150px">
+          <button id="btnCd" class="ghost">生成并打开链接</button>
+        </div>
+        <div class="msg info" id="linkMsg"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 真机原生 App -->
+  <div class="card">
+    <h2><span class="n">4</span>真机原生 App 切到测试渠道</h2>
+    <p class="hint">已装的 Ad Hoc 包不用卸载重装：App 每次请求 <code>/v1/config</code> 都带 <code>auto_attribution:true</code>，
+       <b>服务端绑定优先于 App 本地缓存的渠道号</b>。在这里把当前出口 IP 绑到 <code>mzhtest</code>，重启 App 就会变成该渠道形态。</p>
+    <div class="warn" style="margin:0 0 14px;border-left-color:var(--primary);background:rgba(53,224,200,.07);color:#C6F3EA;line-height:1.9">
+      <b style="color:var(--primary)">两个码用途不同，别扫错：</b><br>
+      <b>① 渠道绑定码</b>（左，就是截图里那个）= <code>https://app.kqi.ink/mzh/verify</code>。
+      它只是<b>用手机打开本页</b>，好让服务器记下手机的出口 IP；<b>扫了不会安装任何 App</b>。微信扫一扫、iPhone 相机、浏览器扫码都能打开。<br>
+      <b>② 安装二维码</b>（右，绿色框）= <code>https://app.kqi.ink/mzh/download?install=1</code>。
+      用 <b>iPhone 自带相机</b>扫 → 点顶部横幅在 <b>Safari</b> 打开 → 自动弹「安装」。
+      微信扫也能识别，但必须点右上角「…」→ <b>在 Safari 中打开</b>，微信内置浏览器不会弹安装。<br>
+      没装 App 就先扫 ②；装好了再扫 ① 绑定渠道。
+      <a class="biglink" style="margin-top:8px" href="https://app.kqi.ink/mzh/download?install=1" target="_blank" rel="noopener">直接打开安装页 ↗</a>
+    </div>
+    <div class="two wide" style="margin-bottom:14px">
+      <div class="qrpair">
+        <div class="qrbox"><img id="verifyQr" alt="渠道绑定码：打开验证台网页"><div class="cap">① 渠道绑定码<br>只打开网页 · <b>不安装</b></div></div>
+        <div class="qrbox install"><img id="installQr" alt="安装二维码：Safari 打开后弹出安装"><div class="cap">② 安装二维码<br><b>Safari 打开 → 弹安装</b></div></div>
+      </div>
+      <div style="font-size:12px;color:var(--muted)">
+        绑定是<b style="color:var(--text)">按当前设备出口 IP</b>生效的，所以一定要用<b style="color:var(--text)">手机本身</b>扫 <b style="color:var(--text)">① 绑定码</b>打开本页再点绑定；
+        在电脑上点，绑的是电脑的 IP，手机 App 不会命中。<br><br>
+        手机浏览器与 App 必须走同一个网络（同一出口 IP）。绑定写在服务端，不碰 App、不用卸载重装。<br><br>
+        安装码只适用于<b style="color:var(--text)">已登记 UDID 的那台 iPhone</b>（Ad Hoc 限制）；
+        首次装完要去 <b style="color:var(--text)">设置 → 通用 → VPN与设备管理</b> 信任一次开发者。
+      </div>
+    </div>
+    <div class="row">
+      <button id="btnBind">把本机绑到 mzhtest</button>
+      <button id="btnUnbind" class="danger">解绑回 organic</button>
+      <button id="btnStatus" class="ghost">刷新状态</button>
+    </div>
+    <div id="bindMsg" class="msg"></div>
+    <div class="grid" style="margin-top:12px">
+      <div class="kv"><div class="k">本机出口 IP</div><div class="v" id="myIp">—</div></div>
+      <div class="kv"><div class="k">当前绑定渠道</div><div class="v" id="bindCh">—</div></div>
+      <div class="kv"><div class="k">重启 App 后形态</div><div class="v" id="bindMode">—</div></div>
+      <div class="kv"><div class="k">允许的测试渠道</div><div class="v sm" id="testChs">—</div></div>
+    </div>
+    <ol class="steps">
+      <li>还没装 App？先扫 <b>② 安装二维码</b> → Safari → 点「安装」→ 设置里信任开发者；已装可跳过。</li>
+      <li>扫 <b>① 渠道绑定码</b>，用<b>手机 Safari 打开本页</b>（与 App 走同一个 WiFi / 网络，出口 IP 必须一致）。</li>
+      <li>点「把本机绑到 mzhtest」，看到「已绑定」。</li>
+      <li><b>完全退出 App 再重新打开</b>（上划杀掉后台，不是切到桌面）。开屏倒计时出现即命中；
+          若仍是普通首页，回第 1 区看「App 解码兼容」是否为「通过」。</li>
+      <li>在「米帧盒VIP套餐」栏目改档位 → 再重启 App，看会员页变化。</li>
+      <li>验完<b>务必点「解绑回 organic」</b>，否则同一出口 IP 下其它设备也会被判成测试渠道。</li>
+    </ol>
+    <div class="warn">接口白名单只允许 <code>mzhtest</code>：传 <code>bbdd1</code> 等跑量渠道会被 403 拒绝，点击库与跑量渠道数据一个都不动。</div>
+  </div>
+
+  <!-- 5 清单 -->
+  <div class="card">
+    <h2><span class="n">5</span>核对清单</h2>
+    <table><thead><tr><th>在后台改什么</th><th>在哪看</th><th>预期结果</th></tr></thead><tbody>
+      <tr><td><b>米帧盒VIP套餐</b>：名称 / 折扣价 / 原价 / 上下架 / 排序 / 增删档位</td><td>第 2 区「读取后台栏目并对比两端」+ 第 1 区套餐表</td><td>后台档位表、H5、原生 App 三处套餐完全一致；不用重新出包</td></tr>
+      <tr><td>渠道 PAYWALL / NORMAL 切换</td><td>第 1 区「按渠道号核对」</td><td><code>mode</code> 在 paywall / normal 之间变化；normal 时整个 <code>paywall</code> 字段消失</td></tr>
+      <tr><td>⑤ 开屏秒数 / 试看秒数 / 视频 URL / 底部小字</td><td>第 1 区 kv 卡 + 第 3 区手机链接</td><td>倒计时秒数与视频素材同步，刷新链接即生效</td></tr>
+      <tr><td>关掉「视频试看」「会员套餐页」等模块</td><td>第 1 区 <code>modules</code></td><td>对应项为 false，冷启动会跳过那一屏</td></tr>
+      <tr><td>全局 Kill Switch 打开</td><td>第 1 区逐渠道核对</td><td>所有渠道一律回落 <code>normal</code>，付费墙整个不存在</td></tr>
+      <tr><td>渠道停用 / 灰度比例 / 安装后延迟</td><td>第 1 区 <code>decision</code></td><td>显示被哪个守卫拦下（如 <code>channel_disabled</code>、<code>rollout_miss</code>）</td></tr>
+      <tr><td>百度计划ID → 渠道号 映射</td><td>后台「回传管理」+ 第 4 区绑定</td><td>真实广告点击首启后，App 自动进入对应渠道，无需手动选</td></tr>
+    </tbody></table>
+  </div>
+
+  <p class="foot">全部接口只读核对；仅第 4 区会对测试渠道写一条设备绑定，可一键撤销。跑量渠道配置只读，不会被改动。</p>
+</div>
+
+<script>
+const BASE = window.MZH_BASE || "";
+const QR = window.MZH_QR || {};
+const TEST_CHS = window.MZH_TEST_CHANNELS || ["mzhtest"];
+const VIP_ADMIN = window.MZH_VIP_ADMIN || "https://app.kqi.ink/site/vip/index?scope=mizhenhe";
+const API = p => BASE + p;
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g,
+  c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const short = (v, n) => { const s = String(v == null ? "—" : v); return s.length > n ? s.slice(0,n) + "…" : s; };
+
+function showMsg(el, text, kind){
+  el.className = "msg show " + (kind || "info");
+  el.innerHTML = text;
+}
+function ch(){ return $("chSel").value; }
+/** 点链接必须真的打开：新标签被浏览器拦下时同页跳转，不留「点了没反应」。
+ *  注意不能用 window.open 的 "noopener" 特性：它会让返回值恒为 null，
+ *  即使新标签已经打开也会误触发同页跳转。这里打开后手动断开 opener。 */
+function openUrl(url){
+  let w = null;
+  try {
+    w = window.open(url, "_blank");
+    if(w){ try { w.opener = null; } catch(_) {} }
+  } catch(_) {}
+  if(!w){ window.location.href = url; return false; }
+  return true;
+}
+function linkHtml(url){ return "<a href='" + esc(url) + "' target='_blank' rel='noopener'>" + esc(url) + "</a>"; }
+
+/* ---------- 1. 配置核对 ---------- */
+async function probe(mode){
+  const el = $("probeMsg");
+  showMsg(el, "正在请求 /v1/config …", "info");
+  const body = {
+    idfv: "VERIFY-CONSOLE", country: "cn", build: "1.0", install_ts: 0
+  };
+  if(mode === "actual"){ body.auto_attribution = true; }
+  else { body.channel = ch(); }
+  let e;
+  try{
+    const r = await fetch(API("/v1/config"), {method:"POST",
+      headers:{"Content-Type":"application/json"}, body:JSON.stringify(body), cache:"no-store"});
+    e = await r.json();
+  }catch(err){ showMsg(el, "请求失败：" + esc(err.message), "bad"); return null; }
+  if(!e || !e.config){ showMsg(el, "返回异常（没有 config 字段）", "bad"); return null; }
+  let cfg;
+  try{ cfg = JSON.parse(e.config); }catch(_){ showMsg(el,"config 不是合法 JSON","bad"); return null; }
+  const sigOK = await verifySig(e.config, e.sig);
+  renderProbe(cfg, e, sigOK, mode);
+  showMsg(el, (mode === "actual" ? "按本机绑定解析" : "按渠道号核对") +
+    "完成 · 渠道 <b>" + esc(cfg.channel) + "</b> · 形态 <b>" + esc(cfg.mode) +
+    "</b> · 验签 " + (sigOK === true ? "<b>通过</b>" : sigOK === false ? "<b>失败</b>" : "跳过"),
+    sigOK === false ? "bad" : "good");
+  return {e, cfg};
+}
+
+async function verifySig(configStr, sig){
+  if(!sig || !window.crypto || !crypto.subtle) return null;
+  try{
+    const key = await crypto.subtle.importKey("raw",
+      new TextEncoder().encode("demo-secret-change-in-production"),
+      {name:"HMAC", hash:"SHA-256"}, false, ["sign"]);
+    const buf = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(configStr));
+    const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
+    return hex === sig;
+  }catch(_){ return null; }
+}
+
+function kv(k, v, small){ return '<div class="kv"><div class="k">'+esc(k)+'</div><div class="v'+
+  (small?" sm":"")+'">'+v+'</div></div>'; }
+
+function renderProbe(cfg, e, sigOK, mode){
+  $("probeOut").style.display = "block";
+  const p = cfg.paywall || {}, s = p.splash || {}, t = p.trial || {}, m = p.modules || {};
+  const a = e.attribution || {};
+  // App 的 verify()：HMAC 正确之外还要求 |手机时间 - issued_at| < 3600 秒
+  const delta = Math.floor(Date.now()/1000) - Number(cfg.issued_at || 0);
+  const timeOK = Math.abs(delta) < 3600;
+  const modePill = cfg.mode === "paywall"
+    ? '<span class="pill pay">PAYWALL</span>' : '<span class="pill norm">NORMAL</span>';
+  const sigPill = sigOK === true ? '<span class="pill ok">通过</span>'
+    : sigOK === false ? '<span class="pill pay">失败</span>' : '<span class="pill">未校验</span>';
+  $("kvGrid").innerHTML =
+    kv("形态", modePill) +
+    kv("下发渠道", "<b>"+esc(cfg.channel)+"</b>") +
+    kv("验签", sigPill) +
+    kv("手机时钟偏差", delta + " 秒 · " + (timeOK
+        ? '<span class="pill ok">在 1 小时窗口内</span>'
+        : '<span class="pill pay">超窗 · App 验签必失败</span>'), true) +
+    kv("App 切态预判", (timeOK && sigOK === true && cfg.mode === "paywall" && e.ios_contract && e.ios_contract.ok)
+        ? '<span class="pill ok">会切到付费墙</span>'
+        : '<span class="pill pay">会留在普通首页</span>', true) +
+    kv("App 解码兼容", (e.ios_contract && e.ios_contract.ok)
+        ? '<span class="pill ok">通过 · 不会回落首页</span>'
+        : '<span class="pill pay">缺字段 · App 会回落首页</span>', true) +
+    kv("归因方式", esc(a.method || "client_supplied") + (a.confidence != null ? " · conf " + esc(a.confidence) : "")) +
+    kv("守卫判定", short((e.decision||[]).join(" / "), 80), true) +
+    kv("上游来源", esc((e.upstream||{}).source || "local") + " · " + esc((e.upstream||{}).applied || "—")) +
+    kv("开屏倒计时", esc(s.countdown_seconds ?? "—") + " 秒") +
+    kv("试看倒计时", esc(t.countdown_seconds ?? "—") + " 秒") +
+    kv("试看视频 URL", short(t.video_url || t.url || t.poster_url || "—", 70), true) +
+    kv("试看底部小字", short(t.hint || "—", 70), true) +
+    kv("状态机模块", Object.keys(m).length
+        ? Object.entries(m).map(([k,v]) => k + (v ? "✓" : "✗")).join(" · ") : "—", true) +
+    kv("正常态 Tab", esc(((cfg.normal||{}).tabs||[]).join(" / ") || "—"), true);
+
+  const pkgs = ((p.vip||{}).packages || []);
+  $("pkgTable").querySelector("tbody").innerHTML = pkgs.length
+    ? pkgs.map(x => "<tr><td>"+esc(x.name||"—")+"</td><td>¥"+esc(x.price ?? "—")+
+        "</td><td>"+esc(x.days ?? "—")+"</td><td class='mono'>"+esc(x.plan_id ?? x.id ?? "—")+
+        "</td><td>"+esc(x.source||"local")+"</td></tr>").join("")
+    : "<tr><td colspan='5' style='color:var(--muted)'>合规态不下发套餐</td></tr>";
+
+  const g = p.gate || {};
+  $("gateGrid").innerHTML = Object.keys(g).length
+    ? Object.entries(g).slice(0,8).map(([k,v]) => kv(k, esc(JSON.stringify(v)), true)).join("")
+    : kv("闭环 gate", "合规态不下发", true);
+  $("rawJson").textContent = JSON.stringify({mode:cfg.mode, channel:cfg.channel,
+    decision:e.decision, attribution:e.attribution, paywall:p}, null, 2);
+}
+
+/* ---------- 2. 后台米帧盒VIP套餐 ↔ 两端 ---------- */
+function fmtPkgs(ps){
+  return (ps||[]).length ? ps.map(x => (x.name||x.title||"—") + " ¥" + (x.price ?? "—")).join("、") : "不下发";
+}
+function normPkgs(ps){
+  return (ps||[]).map(x => [String(x.name||x.title||""), Number(x.price||0)]);
+}
+async function compare(){
+  const msg = $("cmpMsg");
+  $("cmpState").textContent = "读取中…";
+  showMsg(msg, "正在读取后台栏目与两端下发配置…", "info");
+  try{
+    const [adm, r1, r2] = await Promise.all([
+      fetch(API("/v1/vip/plans"), {cache:"no-store"}).then(x=>x.json()),
+      fetch(API("/demo/config?ch=" + encodeURIComponent(ch())), {cache:"no-store"}).then(x=>x.json()),
+      fetch(API("/v1/config"), {method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({idfv:"VERIFY-CMP", channel:ch(), country:"cn", build:"1.0", install_ts:0}),
+        cache:"no-store"}).then(x=>x.json())
+    ]);
+    const d = r1.config || {};
+    let n = {};
+    try{ n = JSON.parse(r2.config || "{}"); }catch(_){ n = {}; }
+    const dp = d.paywall || {}, np = n.paywall || {};
+    const items = adm.items || [];
+    const adminPkgs = items.map(x => ({name:x.title, price:x.price}));
+    const h5Pkgs = (dp.vip||{}).packages || [];
+    const appPkgs = (np.vip||{}).packages || [];
+
+    $("admScope").textContent = esc(adm.scope || "—") + " · " + esc(adm.source || "—") + " · " + items.length + " 档";
+    $("adminPkgTable").querySelector("tbody").innerHTML = items.length
+      ? items.map(x => "<tr><td class='mono'>"+esc(x.id)+"</td><td>"+esc(x.title)+
+          "</td><td>¥"+esc(x.price)+"</td><td>¥"+esc(x.origin_price)+"</td><td>"+esc(x.days)+
+          "</td><td>"+esc(x.badge || "—")+"</td><td>"+
+          "<span class='pill ok'>在售（仅列上架档位）</span>"+
+          "</td></tr>").join("")
+      : "<tr><td colspan='7' style='color:var(--red)'>没读到后台档位（" +
+        esc(adm.error || "栏目暂无在售档位或上游不可用") + "）</td></tr>";
+
+    const rows = [
+      ["档位", fmtPkgs(adminPkgs), fmtPkgs(h5Pkgs), fmtPkgs(appPkgs)],
+      ["来源", "Yii2 米帧盒VIP套餐（" + String(adm.scope || "—") + "）",
+        String((dp.vip||{}).source || "本地皮肤"), String(appPkgs.length ? (appPkgs[0].source || "—") : "—")],
+      ["形态", "—", esc(d.mode), esc(n.mode)],
+      ["开屏秒数", "—", (dp.splash||{}).countdown_seconds, (np.splash||{}).countdown_seconds],
+      ["试看秒数", "—", (dp.trial||{}).countdown_seconds, (np.trial||{}).countdown_seconds],
+    ];
+    $("cmpBody").innerHTML = rows.map(([k,a,b,c]) =>
+      "<tr><td>"+esc(k)+"</td><td>"+esc(a ?? "—")+"</td><td>"+esc(b ?? "—")+"</td><td>"+esc(c ?? "—")+"</td></tr>").join("");
+
+    const adminKey = JSON.stringify(normPkgs(adminPkgs));
+    const h5Key = JSON.stringify(normPkgs(h5Pkgs));
+    const appKey = JSON.stringify(normPkgs(appPkgs));
+    const same = adminKey === h5Key && adminKey === appKey;
+    $("cmpWarn").innerHTML = same
+      ? "✅ 三处档位一致：后台「米帧盒VIP套餐」→ H5 Demo → 原生 App 全部对齐。以后只改这一个栏目即可。"
+      : "⚠️ 档位不一致：后台栏目是 <b>" + esc(fmtPkgs(adminPkgs)) + "</b>，H5 是 <b>" + esc(fmtPkgs(h5Pkgs)) +
+        "</b>，原生 App 是 <b>" + esc(fmtPkgs(appPkgs)) + "</b>。" +
+        "最常见原因是后台刚保存、上游缓存还没刷新，或配置桥接未启用（" + esc(adm.source) + "）。" +
+        "等 1 分钟再点一次「读取后台栏目并对比两端」；仍不一致就检查 /v1/vip/plans 的 error 字段。";
+    $("cmpOut").style.display = "block";
+    $("cmpState").textContent = same ? "已对齐" : "有差异";
+    $("cmpState").className = "pill " + (same ? "ok" : "pay");
+    showMsg(msg, (adm.source === "yii2"
+        ? "后台栏目读取成功（scope=" + esc(adm.scope) + "，" + items.length + " 档）"
+        : "后台栏目读取异常：" + esc(adm.error || adm.source)) +
+      " · 后台入口 <a href='" + esc(VIP_ADMIN) + "' target='_blank' rel='noopener'>点这里打开 ↗</a>",
+      same && adm.source === "yii2" ? "good" : "bad");
+  }catch(err){
+    $("cmpState").textContent = "读取失败";
+    showMsg(msg, "对比读取失败：" + esc(err.message), "bad");
+  }
+}
+
+/* ---------- 3. 手机流程链接 ---------- */
+function demoLink(step, cd){
+  const base = location.origin + API("/demo");
+  const q = new URLSearchParams(); q.set("ch", ch());
+  if(step) q.set("step", step);
+  if(cd) q.set("cd", cd);
+  return base + "?" + q.toString();
+}
+function refreshLink(step, cd){
+  const url = demoLink(step, cd);
+  $("demoUrl").textContent = url;
+  $("demoLinkA").href = url;
+  const key = step === "vip" ? (ch() + "-vip") : ch();
+  const img = QR[key] || QR[ch()] || QR["mzhtest"] || "";
+  if(img){ $("qrImg").src = img; $("qrImg").style.display = "block"; }
+  else { $("qrImg").style.display = "none"; }
+  $("qrCap").textContent = (step ? "直达：" + step + " · " : "完整冷启动 · ") + ch();
+  return url;
+}
+function openDemo(step, cd, label){
+  const url = refreshLink(step, cd);
+  const opened = openUrl(url);
+  showMsg($("linkMsg"), "已" + (opened ? "在新标签打开" : "在本页打开") + "：<b>" + esc(label) +
+    "</b><br>" + linkHtml(url), "info");
+}
+$("btnOpen").onclick = () => openDemo("", "", "完整冷启动");
+$("btnCopy").onclick = async () => {
+  try{ await navigator.clipboard.writeText($("demoUrl").textContent);
+       showMsg($("linkMsg"), "链接已复制：" + linkHtml($("demoUrl").textContent), "good"); }
+  catch(_){ showMsg($("linkMsg"), "复制失败，请长按上方链接手动复制", "bad"); }
+};
+document.querySelectorAll(".links a").forEach(a => a.addEventListener("click", ev => {
+  ev.preventDefault();
+  const step = a.dataset.step || "";
+  openDemo(step, "", step || "完整冷启动");
+}));
+$("btnCd").onclick = () => {
+  const v = Number($("cdVal").value || 0);
+  openDemo("", v > 0 ? v : "", v > 0 ? "倒计时覆盖 " + v + " 秒" : "恢复后台倒计时");
+};
+$("chSel").addEventListener("change", () => {
+  refreshLink("", "");
+  showMsg($("linkMsg"), "渠道已切到 <b>" + esc(ch()) + "</b>，二维码与链接已更新；点上面的按钮或步骤名即可打开。", "info");
+});
+
+/* ---------- 4. 真机绑定 ---------- */
+async function status(){
+  try{
+    const d = await fetch(API("/v1/attribution/test-status"), {cache:"no-store"}).then(x=>x.json());
+    $("myIp").textContent = d.ip || "—";
+    $("testChs").textContent = (d.test_channels||[]).join(", ") || "—";
+    const b = d.binding;
+    $("bindCh").textContent = b ? b.channel + "（" + (b.method||"") + "）" : "无绑定 → organic";
+    $("bindMode").textContent = b && b.channel === "mzhtest" ? "PAYWALL" : "NORMAL";
+    $("bindCh").style.color = b ? "var(--primary)" : "var(--text)";
+    return d;
+  }catch(err){ $("myIp").textContent = "读取失败"; return {}; }
+}
+async function bind(action){
+  const el = $("bindMsg");
+  showMsg(el, "正在" + (action === "bind" ? "绑定" : "解绑") + "…", "info");
+  try{
+    const path = action === "bind" ? "/v1/attribution/test-bind" : "/v1/attribution/test-unbind";
+    const d = await fetch(API(path), {method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({channel:"mzhtest"}), cache:"no-store"}).then(x=>x.json());
+    if(!d.ok){ showMsg(el, esc(d.msg || d.error || "操作失败"), "bad"); return; }
+    showMsg(el, esc(d.msg), action === "bind" ? "good" : "info");
+    await status();
+  }catch(err){ showMsg(el, "请求失败：" + esc(err.message), "bad"); }
+}
+$("btnBind").onclick = () => bind("bind");
+$("btnUnbind").onclick = () => bind("unbind");
+$("btnStatus").onclick = () => status();
+
+/* ---------- 顶部按钮 ---------- */
+$("btnProbe").onclick = () => probe("channel");
+$("btnActual").onclick = () => probe("actual");
+$("btnBoth").onclick = async () => { await probe("channel"); await compare(); };
+$("btnCompare").onclick = compare;
+
+/* ---------- 手机时钟校准 + App 请求实况 ---------- */
+async function reportClock(){
+  try{
+    return await fetch(API("/v1/clock/report"), {method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({phone_now: Math.floor(Date.now()/1000)}),
+      cache:"no-store"}).then(x=>x.json());
+  }catch(_){ return null; }
+}
+async function appDiag(){
+  const el = $("clockDiag");
+  const d = await reportClock();
+  const off = (d && d.ok) ? Number(d.offset) : null;
+  let html = "<b>App 端自检</b>（本页面在手机上执行，模拟 App 的验签条件）：<br>";
+  if(off !== null && Math.abs(off) >= 3600){
+    html += "<b style='color:var(--primary)'>找到根因：手机时钟与服务器相差 " + off + " 秒</b>。" +
+      "App 的 verify() 要求时间戳差小于 3600 秒，因此此前每次都判验签失败、静默回普通首页。" +
+      "已自动记录并<b>只对本机测试渠道</b>补偿 issued_at（重新签名），" +
+      "<b>现在把 App 上划杀掉重新打开即可</b>；organic / bbdd1 等生产渠道不受影响。";
+  }else if(off !== null){
+    html += "手机时钟偏差 " + off + " 秒，在 App 允许的 1 小时窗口内，时间这一项正常；已记录偏移量。";
+  }else{
+    html += "手机时钟上报失败，不影响配置下发。";
+  }
+  try{
+    const p = await fetch(API("/v1/config/probe"), {cache:"no-store"}).then(x=>x.json());
+    const apps = (p.items||[]).filter(x=>x.is_app).slice(-3).reverse();
+    html += "<br><br><b>这台手机上 App 最近的请求</b>：<br>" + (apps.length
+      ? apps.map(x => "<code>" + new Date(x.ts*1000).toLocaleTimeString() + "</code> · " +
+          esc(x.ip) + " · <b>" + esc(x.mode) + "/" + esc(x.channel) + "</b> · " +
+          esc(x.size) + "B · issued_at " + esc(x.issued_at)).join("<br>")
+      : "还没有记录到原生 App 请求（需先在手机上彻底重启一次 App）。");
+    html += "<br><br><span style='color:var(--muted)'>若上方「验签 / 手机时钟偏差 / App 解码兼容 / App 切态预判」全是绿，App 却仍是首页，" +
+      "则属于客户端 4 秒请求超时或二进制旧逻辑，需要重新出一次包（渠道绑定不受影响）。</span>";
+  }catch(_){}
+  showMsg(el, html, "info");
+}
+
+/* ---------- 初始化 ---------- */
+$("vipAdminLink").href = VIP_ADMIN;
+if(QR.verify) $("verifyQr").src = QR.verify;
+if(QR.install) $("installQr").src = QR.install;
+else $("installQr").style.display = "none";
+refreshLink("", "");
+status();
+(async function(){ await appDiag(); await probe("channel"); compare(); })();
+</script>
+</body>
+</html>

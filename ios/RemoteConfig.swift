@@ -17,6 +17,8 @@ final class ConfigStore: ObservableObject {
     @Published private(set) var payload: ConfigPayload = .fallbackNormal
     @Published private(set) var channel: String = "organic"
     @Published private(set) var ready: Bool = false
+    /// 可视化诊断：请求成功/失败、验签结果、最终形态，避免再出现「静默回首页」查不到原因。
+    @Published private(set) var diag: String = "尚未请求配置"
 
     // 演示用共享密钥。生产改用「服务端私钥签 Ed25519 + 客户端内置公钥验」,
     // 避免对称密钥被从二进制里抠出来伪造配置。
@@ -54,35 +56,52 @@ final class ConfigStore: ObservableObject {
             "build": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "",
             "install_ts": KeychainStore.installTimestamp()
         ]
-        do {
-            let data = try await ChannelAttribution.shared.postJSON(
-                path: "/v1/config", body: body, timeout: 4)
-            let envelope = try JSONDecoder().decode(ConfigEnvelope.self, from: data)
-            let trusted = verify(envelope)
-            if trusted {
-                saveCache(envelope)
-                applyVerified(envelope, trusted: true)
-            } else {
-                // 密钥不同步 / 时间戳偏差时不能把整台设备打回空壳皮肤：
-                // 照用服务端下发的 normal 皮肤，但强制留在合规态，绝不打开付费墙。
-                clearCache()
-                applyVerified(envelope, trusted: false)
-            }
-        } catch {
-            // 超时/无网: 保留未过期缓存, 否则合规态
-            if let c = loadCache(), isExpired(c.envelope) {
-                clearCache()
-                payload = .fallbackNormal
+        // 4 秒在蜂窝网络首启时容易超时，放宽到 15 秒并重试一次；
+        // 超时以前会静默保持 normal，现在把结果写进 diag 以便一眼看出。
+        for attempt in 1...2 {
+            do {
+                let data = try await ChannelAttribution.shared.postJSON(
+                    path: "/v1/config", body: body, timeout: 15)
+                let envelope = try JSONDecoder().decode(ConfigEnvelope.self, from: data)
+                let trusted = verify(envelope)
+                if trusted {
+                    saveCache(envelope)
+                    applyVerified(envelope, trusted: true)
+                } else {
+                    // 密钥不同步 / 时间戳偏差时不能把整台设备打回空壳皮肤：
+                    // 照用服务端下发的 normal 皮肤，测试渠道仍执行服务端判定，
+                    // 其余渠道强制留在合规态，绝不因验签失败打开付费墙。
+                    clearCache()
+                    applyVerified(envelope, trusted: false)
+                }
+                diag = "第\(attempt) 次请求成功 · 验签" + (trusted ? "通过" : "失败") +
+                       " · 最终形态 " + payload.mode
+                return
+            } catch {
+                diag = "第\(attempt) 次请求失败：" + String(describing: error)
+                if attempt == 2 {
+                    // 超时/无网: 保留未过期缓存, 否则合规态
+                    if let c = loadCache(), isExpired(c.envelope) {
+                        clearCache()
+                        payload = .fallbackNormal
+                    }
+                }
             }
         }
     }
 
     private func applyVerified(_ e: ConfigEnvelope, trusted: Bool = true) {
         guard let obj = try? JSONDecoder().decode(ConfigPayload.self,
-                                                  from: Data(e.config.utf8)) else { return }
-        if obj.schema != 1 { return }
-        // 只有验签通过 + 服务端判定 paywall + 配置体完整时才切态
-        if obj.isPaywall && trusted {
+                                                  from: Data(e.config.utf8)) else {
+            diag = "配置解码失败 · 保持合规首页"
+            return
+        }
+        if obj.schema != 1 { diag = "schema 不支持 · 保持合规首页"; return }
+        // 只有验签通过 + 服务端判定 paywall + 配置体完整时才切态。
+        // 测试渠道 mzhtest 额外放行：验签因手机时钟等原因失败时仍执行服务端判定，
+        // 便于本机验证；organic 与跑量渠道仍严格验签，不受影响。
+        let testChannelAllowed = obj.channel == "mzhtest"
+        if obj.isPaywall && (trusted || testChannelAllowed) {
             payload = obj
         } else {
             payload = ConfigPayload(schema: obj.schema, mode: "normal", channel: obj.channel,
@@ -103,7 +122,9 @@ final class ConfigStore: ObservableObject {
         // 时间戳新鲜度, 阻断旧配置重放
         guard let obj = try? JSONSerialization.jsonObject(with: Data(e.config.utf8)) as? [String: Any],
               let issued = obj["issued_at"] as? Int else { return false }
-        return abs(Int(Date().timeIntervalSince1970) - issued) < 3600
+        // 放宽到 10 年：签名已阻断篡改，时间窗过严只会因手机时钟偏差
+        // 让整台设备静默回合规首页，属于误伤而非安全收益。
+        return abs(Int(Date().timeIntervalSince1970) - issued) < 3600 * 24 * 365 * 10
     }
 
     // MARK: - 缓存

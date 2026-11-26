@@ -55,6 +55,17 @@ struct RootView: View {
                 LaunchPlaceholder()
             } else {
                 NormalHomeView(config: normal) { showPaywall = true }
+                    .overlay(alignment: .top) {
+                        if !config.isPaywall {
+                            Text(config.diag)
+                                .font(.caption2)
+                                .foregroundStyle(Color.white.opacity(0.72))
+                                .padding(.horizontal, 10).padding(.vertical, 4)
+                                .background(Color.black.opacity(0.42), in: Capsule())
+                                .padding(.top, 6)
+                                .allowsHitTesting(false)
+                        }
+                    }
                     .overlay(alignment: .bottom) {
                         if forced && (gate?.showBanner ?? false) {
                             memberBanner.padding(.bottom, 78).padding(.horizontal, 12)
