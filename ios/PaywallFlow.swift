@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 import AVKit
 import AVFoundation
 import UIKit
@@ -102,6 +103,9 @@ struct PaywallFlow: View {
                              onExit: { onExitToHome(true) })
             }
         }
+        // 配置一到就开始预取试看视频：开屏倒计时那几秒正好把文件下完，
+        // 点「进入」时读的是本地副本，不用等网络缓冲。
+        .onAppear { TrialMediaCache.shared.prefetch(config.trial.videoURL) }
         .alert("下单失败", isPresented: Binding(
             get: { errMessage != nil },
             set: { if !$0 { errMessage = nil } }
@@ -270,32 +274,94 @@ private struct SplashView: View {
 
 // MARK: - 2. 视频试看（点画面直接进会员充值，不出现播放器暂停控件）
 
-/// 只用 AVPlayerLayer 渲染画面：AVKit 的 VideoPlayer 自带播放/暂停、±10s 控件，
-/// 点一下先弹控件再点才播放，跟竞品「点试看片段直接出会员充值」不一致。
-private struct SilentPlayerLayer: UIViewRepresentable {
-    let player: AVPlayer
-    let urlString: String
-    let seekTo: Double
+/// 开屏倒计时期间就把试看视频落到沙盒：进试看页直接读本地文件，
+/// 不用等 AVPlayer 现场缓冲网络文件（原来要十几秒才出画面）。
+/// 按 URL 最后一段命名，换素材会自动重新下载一份，不会读到旧缓存。
+final class TrialMediaCache {
+    static let shared = TrialMediaCache()
+    private let fm = FileManager.default
+    private let lock = NSLock()
+    private var inflight = Set<String>()
 
-    func makeUIView(context: Context) -> PlayerLayerView {
-        let v = PlayerLayerView()
-        v.playerLayer.player = player
-        v.playerLayer.videoGravity = .resizeAspect
-        return v
+    private var dir: URL {
+        let d = fm.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Mizhenhe/TrialCache", isDirectory: true)
+        if !fm.fileExists(atPath: d.path) {
+            try? fm.createDirectory(at: d, withIntermediateDirectories: true)
+        }
+        return d
     }
 
-    func updateUIView(_ uiView: PlayerLayerView, context: Context) {
-        guard player.currentItem == nil, let url = URL(string: urlString) else { return }
+    private func dest(_ remote: String) -> URL {
+        let name = (remote as NSString).lastPathComponent
+        return dir.appendingPathComponent(name.isEmpty ? "trial.mp4" : name)
+    }
+
+    func local(_ remote: String) -> URL? {
+        let p = dest(remote)
+        guard fm.fileExists(atPath: p.path) else { return nil }
+        let attrs = try? fm.attributesOfItem(atPath: p.path)
+        let size = (attrs?[.size] as? NSNumber)?.intValue ?? 0
+        return size > 1024 ? p : nil
+    }
+
+    func url(_ remote: String) -> URL? { local(remote) ?? URL(string: remote) }
+
+    func prefetch(_ remote: String) {
+        guard remote.hasPrefix("http"), let src = URL(string: remote) else { return }
+        let to = dest(remote)
+        guard !fm.fileExists(atPath: to.path) else { return }
+        lock.lock()
+        if inflight.contains(remote) { lock.unlock(); return }
+        inflight.insert(remote)
+        lock.unlock()
+        let t0 = Date()
+        URLSession.shared.downloadTask(with: src) { tmp, _, err in
+            self.lock.lock(); self.inflight.remove(remote); self.lock.unlock()
+            guard let tmp = tmp, err == nil else {
+                MZHDiag.report("TRIAL 预取失败 · \(src.lastPathComponent)")
+                return
+            }
+            try? self.fm.removeItem(at: to)
+            do {
+                try self.fm.moveItem(at: tmp, to: to)
+                MZHDiag.report(String(format: "TRIAL 预取完成 · %.2fs · %@",
+                                      Date().timeIntervalSince(t0), src.lastPathComponent))
+            } catch {
+                MZHDiag.report("TRIAL 预取落盘失败 · \(src.lastPathComponent)")
+            }
+        }.resume()
+    }
+}
+
+/// 用系统 AVPlayerViewController 渲染：自定义 AVPlayerLayer 在部分机型上
+/// 会只出静止帧或纯黑。控件全部隐藏，点画面由上层透明热区接管。
+private struct SilentPlayerLayer: UIViewControllerRepresentable {
+    let player: AVPlayer
+    let sourceURL: URL?
+    let seekTo: Double
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+    final class Coordinator { var started = false }
+
+    func makeUIViewController(context: Context) -> AVPlayerViewController {
+        let vc = AVPlayerViewController()
+        vc.player = player
+        vc.showsPlaybackControls = false
+        vc.videoGravity = .resizeAspectFill
+        vc.view.backgroundColor = .black
+        return vc
+    }
+
+    func updateUIViewController(_ vc: AVPlayerViewController, context: Context) {
+        guard !context.coordinator.started, let url = sourceURL else { return }
+        context.coordinator.started = true
         player.replaceCurrentItem(with: AVPlayerItem(url: url))
         if seekTo > 0 {          // 回到原来看到的那一帧, 不从头播
             player.seek(to: CMTime(seconds: seekTo, preferredTimescale: 600))
         }
         player.play()
-    }
-
-    final class PlayerLayerView: UIView {
-        override class var layerClass: AnyClass { AVPlayerLayer.self }
-        var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
+        MZHDiag.report("TRIAL 开始加载 · \(url.lastPathComponent) · \(url.isFileURL ? "本地" : "网络")")
     }
 }
 
@@ -311,7 +377,12 @@ private struct TrialPlayerView: View {
     @State private var player = AVPlayer()
     @State private var left: Int
     @State private var showEnd: Bool
+    @State private var coverVisible = true
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    private var srcLabel: String {
+        TrialMediaCache.shared.url(config.videoURL)?.lastPathComponent ?? "—"
+    }
 
     init(config: TrialConfig, theme: PaywallTheme, initialLeft: Int, seekTo: Double,
          ended: Bool,
@@ -332,7 +403,9 @@ private struct TrialPlayerView: View {
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            SilentPlayerLayer(player: player, urlString: config.videoURL, seekTo: seekTo)
+            SilentPlayerLayer(player: player,
+                              sourceURL: TrialMediaCache.shared.url(config.videoURL),
+                              seekTo: seekTo)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
                 .onDisappear {
@@ -340,6 +413,25 @@ private struct TrialPlayerView: View {
                     let sec = player.currentTime().seconds
                     onProgress(left, sec.isFinite ? sec : 0, showEnd)
                 }
+
+            // 视频还没出首帧时显示占位画面，不再是一片纯黑让人以为没取到视频。
+            if coverVisible {
+                ZStack {
+                    LinearGradient(colors: [Color(hex: "241B3A"), Color(hex: "123043"),
+                                            Color(hex: "0A0D18")],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                    VStack(spacing: 10) {
+                        Image(systemName: "play.rectangle.fill")
+                            .font(.system(size: 38))
+                            .foregroundStyle(.white.opacity(0.7))
+                        Text("正在准备画面…")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.75))
+                    }
+                }
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+            }
 
             // 画面任意位置点一下 → 直接进会员充值页（不再弹播放/暂停控件）。
             // 用 0.001 alpha 而不是 Color.clear：完全透明的 Color 在部分
@@ -383,9 +475,18 @@ private struct TrialPlayerView: View {
             if showEnd { endCard }
         }
         .onReceive(timer) { _ in
+            if coverVisible, player.currentItem?.status == .readyToPlay {
+                coverVisible = false
+                if player.rate < 0.01 { player.play() }
+                MZHDiag.report("TRIAL 首帧就绪 · \(srcLabel)")
+            }
             guard left > 0, !showEnd else { return }
             left -= 1
             if left == 0 { showEnd = true }
+        }
+        .onAppear {
+            TrialMediaCache.shared.prefetch(config.videoURL)
+            MZHDiag.report("TRIAL 进入试看页 · \(srcLabel)")
         }
     }
 
@@ -670,7 +771,7 @@ private struct UnlockedView: View {
             Color.black.ignoresSafeArea()
             VideoPlayer(player: player).ignoresSafeArea()
                 .onAppear {
-                    if let url = URL(string: videoURL) {
+                    if let url = TrialMediaCache.shared.url(videoURL) {
                         player.replaceCurrentItem(with: AVPlayerItem(url: url))
                         player.play()
                     }

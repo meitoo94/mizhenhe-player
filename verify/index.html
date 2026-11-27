@@ -174,6 +174,14 @@
           <button id="btnCd" class="ghost">生成并打开链接</button>
         </div>
         <div class="msg info" id="linkMsg"></div>
+        <div class="row" style="margin-top:10px">
+          <button id="btnMediaCheck" class="ghost">试看视频自检</button>
+        </div>
+        <div class="msg info" id="mediaCheckMsg"></div>
+        <div id="mediaPreview" style="display:none;margin-top:10px">
+          <video id="mediaPreviewVd" controls muted loop playsinline
+            style="width:150px;border-radius:10px;background:#000"></video>
+        </div>
       </div>
     </div>
   </div>
@@ -502,6 +510,40 @@ document.querySelectorAll(".links a").forEach(a => a.addEventListener("click", e
 $("btnCd").onclick = () => {
   const v = Number($("cdVal").value || 0);
   openDemo("", v > 0 ? v : "", v > 0 ? "倒计时覆盖 " + v + " 秒" : "恢复后台倒计时");
+};
+/* 试看视频自检：直接取 App 用的同一份配置，实测视频能否拿到字节，
+   并显示防截屏开关。黑屏时一键分清是「地址取不到」还是「渲染被屏保吞掉」。*/
+$("btnMediaCheck").onclick = async () => {
+  const el = $("mediaCheckMsg");
+  showMsg(el, "正在检查试看视频…", "info");
+  try{
+    const cfg = await fetch(API("/demo/config?ch=" + encodeURIComponent(ch())), {cache:"no-store"}).then(x => x.json());
+    const pw = cfg.config?.paywall || {};
+    const t = pw.trial || {};
+    const url = t.video_url || "", poster = t.poster_url || "";
+    const guard = !!(pw.security?.screen_guard);
+    let media = "地址为空", okMedia = false;
+    if(url){
+      try{
+        const r = await fetch(url, {headers:{Range:"bytes=0-1023"}, cache:"no-store"});
+        const type = r.headers.get("content-type") || "—";
+        media = `HTTP ${r.status} · ${type} · ${r.headers.get("content-length") || "—"} 字节`;
+        okMedia = r.ok && /video|mp4|octet-stream/i.test(type);
+      }catch(e){ media = "请求失败：" + esc(e.message); }
+    }
+    const pv = $("mediaPreview"), pvd = $("mediaPreviewVd");
+    if(url){ pvd.poster = poster; pvd.src = url; pv.style.display = "block"; }
+    else { pv.style.display = "none"; }
+    const lines = [
+      `<b>试看视频地址</b>：${esc(short(url, 66))}`,
+      `<b>服务器实测</b>：${media}`,
+      `<b>防截屏</b>：${guard ? '<span style="color:#ff6b7a">开启 → App 试看会黑屏</span>' : "关闭 → 视频正常渲染"}`,
+      `<b>结论</b>：${okMedia && !guard ? "视频可取；原生 App 杀掉重开即可播放" : (guard ? "先关掉防截屏再重试" : "视频地址不可用，检查后台配置")}`
+    ];
+    showMsg(el, lines.join("<br>"), okMedia && !guard ? "good" : "bad");
+  }catch(err){
+    showMsg(el, "配置读取失败：" + esc(err.message), "bad");
+  }
 };
 $("chSel").addEventListener("change", () => {
   refreshLink("", "");

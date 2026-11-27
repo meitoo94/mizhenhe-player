@@ -1159,10 +1159,27 @@ DEFAULT_CTA_THEME = {
     "selected_border": "#A855F7",
 }
 
-# 渠道形态防截屏总开关。设为 0 时 App 立即回退为纯 SwiftUI 呈现：
-# 交互 100% 可用、只是不遮挡截屏。真机上若防截屏层再吞触摸，
-# 改 mzh.env 的 MZH_SCREEN_GUARD=0 重启服务即可恢复，不用重新出包。
-DEFAULT_PAYWALL_SECURITY = {"screen_guard": True}
+# 渠道形态防截屏总开关，默认关闭。
+# SecureScreen 把整棵内容 layer 挂到 isSecureTextEntry 的 secure layer 子树，
+# 系统会在渲染时剔除该子树里的视频帧：AVPlayerLayer / VideoPlayer 直接黑屏，
+# 但 SwiftUI 文字与按钮仍在、还能点，表现就是「试看黑屏但能点开通会员」。
+# 只有纯静态页演示才需要开启：mzh.env 显式设 MZH_SCREEN_GUARD=1 并重启。
+DEFAULT_PAYWALL_SECURITY = {"screen_guard": False}
+
+# 试看素材兜底：后台把 video_url / poster_url 留空或仍写着 CDN 占位地址时，
+# 自动回落到自有静态媒体，避免 App 拿到无效地址后只剩纯黑画面。
+MEDIA_BASE = "https://app.kqi.ink/mzhmedia/"
+# v2 是起播优化版：720×972 / 20fps / 480kbps / 每 1 秒一个关键帧 / 无音轨，
+# 807 KB（原版 3.6 MB、最长 6 秒才一个关键帧，AVPlayer 会拉完整个文件才出画面）。
+# 换文件名同时也让手机不会继续读 7 天缓存里的旧大文件。
+TRIAL_VIDEO = MEDIA_BASE + "mzh_trial_15s_v2.mp4"
+LEGACY_TRIAL_VIDEO = MEDIA_BASE + "mzh_trial_15s.mp4"
+TRIAL_POSTER = MEDIA_BASE + "mzh_trial_poster.jpg"
+
+
+def placeholder_media(value):
+    s = str(value or "").strip()
+    return (not s) or ("yourdomain" in s) or ("example.com" in s)
 
 
 def camel_alias(key):
@@ -1264,7 +1281,10 @@ def build_config(channel, mode, paywall, ctx):
         sec = dict(DEFAULT_PAYWALL_SECURITY)
         if isinstance(pw.get("security"), dict):
             sec.update({k: v for k, v in pw["security"].items() if k in sec})
-        if os.environ.get("MZH_SCREEN_GUARD") == "0":
+        guard_env = os.environ.get("MZH_SCREEN_GUARD", "").strip()
+        if guard_env == "1":
+            sec["screen_guard"] = True       # 仅纯静态页演示，视频会黑屏
+        elif guard_env == "0":
             sec["screen_guard"] = False
         pw["security"] = sec
         # 深拷贝: 避免把请求 Host 写回全局渠道表(会污染后续配置与签名)
@@ -1276,6 +1296,15 @@ def build_config(channel, mode, paywall, ctx):
         if isinstance(pw.get("checkout"), dict):
             pw["checkout"]["order_endpoint"] = base + "/v1/order"
             pw["checkout"]["order_page_base"] = base + pw["checkout"].get("order_page_path", "/order/")
+        tr = pw.get("trial")
+        if isinstance(tr, dict):
+            cur = str(tr.get("video_url") or "").strip()
+            # 占位地址、空值、以及后台里已存的旧大文件地址，统一升级到起播优化版；
+            # 用户自己填的第三方 CDN 地址保持不动。
+            if placeholder_media(cur) or cur == LEGACY_TRIAL_VIDEO:
+                tr["video_url"] = TRIAL_VIDEO
+            if placeholder_media(tr.get("poster_url")):
+                tr["poster_url"] = TRIAL_POSTER
         payload["paywall"] = pw
     # 把配置对象序列化成规范化 JSON 字符串, 对这个字符串的原始字节签名。
     # 客户端直接验字符串字节、再反序列化, 避免 Swift/Python 两端浮点与键序

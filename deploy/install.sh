@@ -39,8 +39,11 @@ for f in "$STAGE"/verify/qr-*.png; do [ -f "$f" ] && cp "$f" "$APP/verify/"; don
 # 材料进度由本地 deploy/signing/next.py 体检生成，每次部署同步最新结果
 [ -f "$STAGE/server/signing_progress.json" ] && \
   cp "$STAGE/server/signing_progress.json" "$APP/server/signing_progress.json" || true
-# 试看视频素材同步到 nginx /mzhmedia/ 指向的目录
-for f in "$STAGE"/media/*.mp4; do [ -f "$f" ] && cp "$f" "$APP/media/"; done
+# 试看视频 / 封面首帧同步到 nginx /mzhmedia/ 指向的目录
+for f in "$STAGE"/media/*.mp4 "$STAGE"/media/*.jpg "$STAGE"/media/*.jpeg \
+         "$STAGE"/media/*.png "$STAGE"/media/*.webp; do
+  [ -f "$f" ] && cp "$f" "$APP/media/"
+done
 # 发布状态由运营维护（TestFlight / App Store 链接），重跑部署不覆盖
 [ -f "$APP/server/release_state.json" ] || \
   cp "$STAGE/server/release_state.json" "$APP/server/release_state.json"

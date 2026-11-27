@@ -42,9 +42,10 @@ FILES = [
     "deploy/mzh.env.example",
     "deploy/verify_public.py",
 ]
-# 试看素材（mp4）自动随包上传，不必逐个登记
+# 试看素材（mp4 / 封面首帧）自动随包上传，不必逐个登记
 if (ROOT / "media").is_dir():
-    FILES += ["media/" + p.name for p in sorted((ROOT / "media").glob("*.mp4"))]
+    for _ext in ("*.mp4", "*.jpg", "*.jpeg", "*.png", "*.webp"):
+        FILES += ["media/" + p.name for p in sorted((ROOT / "media").glob(_ext))]
 # 验证台二维码（线上没装 qrcode/PIL，由本地生成后随包上传）
 FILES += ["verify/" + p.name for p in sorted((ROOT / "verify").glob("qr-*.png"))]
 REMOTE_ROOT = "/opt/mizhenhe/_stage"

@@ -86,6 +86,11 @@ select,input,button{font-family:inherit;font-size:12px}
 /* trial */
 .trial{position:absolute;inset:0;background:#05070D;overflow:hidden}
 .trial video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.trial .vdfail{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;gap:12px;
+  align-items:center;justify-content:center;background:rgba(5,7,13,.84);color:#fff;
+  text-align:center;padding:28px;font-size:13px;line-height:1.7}
+.trial .vdfail button{border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);
+  color:#fff;border-radius:20px;padding:8px 18px;font-size:12px;cursor:pointer}
 .trial .ph{position:absolute;inset:0;
   background:linear-gradient(160deg,#241B3A 0%,#123043 38%,#2A1B2E 70%,#0A0D18 100%)}
 .trial .ph:after{content:"";position:absolute;inset:0;background:
@@ -545,10 +550,13 @@ function splashView(){
 function trialView(){
   const t = CFG.paywall.trial || {};
   const total = t.countdown_seconds || 15;
-  const src = costomVideo || (t.video_url && !t.video_url.includes("yourdomain") ? t.video_url : "");
+  const bad = u => !u || /yourdomain|example\.com/i.test(String(u));
+  const src = costomVideo || (bad(t.video_url) ? "" : t.video_url);
+  const poster = bad(t.poster_url) ? "" : t.poster_url;
   const pct = Math.max(0, Math.round(cd / total * 100));
   return `<div class="trial">
-    ${src ? `<video id="vd" src="${esc(src)}" autoplay muted loop playsinline></video>` : `<div class="ph"></div><div class="glow"></div>`}
+    ${src ? `<video id="vd" src="${esc(src)}" poster="${esc(poster)}" autoplay muted loop playsinline></video>` : `<div class="ph"></div><div class="glow"></div>`}
+    <div class="vdfail" id="vdFail" style="display:none"><div>试看视频加载失败<br><span style="opacity:.65;font-size:11px">请检查网络或后台配置的视频地址</span></div><button type="button" onclick="location.reload()">点此重试</button></div>
     <div class="top"><span class="mut" style="color:#C9D3E8">演示素材 · 第 01 集</span>
       <button class="vipbtn" data-act="tovip">${esc(t.vip_button||"开通会员")}</button></div>
     <div class="sub">${cd > 0 ? "精彩内容，正在试看" : "试看已结束"}</div>
@@ -704,7 +712,13 @@ function render(keepProgress){
   }
   const vd = s.querySelector("#vd");
   if(vd){
-    vd.addEventListener("error", () => { vd.style.display = "none"; }, {once:true});
+    const fail = s.querySelector("#vdFail");
+    // 加载失败不再直接隐藏视频（会变成纯黑且没有任何提示），
+    // 而是保留封面并显示可重试的失败层。
+    vd.addEventListener("error", () => { if(fail) fail.style.display = "flex"; }, {once:true});
+    vd.addEventListener("loadeddata", () => { if(fail) fail.style.display = "none"; }, {once:true});
+    const p = vd.play();
+    if(p && p.catch) p.catch(() => { if(fail) fail.style.display = "flex"; });
     if(resumeVideoAt > 0){        // 回到原来看到的那一帧, 而不是从头播
       const seek = () => { try { vd.currentTime = resumeVideoAt; } catch(e){} };
       if(vd.readyState >= 1) seek();
