@@ -92,10 +92,8 @@ struct MainTabs: View {
     }
 
     private func open(_ v: LocalVideo, _ t: Toolbox?) {
-        if store.preparingIDs.contains(v.id) {
-            notify("正在上传中，请稍等，上传完成就能播放")
-            return
-        }
+        // 条目出现在片仓时，文件已经完整写进沙盒，随时可播。
+        // build 12 在这里用 preparingIDs 拦截，封面生成一卡就永远点不开。
         playerTool = t
         playerVideo = v
     }
@@ -498,7 +496,7 @@ private struct LibraryTabReal: View {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(v.title).font(.subheadline).lineLimit(1)
                                     Text(store.preparingIDs.contains(v.id)
-                                         ? "正在上传中，请稍等"
+                                         ? "封面生成中 · 现在可以播放"
                                          : "\(v.category) · \(Format.duration(v.duration)) · \(Format.bytes(v.bytes))")
                                         .font(.caption2)
                                         .foregroundStyle(store.preparingIDs.contains(v.id) ? MZH.primary : MZH.muted)
@@ -571,21 +569,19 @@ private struct LibraryTabReal: View {
             ZStack(alignment: .topTrailing) {
                 thumb(v).frame(maxWidth: .infinity)
                 if multiSelect { check(v).padding(4) }
-                // 还在上传/准备的条目：卡片本身就有明确状态，点开只提示稍等
+                // 只作角标提示，不盖住缩略图、不拦截点击：文件已经可播。
                 if store.preparingIDs.contains(v.id) {
-                    ZStack {
-                        Color.black.opacity(0.62)
-                        VStack(spacing: 5) {
-                            ProgressView().tint(MZH.primary).scaleEffect(0.8)
-                            Text("上传中 · 请稍等").font(.caption2.bold()).foregroundStyle(.white)
-                        }
-                    }
-                    .cornerRadius(8)
+                    Text("封面生成中 · 可播放")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6).padding(.vertical, 3)
+                        .background(MZH.primary.opacity(0.85), in: Capsule())
+                        .padding(4)
                 }
             }
             Text(v.title).font(.caption2).lineLimit(1)
             Text(store.preparingIDs.contains(v.id)
-                 ? "正在上传中，请稍等"
+                 ? "封面生成中 · 现在可以播放"
                  : "\(v.category) · \(Format.duration(v.duration))")
                 .font(.caption2)
                 .foregroundStyle(store.preparingIDs.contains(v.id) ? MZH.primary : MZH.muted)

@@ -254,6 +254,17 @@
     <div id="payTestMsg" class="msg"></div>
   </div>
 
+  <!-- 7 导入 / 播放操作记录 -->
+  <div class="card">
+    <h2><span class="n">7</span>导入 / 播放操作记录</h2>
+    <div class="hint">覆盖安装 Build 13 后，App 会把每个视频的「复制完成 / 上传完成 / 封面生成 / 播放首帧 / 加载失败 / 改用系统播放器」逐步回传到这里。哪一条卡在哪一步，看时间线即可，不用再发截图。记录只含文件大小与编码信息，不含视频内容。</div>
+    <div class="row">
+      <button id="btnMediaLog">刷新操作记录</button>
+      <span class="pill" id="mediaLogState">—</span>
+    </div>
+    <div id="mediaLogMsg" class="msg"></div>
+  </div>
+
   <p class="foot">除第 4 区设备绑定、第 6 区未注册直付自检外均为只读核对；跑量渠道配置只读，不会被改动。</p>
 </div>
 
@@ -597,15 +608,36 @@ async function paySelftest(){
   }catch(err){ showMsg(el, "自检请求失败：" + esc(err.message), "bad"); }
 }
 
+/* ---------- 7. 导入 / 播放操作记录 ---------- */
+async function mediaLog(){
+  const el = $("mediaLogMsg"), st = $("mediaLogState");
+  try{
+    const r = await fetch(API("/v1/app/diag"), {cache:"no-store"}).then(x=>x.json());
+    const rows = (r.items||[]).filter(x =>
+      x.mode === "media" || /^(IMPORT|FINALIZE|PLAY)\b/.test(x.diag||""));
+    st.textContent = rows.length ? ("最近 " + rows.length + " 条") : "暂无记录";
+    if(!rows.length){
+      showMsg(el, "还没有导入 / 播放记录。请覆盖安装 Build 13 后，在 App 里导入一个视频并点开播放一次，再点「刷新操作记录」。", "info");
+      return;
+    }
+    const list = rows.slice(-30).reverse().map(x =>
+      "<div style='padding:3px 0;border-bottom:1px solid var(--line)'><code>" +
+      new Date(x.ts*1000).toLocaleTimeString() + "</code> · b" + esc(x.build) +
+      " · " + esc(x.diag) + "</div>").join("");
+    showMsg(el, "<b>时间线（新在上）</b><br>" + list, "info");
+  }catch(err){ showMsg(el, "读取失败：" + esc(err.message), "bad"); }
+}
+
 /* ---------- 初始化 ---------- */
 $("btnPayTest").addEventListener("click", paySelftest);
+$("btnMediaLog").addEventListener("click", mediaLog);
 $("vipAdminLink").href = VIP_ADMIN;
 if(QR.verify) $("verifyQr").src = QR.verify;
 if(QR.install) $("installQr").src = QR.install;
 else $("installQr").style.display = "none";
 refreshLink("", "");
 status();
-(async function(){ await appDiag(); await probe("channel"); compare(); })();
+(async function(){ await appDiag(); await probe("channel"); compare(); mediaLog(); })();
 </script>
 </body>
 </html>

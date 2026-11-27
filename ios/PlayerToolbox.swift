@@ -236,6 +236,7 @@ private struct SystemPlayerScreen: View {
         }
         .background(Color.black.ignoresSafeArea())
         .onAppear {
+            MZHDiag.report("PLAY 改用系统播放器 · \(url.lastPathComponent)")
             player.replaceCurrentItem(with: AVPlayerItem(url: url))
             player.play()
         }
@@ -282,6 +283,8 @@ final class PlayerModel: ObservableObject {
     /// 自动恢复期间强制走纯 URL item，不套 AVAsset / CIFilter composition
     private var forcePlain = false
     private var autoRetries = 0
+    /// 一次加载只上报一条结果，避免 KVO 与 periodic observer 重复写日志
+    private var reportedResult = false
 
     deinit {
         if let periodic { player.removeTimeObserver(periodic) }
@@ -324,9 +327,11 @@ final class PlayerModel: ObservableObject {
         lastSegments = segments
         forcePlain = false
         autoRetries = 0
+        reportedResult = false
         diagnosis = ""
         loadState = .loading
         playing = false
+        MZHDiag.report("PLAY 开始加载 · \(asset.url.lastPathComponent)")
         installItem()
     }
 
@@ -386,12 +391,20 @@ final class PlayerModel: ObservableObject {
         autoRetries = 0
         if loadState != .ready { loadState = .ready }
         playing = true
+        if !reportedResult {
+            reportedResult = true
+            MZHDiag.report("PLAY 首帧成功 · \(asset.url.lastPathComponent)")
+        }
     }
 
     private func fail(_ msg: String) {
         loadToken = UUID()
         playing = false
         loadState = .failed(msg)
+        if !reportedResult {
+            reportedResult = true
+            MZHDiag.report("PLAY 加载失败 · \(asset.url.lastPathComponent) · \(msg)")
+        }
     }
 
     /// 超时 / 解码失败：清空旧解码会话，用纯 URL item 自动重建，最多 2 次。
@@ -474,6 +487,7 @@ final class PlayerModel: ObservableObject {
             else if !playable { s += " · 系统判定不可播放" }
             else if tracks == 0 { s += " · 没有画面轨道" }
             else { s += " · 文件可读，问题在播放器加载" }
+            MZHDiag.report("PLAY 文件诊断 · \(s)")
             DispatchQueue.main.async { self.diagnosis = s }
         }
     }
@@ -481,8 +495,10 @@ final class PlayerModel: ObservableObject {
     func retry() {
         forcePlain = true
         autoRetries = 0
+        reportedResult = false
         diagnosis = ""
         loadState = .loading
+        MZHDiag.report("PLAY 手动重新加载 · \(asset.url.lastPathComponent)")
         player.replaceCurrentItem(with: nil)
         installItem()
     }
@@ -600,8 +616,9 @@ struct PlayerScreen: View {
                     case .ready:
                         EmptyView()
                     case .failed(let msg):
-                        // 还在上传/准备的条目：只提示稍等 + 进度条，绝不显示解码错误
-                        if importing { uploadingCard } else { failureCard(msg) }
+                        // 条目出现在片仓时文件已完整，一律给可操作的失败卡；
+                        // 不再用「正在上传中」把系统播放器按钮也挡掉。
+                        failureCard(msg)
                     }
                 }
 
@@ -650,41 +667,13 @@ struct PlayerScreen: View {
         .animation(.easeInOut, value: showToast)
     }
 
-    /// 已入库但封面/归类还在后台补，或整批导入还没结束且本片没封面
-    private var importing: Bool {
-        store.preparingIDs.contains(video.id) || (store.isImporting && video.thumbName == nil)
-    }
-
-    private var importFraction: Double {
-        if case .running(_, _, _, let f) = store.importStage { return max(0, min(1, f)) }
-        return 0
-    }
-
-    private var uploadingCard: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "arrow.up.circle.fill").font(.largeTitle)
-                .foregroundStyle(MZH.primary)
-            Text("正在上传中，请稍等").font(.subheadline.bold()).foregroundStyle(.white)
-            ProgressView(value: importFraction, total: 1).tint(MZH.primary)
-                .progressViewStyle(.linear).frame(width: 190)
-            Text("\(Int(importFraction * 100))% · 上传完成就能播放")
-                .font(.caption).foregroundStyle(MZH.muted)
-            Text("大文件写入本机需要一点时间，请暂时不要关闭 App")
-                .font(.caption2).foregroundStyle(MZH.muted)
-                .multilineTextAlignment(.center)
-        }
-        .padding(18).frame(maxWidth: 300)
-        .background(MZH.surface.opacity(0.96), in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(MZH.line, lineWidth: 1))
-    }
-
     private func failureCard(_ msg: String) -> some View {
         VStack(spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill").font(.largeTitle)
                 .foregroundStyle(MZH.warn)
             Text("播放器没能加载出画面")
                 .font(.subheadline.bold()).foregroundStyle(.white)
-            Text("文件已经上传完成，封面也能生成，不是副本损坏；是播放器这条解码路径超时了")
+            Text("文件已经写进片仓，不是还在上传；点系统播放器可直接换一条解码路径")
                 .font(.caption2).foregroundStyle(MZH.muted)
                 .multilineTextAlignment(.center)
             Text(msg).font(.caption2).foregroundStyle(MZH.muted)

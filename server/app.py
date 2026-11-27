@@ -1720,8 +1720,27 @@ a{color:#35E0C8}</style></head><body><h1>设备已登记</h1>
         # ---- 原生 App 运行时诊断（验证台只读查看） ----------------------------
         if u.path == "/v1/app/diag":
             with LOCK:
-                rows = list(APP_DIAG[-30:])
-            self._send(200, {"ok": True, "items": rows},
+                rows = list(APP_DIAG[-80:])
+            # 内存态在服务重启后会清空；从证据日志补回历史，
+            # 保证验证台「导入 / 播放操作记录」一直可查，不是只看最后一次启动。
+            try:
+                p = os.path.join(EVIDENCE, "app_diag.jsonl")
+                if os.path.isfile(p):
+                    with open(p, "r", encoding="utf-8") as f:
+                        disk = []
+                        for line in f:
+                            line = line.strip()
+                            if line:
+                                try:
+                                    disk.append(json.loads(line))
+                                except Exception:
+                                    pass
+                    seen = {(r.get("ts"), r.get("diag")) for r in rows}
+                    rows = [r for r in disk[-300:]
+                            if (r.get("ts"), r.get("diag")) not in seen][-80:] + rows
+            except Exception:
+                pass
+            self._send(200, {"ok": True, "items": rows[-80:]},
                        {"Cache-Control": "no-store"})
             return
 

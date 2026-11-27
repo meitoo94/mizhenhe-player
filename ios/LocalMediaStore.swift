@@ -7,6 +7,24 @@ import Vision
 import UIKit
 import UniformTypeIdentifiers
 
+// MARK: - 导入 / 播放操作记录上报
+// 复用 /v1/app/diag（验证台直接可读）。build 12 之前服务端只有渠道配置
+// 和 VIP 触摸埋点，片仓里哪条视频卡在哪一步完全看不到，只能靠用户截图猜。
+enum MZHDiag {
+    static func report(_ text: String) {
+        let body: [String: Any] = [
+            "diag": text,
+            "mode": "media",
+            "build": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "",
+            "client_now": Int(Date().timeIntervalSince1970)
+        ]
+        Task {
+            _ = try? await ChannelAttribution.shared.postJSON(
+                path: "/v1/app/diag", body: body, timeout: 4)
+        }
+    }
+}
+
 // MARK: - 数据模型（对应研究报告 2.2 / 2.1：索引、归类、调色记忆、变速方案）
 
 struct GradePreset: Codable, Hashable {
@@ -197,12 +215,10 @@ final class MediaStore: ObservableObject {
         } catch { return nil }
 
         let asset = AVURLAsset(url: dst)
-        // iCloud 还没下载完、复制被中断或格式不受支持时，副本虽然存在却解不出画面。
-        // 这种文件直接丢掉，不让它进片仓变成「点开是黑屏」的坏条目。
-        guard asset.isPlayable else {
-            try? FileManager.default.removeItem(at: dst)
-            return nil
-        }
+        // 不再用同步 isPlayable 判定：大体积 HEVC / 杜比视界在这一步会同步阻塞，
+        // 而且偶尔误判成「不可播放」把刚复制好的 92MB 直接删掉，
+        // 用户看到的就是「上传了却什么都没有 / 打不开」。
+        // 副本能不能解码交给播放器的诊断卡判断，导入阶段一律先入库。
         let duration = CMTimeGetSeconds(asset.duration)
         let bytes = (try? FileManager.default.attributesOfItem(atPath: dst.path)[.size] as? NSNumber)?
             .int64Value ?? 0
@@ -240,7 +256,10 @@ final class MediaStore: ObservableObject {
                                stage: "正在从相册读取所选视频…", fraction: 0.01)
     }
 
-    /// 异步导入：真实字节进度条 → 复制完立刻入库（标「上传中」）→ 后台补封面/归类 → 上传完成。
+    /// 异步导入：真实字节进度条 → 复制完立刻入库并可播放 → 立刻「上传完成」。
+    /// build 12 把「封面生成 + 端侧归类」串在关键路径上：copyCGImage 对大 HEVC
+    /// 会同步卡住且没有超时，后面所有条目都停在 preparingIDs，
+    /// 点开永远是「正在上传中，请稍等」——这就是「上传了之后打不开」。
     func importFilesAsync(_ urls: [URL]) {
         let total = urls.count
         guard total > 0 else {
@@ -251,6 +270,7 @@ final class MediaStore: ObservableObject {
         isImporting = true
         importStage = .running(done: 0, total: total,
                                stage: "正在上传中，请稍等", fraction: 0.02)
+        MZHDiag.report("IMPORT 开始 · 共 \(total) 个文件")
         DispatchQueue.global(qos: .userInitiated).async {
             var ok = 0, failed = 0
             for (i, u) in urls.enumerated() {
@@ -269,34 +289,50 @@ final class MediaStore: ObservableObject {
                 }) else {
                     failed += 1
                     report(1, "第 \(i + 1)/\(total) 个 · 文件未能读取")
+                    MZHDiag.report("IMPORT 失败 · 第 \(i + 1)/\(total) 个 · 文件未能读取（可能仍在 iCloud 下载）")
                     continue
                 }
                 ok += 1
-                // 复制完立刻入库，用户马上能在片仓看到它；此时点开只会得到
-                // 「正在上传中，请稍等」，不会再看到解码失败的错误卡。
+                let mb = String(format: "%.1fMB", Double(v.bytes) / 1048576.0)
+                MZHDiag.report("IMPORT 复制完成 · 第 \(i + 1)/\(total) 个 · \(mb) · 已可播放")
+                // 复制完立刻入库。文件此时已完整写进沙盒，点开就该能播；
+                // preparingIDs 只作为「封面生成中」角标，不再拦截点击。
                 DispatchQueue.main.async {
                     self.preparingIDs.insert(v.id)
                     self.videos.insert(v, at: 0)
                     self.save()
-                }
-                let patch = self.finalize(v)
-                DispatchQueue.main.async {
-                    if let idx = self.videos.firstIndex(where: { $0.id == v.id }) {
-                        self.videos[idx].thumbName = patch.0
-                        self.videos[idx].category = patch.1
-                    }
-                    self.preparingIDs.remove(v.id)
-                    self.save()
                     self.importStage = .running(done: i + 1, total: total,
-                                                stage: "第 \(i + 1)/\(total) 个上传完成",
+                                                stage: "第 \(i + 1)/\(total) 个上传完成 · 现在可以播放",
                                                 fraction: Double(i + 1) / Double(total))
                 }
+                self.finalizeInBackground(v)
             }
             DispatchQueue.main.async {
-                self.preparingIDs.removeAll()
                 self.isImporting = false
                 self.importStage = .finished(ok: ok, failed: failed)
+                MZHDiag.report("IMPORT 全部完成 · 成功 \(ok) · 失败 \(failed)")
             }
+        }
+    }
+
+    /// 封面 / 端侧归类只影响缩略图，放到独立后台队列，卡住也绝不牵连播放与「上传完成」。
+    private func finalizeInBackground(_ v: LocalVideo) {
+        let vid = v.id
+        DispatchQueue.global(qos: .utility).async {
+            let patch = self.finalize(v)
+            DispatchQueue.main.async {
+                if let idx = self.videos.firstIndex(where: { $0.id == vid }) {
+                    self.videos[idx].thumbName = patch.0
+                    self.videos[idx].category = patch.1
+                }
+                self.preparingIDs.remove(vid)
+                self.save()
+                MZHDiag.report("FINALIZE 完成 · \(patch.0 == nil ? "封面未生成（不影响播放）" : "封面OK") · \(patch.1)")
+            }
+        }
+        // 看门狗：即使取帧卡死，8 秒后也清掉角标，不留「永远上传中」的条目。
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
+            self?.preparingIDs.remove(vid)
         }
     }
 
