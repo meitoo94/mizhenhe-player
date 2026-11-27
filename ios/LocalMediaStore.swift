@@ -223,9 +223,10 @@ final class MediaStore: ObservableObject {
         let bytes = (try? FileManager.default.attributesOfItem(atPath: dst.path)[.size] as? NSNumber)?
             .int64Value ?? 0
         var title = suggestedName ?? src.deletingPathExtension().lastPathComponent
-        // 相册导出的是 UUID 临时名（会显示成 3D31B871-5C3A-… 这种乱码标题）
-        if title.count > 24, title.contains("-"),
-           title.range(of: "^[0-9A-Fa-f-]{24,}$", options: .regularExpression) != nil {
+        // 相册 / 微信导出的是 UUID 临时名（AE8BC1B2-D4C1-… 这种乱码标题）。
+        // 只认开头，不要求整串收尾：后面带 (1)、空格、后缀时旧正则会漏掉。
+        if title.range(of: "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-",
+                       options: .regularExpression) != nil {
             let f = DateFormatter()
             f.dateFormat = "MM-dd HH:mm"
             title = "视频 · " + f.string(from: Date())

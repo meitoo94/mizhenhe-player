@@ -273,6 +273,14 @@ final class PlayerModel: ObservableObject {
     @Published var playing = false
     @Published var loadState: PlayerLoadState = .loading
     @Published var diagnosis = ""
+    /// 自定义层连续停滞重建都无效时，通知界面自动切系统播放器
+    @Published var needSystemFallback = false
+
+    /// 播放停滞看门狗：ready 不等于「画面真的在动」
+    private var lastSeconds: Double = -1
+    private var stallSeconds: Double = 0
+    private var watchdogToken = UUID()
+    private var fallbackRounds = 0
 
     private var itemObservation: NSKeyValueObservation?
     private var timeObservation: NSKeyValueObservation?
@@ -328,11 +336,16 @@ final class PlayerModel: ObservableObject {
         forcePlain = false
         autoRetries = 0
         reportedResult = false
+        needSystemFallback = false
+        fallbackRounds = 0
+        lastSeconds = -1
+        stallSeconds = 0
         diagnosis = ""
         loadState = .loading
         playing = false
         MZHDiag.report("PLAY 开始加载 · \(asset.url.lastPathComponent)")
         installItem()
+        startWatchdog()
     }
 
     private func installItem() {
@@ -348,7 +361,9 @@ final class PlayerModel: ObservableObject {
             // 不经过 AVURLAsset 同步解析，也不套 CIFilter：系统自己挑解码器。
             item = AVPlayerItem(url: asset.url)
         }
-        item.preferredForwardBufferDuration = 1
+        // build 12/13 把前向缓冲限制成 1 秒，97MB HEVC 1080p 的解码管线
+        // 一直在等数据，status 长期停在 unknown，界面就永远「正在准备画面…」。
+        // 交回系统默认缓冲策略，不再人为掐住。
 
         itemObservation = item.observe(\.status, options: [.initial, .new]) {
             [weak self] it, _ in
@@ -375,11 +390,14 @@ final class PlayerModel: ObservableObject {
                 forInterval: CMTime(seconds: 0.4, preferredTimescale: 600), queue: .main) {
                 [weak self] t in
                 guard let self else { return }
-                if CMTimeGetSeconds(t) > 0.05 {
-                    switch self.loadState {
-                    case .loading, .buffering: self.markReady()
-                    default: break
-                    }
+                let s = CMTimeGetSeconds(t)
+                // 只认「时间真的在往前走」，不能因为一次 >0.05 就宣布成功
+                guard s.isFinite, s > self.lastSeconds + 0.01 else { return }
+                self.lastSeconds = s
+                self.stallSeconds = 0
+                switch self.loadState {
+                case .loading, .buffering: self.markReady()
+                default: break
                 }
             }
         }
@@ -390,6 +408,10 @@ final class PlayerModel: ObservableObject {
         loadToken = UUID()          // 让挂起的超时闭包失效
         autoRetries = 0
         if loadState != .ready { loadState = .ready }
+        // build 13 的实锤 bug：periodic observer 也会调 markReady，
+        // 但只有 KVO readyToPlay 分支才 player.play()。KVO 没回来时
+        // 画面出来了却永远不播 —— 用户截图那张「静止的演唱会」就是它。
+        if player.rate < 0.01 { player.play() }
         playing = true
         if !reportedResult {
             reportedResult = true
@@ -399,6 +421,7 @@ final class PlayerModel: ObservableObject {
 
     private func fail(_ msg: String) {
         loadToken = UUID()
+        watchdogToken = UUID()
         playing = false
         loadState = .failed(msg)
         if !reportedResult {
@@ -434,6 +457,51 @@ final class PlayerModel: ObservableObject {
             case .loading, .buffering: self.autoRecover()
             default: return
             }
+        }
+    }
+
+    /// ready 之后画面可能停在首帧不动（HEVC 解码会话 stall）。
+    /// 每秒看一次播放时间，连续 3 秒不推进就重建解码会话，
+    /// 再不行自动切系统播放器，不再让用户对着一张静止画面干等。
+    private func startWatchdog() {
+        let token = UUID()
+        watchdogToken = token
+        tickWatchdog(token: token)
+    }
+
+    private func tickWatchdog(token: UUID) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+            guard let self, self.watchdogToken == token else { return }
+            if self.loadState == .ready {
+                let s = CMTimeGetSeconds(self.player.currentTime())
+                if s.isFinite, s > self.lastSeconds + 0.01 {
+                    self.lastSeconds = s
+                    self.stallSeconds = 0
+                } else {
+                    self.stallSeconds += 1
+                    if self.stallSeconds >= 3 { self.handleStall() }
+                }
+            }
+            self.tickWatchdog(token: token)
+        }
+    }
+
+    private func handleStall() {
+        stallSeconds = 0
+        fallbackRounds += 1
+        MZHDiag.report("PLAY 画面停滞 · 第 \(fallbackRounds) 次自动恢复 · \(asset.url.lastPathComponent)")
+        if fallbackRounds < 2 {
+            forcePlain = true
+            autoRetries = 0
+            reportedResult = false
+            lastSeconds = -1
+            loadState = .loading
+            player.replaceCurrentItem(with: nil)
+            installItem()
+        } else {
+            needSystemFallback = true
+            watchdogToken = UUID()   // 停掉看门狗，交给系统播放器
+            MZHDiag.report("PLAY 自定义层连续停滞 · 自动切系统播放器")
         }
     }
 
@@ -496,11 +564,16 @@ final class PlayerModel: ObservableObject {
         forcePlain = true
         autoRetries = 0
         reportedResult = false
+        needSystemFallback = false
+        fallbackRounds = 0
+        lastSeconds = -1
+        stallSeconds = 0
         diagnosis = ""
         loadState = .loading
         MZHDiag.report("PLAY 手动重新加载 · \(asset.url.lastPathComponent)")
         player.replaceCurrentItem(with: nil)
         installItem()
+        startWatchdog()
     }
 
     func toggle() {
@@ -510,6 +583,25 @@ final class PlayerModel: ObservableObject {
     }
 
     func currentTime() -> Double { CMTimeGetSeconds(player.currentTime()) }
+}
+
+/// 主渲染层改用系统的 AVPlayerViewController（隐藏自带控件）。
+/// 自定义 AVPlayerLayer 对 97MB HEVC 会长时间停在 unknown / 首帧静止，
+/// 系统播放器自己管缓冲、解码会话与重试，是「照片 App 能播」的那条路径。
+private struct EmbeddedSystemPlayer: UIViewControllerRepresentable {
+    let player: AVPlayer
+    func makeUIViewController(context: Context) -> AVPlayerViewController {
+        let vc = AVPlayerViewController()
+        vc.player = player
+        vc.showsPlaybackControls = false
+        vc.view.backgroundColor = .black
+        return vc
+    }
+    func updateUIViewController(_ uiViewController: AVPlayerViewController,
+                                context: Context) {
+        uiViewController.player = player
+        uiViewController.showsPlaybackControls = false
+    }
 }
 
 struct PlayerLayerView: UIViewRepresentable {
@@ -582,8 +674,11 @@ struct PlayerScreen: View {
                 .padding(.horizontal).padding(.vertical, 10)
 
                 ZStack {
-                    PlayerLayerView(player: model.player)
+                    EmbeddedSystemPlayer(player: model.player)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .allowsHitTesting(false)
+                    // 透明点击层接管播放/暂停，避免系统 VC 把手势吞掉
+                    Color.clear.contentShape(Rectangle())
                         .onTapGesture { model.toggle() }
 
                     // 首帧出来之前先用导入时生成的封面垫底，不再是一片纯黑。
@@ -647,6 +742,9 @@ struct PlayerScreen: View {
             if let t = initialTool, t != .capture { tool = t }
         }
         .onDisappear { model.player.pause() }
+        .onChange(of: model.needSystemFallback) { _, v in
+            if v { showSystemPlayer = true }
+        }
         .sheet(item: $tool) { t in
             toolSheet(t)
                 .environmentObject(store)
